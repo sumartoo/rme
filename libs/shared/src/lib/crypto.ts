@@ -8,13 +8,13 @@ export const sha256Hex = (s: string) => createHash('sha256').update(s).digest('h
 /** AES-256-GCM: iv(12) | tag(16) | ciphertext. Produksi: kunci data dibungkus Cloud KMS (SC-CRY-03). */
 export function encrypt(keyHex: string, plain: string): Buffer {
   const iv = randomBytes(12);
-  const c = createCipheriv('aes-256-gcm', Buffer.from(keyHex, 'hex'), iv);
+  const c = createCipheriv('aes-256-gcm', Buffer.from(keyHex, 'hex'), iv, { authTagLength: 16 });
   const ct = Buffer.concat([c.update(plain, 'utf8'), c.final()]);
   return Buffer.concat([iv, c.getAuthTag(), ct]);
 }
 
 export function decrypt(keyHex: string, blob: Buffer): string {
-  const d = createDecipheriv('aes-256-gcm', Buffer.from(keyHex, 'hex'), blob.subarray(0, 12));
+  const d = createDecipheriv('aes-256-gcm', Buffer.from(keyHex, 'hex'), blob.subarray(0, 12), { authTagLength: 16 });
   d.setAuthTag(blob.subarray(12, 28));
   return Buffer.concat([d.update(blob.subarray(28)), d.final()]).toString('utf8');
 }

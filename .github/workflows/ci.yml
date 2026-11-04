@@ -6,6 +6,8 @@ on:
   pull_request:
   push:
     branches: [main]
+  schedule:
+    - cron: '17 19 * * 0'   # Minggu 02:17 WIB: uji mutasi mingguan
   workflow_dispatch:
 
 permissions:
@@ -45,9 +47,9 @@ jobs:
         run: npx --yes @redocly/cli@2.73.0 lint api/openapi.yaml
 
   integration:
-    name: integrasi · SQL · skema · mutasi · worker
+    name: integrasi · SQL · skema · worker · E2E
     runs-on: ubuntu-24.04
-    timeout-minutes: 25
+    timeout-minutes: 35
     services:
       postgres:
         image: postgres:16
@@ -84,23 +86,53 @@ jobs:
         run: pnpm check:schema
       - name: Chromium untuk Playwright
         run: pnpm exec playwright install --with-deps chromium
-      - name: Uji mutasi M1–M11 (RSK-020)
-        run: MUTATION_E2E=1 pnpm test:mutation
       - name: Worker self-test (pg-boss + partisi audit)
         run: |
           psql "$PG_URL/postgres" -c "CREATE DATABASE crme_worker_ci"
           MIGRATION_DATABASE_URL="$PG_URL/crme_worker_ci" pnpm db:migrate
           pnpm nx run @clinicrme/worker:build
           WORKER_DATABASE_URL="$PG_URL/crme_worker_ci" ENCRYPTION_KEY_HEX="$(openssl rand -hex 32)" WORKER_SELFTEST=1 APP_ENV=test node apps/worker/dist/main.js
-      - name: E2E konsol platform (Playwright, Chromium)
+      - name: E2E konsol platform & aplikasi klinik (Playwright, Chromium)
         run: pnpm test:e2e
       - name: Simpan trace Playwright bila gagal
         if: failure()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: playwright-trace
-          path: apps/platform-admin/test-results/
+          path: |
+            apps/platform-admin/test-results/
+            apps/web/test-results/
           retention-days: 7
+
+  # Uji mutasi (RSK-020): ±60 menit karena setiap login ulang di uji menunggu periode TOTP baru (anti-replay, RSK-024).
+  # Tidak dijalankan per PR (hemat menit Actions); wajib hijau di main, mingguan, atau manual sebelum gate stage.
+  mutation:
+    name: uji mutasi M1–M17
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres # pragma: allowlist secret — database CI sekali pakai
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 2s --health-timeout 3s --health-retries 30
+    env:
+      TEST_PG_ADMIN_URL: postgres://postgres:postgres@localhost:5432/postgres # pragma: allowlist secret
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Chromium untuk Playwright (mutasi UI M10)
+        run: pnpm exec playwright install --with-deps chromium
+      - name: Uji mutasi (setiap kontrol yang dirusak harus membuat uji gagal)
+        run: MUTATION_E2E=1 pnpm test:mutation
 
   compose:
     name: stack lokal (pnpm dev tanpa watch)
@@ -117,16 +149,17 @@ jobs:
       # Sama dengan `pnpm dev` (README), tetapi aplikasi dijalankan dari hasil build agar langkah bisa diperiksa
       - run: pnpm dev:setup
       - run: pnpm nx run @clinicrme/api:build
+      # Perawat: role tanpa MFA (dokter wajib MFA sejak migrasi 0008, DEC-019) — /me langsung dapat diperiksa
       - name: API → readyz, login demo, /me, password salah, tenant tak dikenal
         run: |
           set -a; . ./.env; set +a
           node apps/api/dist/main.js > /tmp/api.log 2>&1 &
           for _ in $(seq 1 30); do curl -sf localhost:3000/readyz && break; sleep 1; done
           H="Host: demo.localhost:3000"
-          printf '{"email":"dokter@demo.test","password":"%s"}' "$DEV_SEED_PASSWORD" > /tmp/login.json
+          printf '{"email":"perawat@demo.test","password":"%s"}' "$DEV_SEED_PASSWORD" > /tmp/login.json
           test "$(curl -s -o /dev/null -w '%{http_code}' -c /tmp/cj -H "$H" -H 'content-type: application/json' --data @/tmp/login.json localhost:3000/api/v1/auth/login)" = 200
-          curl -sf -b /tmp/cj -H "$H" localhost:3000/api/v1/me | grep -q dokter@demo.test
-          test "$(curl -s -o /dev/null -w '%{http_code}' -H "$H" -H 'content-type: application/json' -d '{"email":"dokter@demo.test","password":"salah"}' localhost:3000/api/v1/auth/login)" = 401
+          curl -sf -b /tmp/cj -H "$H" localhost:3000/api/v1/me | grep -q perawat@demo.test
+          test "$(curl -s -o /dev/null -w '%{http_code}' -H "$H" -H 'content-type: application/json' -d '{"email":"perawat@demo.test","password":"salah"}' localhost:3000/api/v1/auth/login)" = 401
           test "$(curl -s -o /dev/null -w '%{http_code}' -H 'Host: lain.localhost:3000' localhost:3000/api/v1/me)" = 404
           if grep -q "$DEV_SEED_PASSWORD" /tmp/api.log; then echo "password muncul di log"; exit 1; fi
       - if: always()

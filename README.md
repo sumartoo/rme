@@ -46,7 +46,7 @@ services:
 
 In that case, create a superuser login role matching `POSTGRES_OWNER_USER`/`POSTGRES_OWNER_PASSWORD` and the `POSTGRES_DB` database yourself before `pnpm dev`.
 
-Demo accounts are `admin@demo.test`, `dokter@demo.test`, `perawat@demo.test`, `pendaftaran@demo.test` and `kasir@demo.test`. The password is `DEV_SEED_PASSWORD` in `.env`. `admin@demo.test` must enroll MFA first (`POST /api/v1/auth/mfa/enroll`).
+Demo accounts are `admin@demo.test`, `dokter@demo.test`, `perawat@demo.test`, `pendaftaran@demo.test` and `kasir@demo.test`. The password is `DEV_SEED_PASSWORD` in `.env`. `admin@demo.test` and `dokter@demo.test` must enroll TOTP on first login (doctor MFA is on by default, DEC-019; the clinic admin can turn it off under Role & izin).
 The platform console account is `admin@platform.test` (same password); TOTP is mandatory and is enrolled on first login (`POST /api/platform/v1/auth/mfa/enroll`, then `.../mfa/verify`).
 
 ## Common commands

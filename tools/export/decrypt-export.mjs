@@ -17,7 +17,7 @@ if (key.length !== 32) { console.error('Kunci harus 32 byte (base64)'); process.
 const blob = readFileSync(file);
 const MAGIC = Buffer.from('CRMEX1');
 if (!blob.subarray(0, 6).equals(MAGIC)) { console.error('Bukan arsip ekspor ClinicRME'); process.exit(1); }
-const d = createDecipheriv('aes-256-gcm', key, blob.subarray(6, 18));
+const d = createDecipheriv('aes-256-gcm', key, blob.subarray(6, 18), { authTagLength: 16 });
 d.setAAD(MAGIC);
 d.setAuthTag(blob.subarray(blob.length - 16));
 let tar;

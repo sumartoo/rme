@@ -44,7 +44,7 @@ async function* tarStream(entries: ArchiveEntry[], mtime: number) {
 export async function writeEncryptedArchive(outPath: string, entries: ArchiveEntry[], key: Buffer): Promise<{ sha256: string; size: number }> {
   if (key.length !== 32) throw new Error('kunci arsip harus 32 byte');
   const iv = randomBytes(IV_LEN);
-  const cipher = createCipheriv('aes-256-gcm', key, iv);
+  const cipher = createCipheriv('aes-256-gcm', key, iv, { authTagLength: 16 });
   cipher.setAAD(MAGIC);
   const hash = createHash('sha256');
   let size = 0;
@@ -73,7 +73,7 @@ export async function readEncryptedArchive(inPath: string, key: Buffer): Promise
     await fh.read(tag, 0, TAG_LEN, size - TAG_LEN);
   } finally { await fh.close(); }
   if (!head.subarray(0, MAGIC.length).equals(MAGIC)) throw new Error('bukan arsip ekspor ClinicRME');
-  const decipher = createDecipheriv('aes-256-gcm', key, head.subarray(MAGIC.length));
+  const decipher = createDecipheriv('aes-256-gcm', key, head.subarray(MAGIC.length), { authTagLength: 16 });
   decipher.setAAD(MAGIC);
   decipher.setAuthTag(tag);
   const chunks: Buffer[] = [];
