@@ -64,6 +64,13 @@
       "when": 1793944800000,
       "tag": "0008_iam_reset_menu_mfa",
       "breakpoints": false
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1793948400000,
+      "tag": "0009_menu_audit_hidden",
+      "breakpoints": false
     }
   ]
 }

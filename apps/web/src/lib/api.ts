@@ -40,7 +40,21 @@ export interface AuthSession {
   email: string; fullName: string; tenant: { code: string; name: string };
   mfaRequired: boolean; mfaEnrolled: boolean; mfaVerified: boolean;
 }
-export interface Me { user: { id: string; email: string; fullName: string }; tenantId: string; permissions: string[]; mfaVerified: boolean }
+export interface Branch { id: string; code: string; name: string }
+export interface Me {
+  user: { id: string; email: string; fullName: string }; tenantId: string; permissions: string[]; mfaVerified: boolean;
+  branches: Branch[]; activeBranchId: string | null;
+}
+export interface MenuNode { code: string; label: string; route?: string; icon?: string; children: MenuNode[] }
+export interface UserItem { id: string; email: string; fullName: string; status: 'ACTIVE' | 'DISABLED'; lastLoginAt: string | null; roles: string[]; mfaEnrolled: boolean }
+export interface Page<T> { data: T[]; page: { hasMore: boolean; nextCursor: string | null } }
+export interface InvitationItem { id: string; email: string; expiresAt: string; createdAt?: string; acceptedAt: string | null; roles?: string[]; clinicName?: string }
+export interface Role {
+  id: string; code: string; name: string; isTemplate: boolean; requiresMfa: boolean; mfaLocked: boolean;
+  permissions: string[]; userCount: number; version: number;
+}
+export interface Permission { code: string; module: string; description: string }
+export interface SessionItem { id: string; userAgent: string | null; ip: string | null; createdAt: string; lastSeenAt: string; current: boolean }
 export interface TenantProfile {
   displayName: string; letterhead: { name?: string; address?: string; phone?: string; license?: string } | null;
   logoFileId: string | null; settings: { pharmacyBeforeCashier?: boolean; discountLimitPercent?: number; noShowMinutes?: number }; version: number;

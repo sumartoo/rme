@@ -1,5 +1,6 @@
 'use client';
 import { zodResolver } from '@hookform/resolvers/zod';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
@@ -14,11 +15,15 @@ export default function LoginPage() {
   const router = useRouter();
   const [error, setError] = useState<string>();
   const [clinic, setClinic] = useState<string | null>();
+  const [notice, setNotice] = useState<string>();
   const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm<z.infer<typeof Schema>>({ resolver: zodResolver(Schema) });
   // Klinik ditentukan dari subdomain (demo.localhost, klinik-a.clinicrme.id). Tanpa subdomain → tidak ada klinik.
   useEffect(() => {
     const parts = window.location.hostname.split('.');
     setClinic(parts.length >= 2 && !/^\d+$/.test(parts[parts.length - 1]) ? parts[0] : null);
+    const q = new URLSearchParams(window.location.search);
+    if (q.get('accepted')) setNotice('Akun dibuat. Silakan masuk dengan email & password Anda.');
+    if (q.get('reset')) setNotice('Password diganti. Silakan masuk dengan password baru.');
   }, []);
 
   const onSubmit = handleSubmit(async (v) => {
@@ -61,6 +66,7 @@ export default function LoginPage() {
           <CardDescription>Klinik: <span className="font-mono" data-testid="clinic-code">{clinic}</span></CardDescription>
         </CardHeader>
         <CardContent className="grid gap-4">
+          {notice ? <Alert tone="success">{notice}</Alert> : null}
           {error ? <Alert tone="error">{error}</Alert> : null}
           {/* Navigasi penuh (bukan fetch): API mengarahkan ke Google lalu kembali ke klinik ini */}
           <a href="/api/v1/auth/google"
@@ -79,6 +85,7 @@ export default function LoginPage() {
             </Field>
             <Button type="submit" loading={isSubmitting}>Masuk</Button>
           </form>
+          <Link href="/forgot-password" className="text-sm text-muted-foreground hover:text-foreground">Lupa password?</Link>
         </CardContent>
       </Card>
     </main>

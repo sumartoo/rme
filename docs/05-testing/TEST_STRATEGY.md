@@ -28,7 +28,7 @@
 | Stack lokal | docker compose | CI job `compose` | `pnpm dev:setup` + curl | Clean clone → login demo |
 | Image | Docker | CI job `images` | — | Build, migrate, run API/web/worker, non-root user |
 | Statis & keamanan | ESLint, Semgrep, gitleaks, pnpm audit, osv-scanner | `.github/workflows/security.yml` | — | Module boundaries, project SAST rules, secrets, dependencies |
-| E2E web | Playwright (Chromium) | `apps/platform-admin/e2e/*.e2e.ts`, `apps/web/e2e/*.e2e.ts` | `pnpm test:e2e` (`TEST_PG_ADMIN_URL`) | **U##**: platform console in a real browser — login, TOTP, tenants, status, flags, roles, break-glass, CSP. **W##**: clinic app at `klinik-web.localhost` — login, TOTP, clinic profile (If-Match), data export end to end (real worker → download → decrypt), role limits, CSP & proxy |
+| E2E web | Playwright (Chromium) | `apps/platform-admin/e2e/*.e2e.ts`, `apps/web/e2e/*.e2e.ts` | `pnpm test:e2e` (`TEST_PG_ADMIN_URL`) | **U##**: platform console in a real browser — login, TOTP, tenants, status, flags, roles, break-glass, CSP. **W##**: clinic app at `klinik-web.localhost` — login, TOTP, clinic profile (If-Match), data export end to end (real worker → download → decrypt), role limits, CSP & proxy; Stage 6: dynamic side menu & active branch, invite → accept with password, custom roles & per-role MFA, forgot/reset password, sessions & devices, disable/enable users |
 
 ## 3. Uji Mutasi (RSK-020)
 

@@ -590,6 +590,29 @@ paths:
           $ref: '#/components/responses/NotFound'
         '409':
           $ref: '#/components/responses/Conflict'
+  /api/v1/users/{userId}/mfa:
+    delete:
+      operationId: userResetMfa
+      tags:
+      - IAM
+      summary: Reset MFA user (authenticator hilang); semua sesi dicabut
+      x-requirements:
+      - IAM-FR-005
+      - IAM-FR-013
+      x-permission: iam.user.manage
+      parameters:
+      - $ref: '#/components/parameters/userId'
+      responses:
+        '204':
+          description: Berhasil
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
   /api/v1/users/{userId}/sessions:
     delete:
       operationId: userRevokeAllSessions
@@ -5258,6 +5281,11 @@ components:
               type: string
         activeBranch:
           $ref: '#/components/schemas/Branch'
+        activeBranchId:
+          type:
+          - string
+          - 'null'
+          format: uuid
         branches:
           type: array
           items:

@@ -225,6 +225,9 @@ describe('Menu, cabang, sesi, status akun (IAM-FR-009/010/013/014)', () => {
     expect(ok.status).toBe(200);
     const [s] = await su(`select branch_id from app.user_session where user_id = $1 and revoked_at is null order by created_at desc limit 1`, [ids.kasirA]);
     expect(s.branch_id).toBe(BRANCH_A);
+    const me = await get('/api/v1/me', kasir);
+    expect(me.body.activeBranchId).toBe(BRANCH_A);
+    expect(me.body.branches).toEqual([expect.objectContaining({ id: BRANCH_A, name: 'Cabang 1' })]);   // hanya cabang tenant sendiri
     expect((await send('post', '/api/v1/me/branch', kasir).send({ branchId: 'bbbbbbbb-0000-0000-0000-000000000010' })).body.code).toBe('IAM-403-BRANCH');
   });
 
@@ -259,5 +262,28 @@ describe('Menu, cabang, sesi, status akun (IAM-FR-009/010/013/014)', () => {
     expect((await http.post('/api/v1/auth/login').set('Host', HOST).send({ email: 'kasir@a.test', password: 'payung-biru-di-hujan-9' })).status).toBe(401);   // pragma: allowlist secret gitleaks:allow — password uji sintetis
     expect((await send('post', `/api/v1/users/${ids.kasirA}/enable`, admin)).status).toBe(200);
     await login('kasir@a.test', 'payung-biru-di-hujan-9');
+  });
+
+  test('I16 reset MFA oleh admin: authenticator dihapus & sesi dicabut; bukan diri sendiri; tanpa eskalasi; teraudit', async () => {
+    // Manajer (wajib MFA) mendaftar TOTP
+    let m = await login('manajer@a.test');
+    const e = await send('post', '/api/v1/auth/mfa/enroll', m);
+    const secret = new URL(e.body.otpauthUrl).searchParams.get('secret')!;
+    m = jar(await send('post', '/api/v1/auth/mfa/verify', m).send({ code: await freshTotp(secret) }), m);
+    expect((await get('/api/v1/me', m)).status).toBe(200);
+    expect((await send('delete', `/api/v1/users/${ids.adminA}/mfa`, admin)).body.code).toBe('IAM-409-SELF');
+    kasir = await login('kasir@a.test', 'payung-biru-di-hujan-9');   // pragma: allowlist secret gitleaks:allow — password uji sintetis
+    expect((await send('delete', `/api/v1/users/${ids.manajerA}/mfa`, kasir)).status).toBe(403);
+    expect((await send('delete', `/api/v1/users/${ids.manajerA}/mfa`, admin)).status).toBe(204);
+    expect((await get('/api/v1/me', m)).status).toBe(401);                            // sesi lama dicabut
+    const again = await login('manajer@a.test');
+    expect((await get('/api/v1/auth/session', again)).body).toMatchObject({ mfaRequired: true, mfaEnrolled: false });
+    expect((await send('delete', `/api/v1/users/${ids.manajerA}/mfa`, admin)).body.code).toBe('IAM-409-MFA-NOT-ENROLLED');
+    // HRD (iam.user.manage tanpa izin admin lain) tidak dapat me-reset MFA admin klinik
+    await su(`insert into app.role_permission(tenant_id, role_id, permission_code) select tenant_id, id, 'iam.user.manage' from app.role where tenant_id = $1 and code = 'HRD'`, [ids.tenantA]);
+    const hrd = await login('gudang@a.test');
+    expect((await send('delete', `/api/v1/users/${ids.adminA}/mfa`, hrd)).body.code).toBe('IAM-403-ESCALATION');
+    const [{ n }] = await su(`select count(*)::int n from app.audit_log where tenant_id = $1 and action = 'MFA_RESET'`, [ids.tenantA]);
+    expect(n).toBe(1);
   });
 });

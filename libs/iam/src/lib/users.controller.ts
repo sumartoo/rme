@@ -50,8 +50,17 @@ export class UsersController {
   @Authenticated() @Get('me')
   async me() {
     const c = ctx();
-    const [u] = await this.db.withTenantTx((tx) => rows(tx, sql`select id, email, full_name as "fullName", status from app_user where id = ${c.userId}`));
-    return { user: u, tenantId: c.tenantId, permissions: [...(c.permissions ?? [])].sort(), mfaVerified: c.mfaVerified };
+    const { u, branches } = await this.db.withTenantTx(async (tx) => ({
+      u: (await rows(tx, sql`select id, email, full_name as "fullName", status from app_user where id = ${c.userId}`))[0],
+      // Cabang yang dapat dipilih (IAM-FR-009): penugasan tanpa cabang = semua cabang aktif
+      branches: await rows<{ id: string; code: string; name: string }>(tx, sql`
+        select br.id, br.code, br.name from branch br
+         where br.is_active and exists(select 1 from user_role_assignment a where a.user_id = ${c.userId}
+                 and (a.valid_to is null or a.valid_to > now()) and (a.branch_id is null or a.branch_id = br.id))
+         order by br.name`),
+    }));
+    return { user: u, tenantId: c.tenantId, permissions: [...(c.permissions ?? [])].sort(), mfaVerified: c.mfaVerified,
+             branches, activeBranchId: c.branchId ?? null };
   }
 
   @RequirePermission('iam.user.read') @Get('users')
@@ -76,7 +85,7 @@ export class UsersController {
   @RequirePermission('iam.user.read') @Get('users/invitations')
   async invitations() {
     const r = await this.db.withTenantTx((tx) => rows<{ id: string; email: string; expires_at: Date; created_at: Date; roles: string[] }>(tx, sql`
-      select i.id, i.email, i.expires_at, i.created_at, array(select r.code from role r where r.id = any(i.role_ids) order by r.code) as roles
+      select i.id, i.email, i.expires_at, i.created_at, array(select r.name from role r where r.id = any(i.role_ids) order by r.name) as roles
         from user_invitation i where i.accepted_at is null and i.expires_at > now() order by i.created_at desc limit 200`));
     return r.map((i) => ({ id: i.id, email: i.email, expiresAt: iso(i.expires_at), createdAt: iso(i.created_at), acceptedAt: null, roles: i.roles }));
   }
@@ -128,6 +137,27 @@ export class UsersController {
       if (!r.length) throw problem(404, 'IAM-404', 'User nonaktif tidak ditemukan');
       await audit(tx, 'USER_ENABLED', 'app_user', id);
       return { id, status: 'ACTIVE' };
+    });
+  }
+
+  /**
+   * Reset MFA (perangkat authenticator hilang, SC-AUTH-07): hapus TOTP & recovery code, cabut semua sesi;
+   * pengguna mendaftar ulang saat login berikutnya. Tidak boleh untuk diri sendiri, dan hanya bila pengubah
+   * memiliki izin administratif yang dimiliki target (cegah eskalasi: admin tidak dapat "diambil alih").
+   */
+  @RequirePermission('iam.user.manage') @NoBody() @Delete('users/:id/mfa') @HttpCode(204)
+  async resetMfa(@Param('id', new ParseUUIDPipe()) id: string) {
+    if (id === ctx().userId) throw problem(409, 'IAM-409-SELF', 'Gunakan halaman Sesi & perangkat untuk akun sendiri');
+    await this.db.withTenantTx(async (tx) => {
+      const [u] = await rows(tx, sql`select 1 from app_user where id = ${id}`);
+      if (!u) throw problem(404, 'IAM-404', 'User tidak ditemukan');
+      const roleIds = (await rows<{ role_id: string }>(tx, sql`select role_id from user_role_assignment
+                                                              where user_id = ${id} and (valid_to is null or valid_to > now())`)).map((r) => r.role_id);
+      if (roleIds.length) await assertNoEscalation(tx, roleIds);
+      const removed = await rows(tx, sql`delete from user_mfa where user_id = ${id} returning user_id`);
+      if (!removed.length) throw problem(409, 'IAM-409-MFA-NOT-ENROLLED', 'Pengguna ini belum mendaftarkan MFA');
+      const n = await this.sessions.revokeAllForUser(tx, id, 'MFA_RESET');
+      await audit(tx, 'MFA_RESET', 'app_user', id, null, { sessionsRevoked: n });
     });
   }
 

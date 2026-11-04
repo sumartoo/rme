@@ -5,7 +5,7 @@ import { mkdtempSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { authenticator } from 'otplib';
-import { seedClinic } from '../../../tools/e2e/seed-clinic';
+import { seedClinic, setLinkToken } from '../../../tools/e2e/seed-clinic';
 import { CLINIC_URL, E2E_ENCRYPTION_KEY, STORAGE_DIR, USER_PASSWORD, dbUrl } from '../../../tools/e2e/config';
 
 /**
@@ -89,7 +89,7 @@ test('W02 admin klinik: TOTP wajib → profil & kop klinik disimpan dan tetap se
   await page.reload();
   await expect(page.getByLabel('Nama di kop')).toHaveValue('Klinik Pratama Sehat E2E');
   await expect(page.getByLabel('Batas diskon kasir (%)')).toHaveValue('10');
-  await expect(page.getByRole('link', { name: /Klinik Sehat E2E/ })).toBeVisible();
+  await expect(page.getByTestId('clinic-name')).toHaveText('Klinik Sehat E2E');
 });
 
 test('W03 dua admin mengubah profil bersamaan: yang kedua ditolak (If-Match) dan diminta memuat versi terbaru', async ({ page, browser }) => {
@@ -162,6 +162,137 @@ test('W05 user non-admin (kasir): tanpa menu pengaturan; halaman admin ditolak A
   await expect(page.getByRole('link', { name: 'Profil klinik' })).toHaveCount(0);
   await page.goto('/admin/exports');
   await expect(alertBox(page)).toHaveText('Tidak memiliki izin');
+});
+
+test('W07 shell: menu samping sesuai izin admin; pilih cabang aktif tersimpan di sesi', async ({ page }) => {
+  watchCsp(page);
+  await signInAdmin(page);
+  const menu = page.getByTestId('side-menu');
+  for (const label of ['Profil klinik', 'Pengguna', 'Role & izin', 'Ekspor data', 'Sesi & perangkat']) {
+    await expect(menu.getByRole('link', { name: label })).toBeVisible();
+  }
+  const branch = page.getByLabel('Cabang aktif');
+  await branch.selectOption({ label: 'Cabang Timur' });
+  await page.reload();
+  await expect(page.getByLabel('Cabang aktif').locator('option:checked')).toHaveText('Cabang Timur');
+});
+
+test('W08 undang pengguna dari halaman Pengguna; undangan muncul di daftar undangan aktif', async ({ page }) => {
+  watchCsp(page);
+  await signInAdmin(page);
+  await page.getByTestId('side-menu').getByRole('link', { name: 'Pengguna' }).click();
+  await expect(page.getByTestId('user-row')).toHaveCount(2);
+  await page.getByRole('button', { name: 'Undang pengguna' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Undang pengguna' });
+  await dialog.getByLabel('Email').fill('perawat@klinik-web.test');
+  await expect(dialog.getByRole('button', { name: 'Kirim undangan' })).toBeDisabled();   // role wajib dipilih
+  await dialog.getByLabel('Perawat / Bidan').check();
+  await dialog.getByRole('button', { name: 'Kirim undangan' }).click();
+  await expect(page.getByText('Undangan dikirim ke perawat@klinik-web.test.')).toBeVisible();
+  await expect(page.getByTestId('invite-row').filter({ hasText: 'perawat@klinik-web.test' })).toContainText('Perawat / Bidan');
+});
+
+test('W09 terima undangan dengan password: kebijakan password tampil, lalu masuk sebagai perawat (tanpa menu pengaturan)', async ({ page }) => {
+  watchCsp(page);
+  await setLinkToken('invitation', 'perawat@klinik-web.test', 'tokenUndanganE2E-1234567890abcdef');
+  await page.goto('/invitation/tokenUndanganE2E-1234567890abcdef');
+  await expect(page.getByTestId('invite-email')).toHaveText('perawat@klinik-web.test');
+  await page.getByLabel('Nama lengkap').fill('Perawat E2E');
+  await page.getByLabel('Password', { exact: true }).fill('basketball');
+  await page.getByLabel('Ulangi password').fill('basketball');
+  await page.getByRole('button', { name: 'Buat akun' }).click();
+  await expect(alertBox(page)).toContainText('terlalu umum');
+  await page.getByLabel('Password', { exact: true }).fill('jahe-hangat-malam-21');
+  await page.getByLabel('Ulangi password').fill('jahe-hangat-malam-21');
+  await page.getByRole('button', { name: 'Buat akun' }).click();
+  await expect(page).toHaveURL(/\/login\?accepted=1$/);
+  await expect(page.getByText('Akun dibuat.')).toBeVisible();
+  await page.getByLabel('Email').fill('perawat@klinik-web.test');
+  await page.getByLabel('Password').fill('jahe-hangat-malam-21');   // pragma: allowlist secret gitleaks:allow — password uji sintetis
+  await page.getByRole('button', { name: 'Masuk', exact: true }).click();
+  await expect(page).toHaveURL(/\/admin$/);
+  await expect(page.getByTestId('side-menu').getByRole('link', { name: 'Pengguna' })).toHaveCount(0);
+  await expect(page.getByTestId('side-menu').getByRole('link', { name: 'Sesi & perangkat' })).toBeVisible();
+  // Tautan sudah dipakai
+  await page.goto('/invitation/tokenUndanganE2E-1234567890abcdef');
+  await expect(page.getByText('Undangan tidak berlaku')).toBeVisible();
+});
+
+test('W10 role: buat role custom dengan izin terpilih; MFA dokter dapat diatur, Admin Klinik terkunci', async ({ page }) => {
+  watchCsp(page);
+  await signInAdmin(page);
+  await page.getByTestId('side-menu').getByRole('link', { name: 'Role & izin' }).click();
+  await expect(page.locator('#mfa-TENANT_ADMIN')).toBeDisabled();
+  await page.getByRole('button', { name: 'Role baru' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Role baru' });
+  await dialog.getByLabel('Kode').fill('perawat_igd');
+  await dialog.getByLabel('Nama').fill('Perawat IGD');
+  await dialog.getByLabel('clinical.vitals.write').check();
+  await dialog.getByRole('button', { name: 'Simpan' }).click();
+  await expect(page.getByText('Role Perawat IGD dibuat.')).toBeVisible();
+  await expect(page.getByTestId('role-card').filter({ hasText: 'PERAWAT_IGD' })).toContainText('1 izin');
+  const dokterMfa = page.locator('#mfa-DOKTER');
+  await expect(dokterMfa).toBeChecked();                                           // default wajib (DEC-019)
+  await dokterMfa.click();
+  await expect(page.getByText('MFA untuk Dokter tidak diwajibkan lagi.')).toBeVisible();
+  await expect(page.locator('#mfa-DOKTER')).not.toBeChecked();
+});
+
+test('W11 lupa password: pesan sama untuk semua email; tautan reset → password baru → masuk', async ({ page }) => {
+  watchCsp(page);
+  await page.goto('/login');
+  await page.getByRole('link', { name: 'Lupa password?' }).click();
+  await page.getByLabel('Email').fill('kasir@klinik-web.test');
+  await page.getByRole('button', { name: 'Kirim tautan' }).click();
+  await expect(page.getByText('Bila email itu terdaftar di klinik ini')).toBeVisible();
+  await setLinkToken('reset', 'kasir@klinik-web.test', 'tokenResetE2E-abcdef1234567890xyz');   // pragma: allowlist secret gitleaks:allow — password uji sintetis
+  await page.goto('/reset-password/tokenResetE2E-abcdef1234567890xyz');   // pragma: allowlist secret gitleaks:allow — password uji sintetis
+  await page.getByLabel('Password baru').fill('sepeda-hijau-pagi-45');
+  await page.getByLabel('Ulangi password').fill('sepeda-hijau-pagi-45');
+  await page.getByRole('button', { name: 'Simpan password' }).click();
+  await expect(page).toHaveURL(/\/login\?reset=1$/);
+  await page.getByLabel('Email').fill('kasir@klinik-web.test');
+  await page.getByLabel('Password').fill('sepeda-hijau-pagi-45');   // pragma: allowlist secret gitleaks:allow — password uji sintetis
+  await page.getByRole('button', { name: 'Masuk', exact: true }).click();
+  await expect(page).toHaveURL(/\/admin$/);
+});
+
+test('W12 sesi & perangkat: cabut sesi lain → perangkat itu keluar; nonaktifkan pengguna dari halaman Pengguna', async ({ page, browser }) => {
+  watchCsp(page);
+  const other = await browser.newContext({ baseURL: CLINIC_URL });
+  const otherPage = await other.newPage();
+  for (const p of [page, otherPage]) {
+    await p.goto('/login');
+    await p.getByLabel('Email').fill('kasir@klinik-web.test');
+    await p.getByLabel('Password').fill('sepeda-hijau-pagi-45');   // pragma: allowlist secret gitleaks:allow — password uji sintetis
+    await p.getByRole('button', { name: 'Masuk', exact: true }).click();
+    await expect(p).toHaveURL(/\/admin$/);
+  }
+  await page.getByTestId('side-menu').getByRole('link', { name: 'Sesi & perangkat' }).click();
+  const rows = page.getByTestId('session-row');
+  await expect(rows.filter({ hasText: 'Sesi ini' })).toHaveCount(1);
+  const before = await rows.count();
+  await rows.filter({ hasNotText: 'Sesi ini' }).first().getByRole('button', { name: 'Cabut' }).click();
+  await expect(rows).toHaveCount(before - 1);
+  await otherPage.reload();
+  await expect(otherPage).toHaveURL(/\/login$/);
+  await other.close();
+
+  // Admin menonaktifkan kasir → sesi kasir yang tersisa langsung tidak berlaku; lalu diaktifkan kembali
+  const ctx = await browser.newContext({ baseURL: CLINIC_URL });
+  const adminPage = await ctx.newPage();
+  await signInAdmin(adminPage);
+  await adminPage.getByTestId('side-menu').getByRole('link', { name: 'Pengguna' }).click();
+  const kasirRow = adminPage.getByTestId('user-row').filter({ hasText: 'kasir@klinik-web.test' });
+  await kasirRow.getByRole('button', { name: 'Nonaktifkan' }).click();
+  await adminPage.getByLabel('Alasan').fill('Uji E2E: cuti');
+  await adminPage.getByRole('button', { name: 'Ya, nonaktifkan' }).click();
+  await expect(kasirRow).toContainText('Nonaktif');
+  await page.reload();
+  await expect(page).toHaveURL(/\/login$/);
+  await kasirRow.getByRole('button', { name: 'Aktifkan' }).click();
+  await expect(kasirRow.getByRole('button', { name: 'Nonaktifkan' })).toBeVisible();
+  await ctx.close();
 });
 
 test('W06 keamanan: CSP bernonce, no-store; proxy hanya untuk klinik dari subdomain; tidak ada pelanggaran CSP', async ({ page }) => {
