@@ -18,7 +18,8 @@ Lingkungan `dev` (ENVIRONMENTS.md) tidak lagi di Cloud Run + Cloud SQL, melainka
 | Aplikasi | Cloud Run | Container docker compose (image yang sama dengan job `images` di CI) |
 | Database | Cloud SQL PostgreSQL 16 | Container `postgres:16-alpine`, volume lokal, cadangan `pg_dump` sebelum setiap migrasi (7 terakhir) |
 | Berkas | Cloud Storage | Driver `fs` pada volume (kini diizinkan juga di `APP_ENV=dev`) |
-| HTTPS | Load balancer + sertifikat terkelola | Caddy, Let's Encrypt **on-demand** per subdomain; hanya konsol & klinik terdaftar yang diberi sertifikat (`/internal/tls-allowed`) |
+| HTTPS | Load balancer + sertifikat terkelola | Mode `nginx` (VPS PO sudah menjalankan nginx untuk situs lain): nginx host + certbot per nama. Mode `caddy` (VPS kosong): Let's Encrypt **on-demand** hanya untuk konsol & klinik terdaftar (`/internal/tls-allowed`) |
+| Domain | `dev.clinicrme.id` (usulan) | `medika.atoai.id` (subdomain milik PO): `demo.medika.atoai.id`, `admin.medika.atoai.id` |
 | Email | — (OD terbuka) | Mailpit, hanya dapat dibuka lewat tunnel SSH |
 | Deploy | Push Artifact Registry → Cloud Run | Workflow `deploy-dev`: setelah `ci` hijau di main → SSH ke VPS → `deploy/vps/deploy.sh` (build di VPS, migrasi, layanan) |
 
@@ -26,7 +27,7 @@ Lingkungan `dev` (ENVIRONMENTS.md) tidak lagi di Cloud Run + Cloud SQL, melainka
 
 - **Hanya data sintetis.** VPS dev bukan produksi; target staging/produksi diputuskan terpisah (GCP tetap opsi).
 - Model keamanan tetap: role DB `clinicrme_api`/`clinicrme_platform_api` LOGIN tanpa superuser/BYPASSRLS (dicek `init-roles.sh`), RLS fail-closed, audit hash chain.
-- PostgreSQL, API, worker, Mailpit tidak membuka port publik; firewall hanya 22/80/443.
+- PostgreSQL, API, worker, Mailpit tidak membuka port publik. Mode `nginx` tidak mengubah firewall maupun vhost situs lain di VPS.
 - Secret dibuat acak di VPS (`/opt/clinicrme/.env`, chmod 600), tidak pernah lewat chat atau repo.
 - Tidak ada layanan berbayar baru selain VPS & domain milik PO.
 

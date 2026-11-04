@@ -9,9 +9,18 @@ Internet ──443──► Caddy ──► web (klinik *.DOMAIN)  ──┐
 GitHub: ci hijau di main ──► deploy-dev ──SSH──► deploy/vps/deploy.sh <sha>
 ```
 
+## Dua mode proxy
+
+| Mode (`PROXY` di `.env`) | Kapan | Yang membuka 80/443 | HTTPS |
+|---|---|---|---|
+| `nginx` | VPS **sudah** menjalankan nginx untuk situs lain (terdeteksi otomatis oleh bootstrap) | nginx host; ClinicRME hanya di `127.0.0.1:18080` (klinik) & `127.0.0.1:18081` (konsol) | certbot per nama: `admin`, `demo`, + kode klinik yang didaftarkan lewat `nginx-install.sh` |
+| `caddy` | VPS kosong | Caddy (container) | Let's Encrypt on-demand untuk klinik terdaftar (`/internal/tls-allowed`) |
+
+Mode `nginx` tidak mengubah firewall maupun vhost situs lain; vhost ClinicRME berada di berkas sendiri `/etc/nginx/sites-available/clinicrme` dan `nginx -t` dicek sebelum reload (gagal → dikembalikan).
+
 ## Kebutuhan VPS
 
-- Ubuntu 22.04 atau 24.04, minimal **2 vCPU / 4 GB RAM / 40 GB disk** (2 GB RAM bisa, bootstrap menambah swap; build lebih lambat).
+- Ubuntu 22.04 / 24.04 / 26.04, minimal **2 vCPU / 4 GB RAM**. **Ruang disk kosong ≥ 15 GB** disarankan (build image butuh ±6 GB; `deploy.sh` menolak build bila sisa < 6 GB pada build pertama, < 3 GB berikutnya).
 - Akses root lewat SSH (cukup sekali, untuk bootstrap).
 - Domain milik PO dengan dua A record ke IP VPS: `DOMAIN` dan `*.DOMAIN`.
   Klinik demo: `https://demo.DOMAIN`; konsol platform: `https://admin.DOMAIN`.
@@ -24,7 +33,8 @@ GitHub: ci hijau di main ──► deploy-dev ──SSH──► deploy/vps/depl
    scp deploy\vps\bootstrap.sh root@IP_VPS:/root/
    ssh root@IP_VPS "bash /root/bootstrap.sh DOMAIN email-anda@contoh.com"
    ```
-   Hasil: Docker, user `deploy` (hanya kunci SSH), firewall 22/80/443, `/opt/clinicrme/.env` berisi secret acak.
+   Bila login memakai user biasa ber-sudo: `scp deploy\vps\bootstrap.sh USER@IP_VPS:~/` lalu `ssh -t USER@IP_VPS "sudo bash ~/bootstrap.sh DOMAIN EMAIL"`.
+   Hasil: Docker (bila belum ada), user `deploy` (hanya kunci SSH), `/opt/clinicrme/.env` berisi secret acak; mode `caddy` juga menyalakan firewall 22/80/443.
    **Jangan kirim isi `.env` atau password root lewat chat.**
 3. **Kunci baca repo untuk VPS (deploy key).** Sebagai user deploy:
    ```bash
@@ -55,6 +65,13 @@ GitHub: ci hijau di main ──► deploy-dev ──SSH──► deploy/vps/depl
    Tab **Variables**: `DEPLOY_VPS_ENABLED` = `true`. Buat juga *Environment* bernama `dev` (Settings → Environments).
 6. **Deploy pertama + data demo.** GitHub → Actions → `deploy-dev` → *Run workflow* → centang **seed**. Selesai ±10–15 menit (build pertama).
    Password akun demo = `DEV_SEED_PASSWORD` di `/opt/clinicrme/.env` (lihat di VPS: `sudo grep DEV_SEED /opt/clinicrme/.env`).
+
+7. **Mode nginx saja — pasang vhost + sertifikat** (setelah deploy pertama sukses):
+   ```bash
+   sudo apt-get install -y certbot python3-certbot-nginx     # bila belum ada
+   sudo bash /opt/clinicrme/app/deploy/vps/nginx-install.sh DOMAIN
+   ```
+   Klinik baru (dibuat dari konsol) perlu sertifikat sendiri: `sudo bash .../nginx-install.sh DOMAIN <kode-klinik>` (nama lama dipertahankan).
 
 Setelah itu setiap merge ke `main` yang lolos CI otomatis ter-deploy.
 

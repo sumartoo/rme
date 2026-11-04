@@ -208,6 +208,22 @@ jobs:
           curl -sI "${R[@]}" https://demo.clinic.test/healthz -k | grep -qi strict-transport-security
           if curl -sk "${R[@]}" -o /dev/null https://asing.clinic.test/healthz; then echo "subdomain asing dapat sertifikat"; exit 1; fi
           if docker compose -f deploy/vps/docker-compose.yml -f "$COMPOSE_EXTRA" --env-file "$CLINICRME_ROOT/.env" ps --format '{{.Ports}}' | grep -E '0\.0\.0\.0:(5432|3000|8025)'; then echo "port internal terbuka"; exit 1; fi
+      # Mode PROXY=nginx (VPS yang sudah punya nginx untuk situs lain): Caddy tidak jalan, web/konsol hanya di loopback
+      - name: Mode nginx — deploy.sh + nginx-install.sh, cek lewat nginx host
+        run: |
+          docker compose -f deploy/vps/docker-compose.yml -f "$COMPOSE_EXTRA" --env-file "$CLINICRME_ROOT/.env" --profile caddy rm -sf caddy
+          printf 'PROXY=nginx\nWEB_PORT=18080\nADMIN_PORT=18081\n' >> "$CLINICRME_ROOT/.env"
+          bash deploy/vps/deploy.sh "$GITHUB_SHA"
+          if docker ps --format '{{.Names}}' | grep -q caddy; then echo "caddy masih jalan"; exit 1; fi
+          docker ps --format '{{.Ports}}' | grep -q '127.0.0.1:18080->3000'
+          if docker ps --format '{{.Ports}}' | grep -E '0\.0\.0\.0:(18080|18081|5432|3000|8025)'; then echo "port internal terbuka"; exit 1; fi
+          sudo apt-get install -y -q nginx >/dev/null
+          sudo CLINICRME_ROOT="$CLINICRME_ROOT" bash deploy/vps/nginx-install.sh clinic.test klinik-b
+          h() { curl -s -o /dev/null -w '%{http_code}' -H "Host: $1" "http://127.0.0.1$2"; }
+          test "$(h admin.clinic.test /healthz)" = 200
+          test "$(h demo.clinic.test /healthz)" = 200
+          test "$(h demo.clinic.test /internal/tls-allowed)" = 404
+          grep -q 'server_name demo.clinic.test klinik-b.clinic.test;' /etc/nginx/sites-available/clinicrme
       - if: failure()
         run: docker compose -f deploy/vps/docker-compose.yml -f "$COMPOSE_EXTRA" --env-file "$CLINICRME_ROOT/.env" logs --no-color --tail 200
       - if: always()

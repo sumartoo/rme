@@ -20,9 +20,24 @@ if [ "${DEPLOY_SKIP_GIT:-}" != 1 ]; then   # CI menguji skrip ini pada checkout 
 fi
 echo "▶ commit $(git log -1 --format='%h %s')"
 
-C="docker compose -f deploy/vps/docker-compose.yml ${COMPOSE_EXTRA:+-f $COMPOSE_EXTRA} --env-file $ENVF"
+PROXY=$(sed -n 's/^PROXY=//p' "$ENVF" | tail -1); PROXY=${PROXY:-caddy}
+case $PROXY in
+  caddy) PROXY_FILE=""; FRONT=caddy ;;
+  nginx) PROXY_FILE="-f deploy/vps/docker-compose.nginx.yml"; FRONT="" ;;   # nginx host di luar compose
+  *) echo "PROXY harus caddy atau nginx"; exit 2 ;;
+esac
+C="docker compose -f deploy/vps/docker-compose.yml $PROXY_FILE ${COMPOSE_EXTRA:+-f $COMPOSE_EXTRA} --env-file $ENVF"
+[ "$PROXY" = caddy ] && C="$C --profile caddy"
 export RELEASE=$SHA
+echo "▶ mode proxy: $PROXY"
 
+DROOT=$(docker info -f '{{.DockerRootDir}}' 2>/dev/null || echo /var/lib/docker)
+FREE_GB=$(df --output=avail -BG "$DROOT" 2>/dev/null | tail -1 | tr -dc 0-9)
+# Build pertama (belum ada image clinicrme) ±6 GB; build berikutnya memakai cache layer → cukup ±3 GB
+if docker image ls -q 'clinicrme-api' | grep -q .; then NEED=${DEPLOY_MIN_FREE_GB:-3}; else NEED=${DEPLOY_MIN_FREE_GB:-6}; fi
+if [ "${FREE_GB:-0}" -lt "$NEED" ]; then
+  echo "✗ ruang disk untuk Docker tinggal ${FREE_GB} GB (butuh ≥ ${NEED} GB untuk build). Kosongkan disk dulu."; exit 3
+fi
 echo "▶ build image"
 $C build --pull api worker web platform-admin
 if [ "$SEED" = "--seed" ]; then $C --profile ops build seed; fi
@@ -42,8 +57,11 @@ $C exec -T -e POSTGRES_API_USER -e POSTGRES_API_PASSWORD -e POSTGRES_PLATFORM_US
 if [ "$SEED" = "--seed" ]; then $C --profile ops run --rm seed; fi
 
 echo "▶ jalankan layanan"
-$C up -d --wait --remove-orphans api worker web platform-admin mailpit caddy
+# shellcheck disable=SC2086 # FRONT kosong pada mode nginx
+$C up -d --wait --remove-orphans api worker web platform-admin mailpit $FRONT
+# Disk VPS terbatas: buang image & cache build lama (image rilis berjalan tidak tersentuh)
 docker image prune -f --filter "until=168h" >/dev/null
+docker builder prune -f --filter "until=72h" >/dev/null || true
 
 echo "▶ cek dari luar (lewat Caddy)"
 for h in "admin.$BASE_DOMAIN" "demo.$BASE_DOMAIN"; do

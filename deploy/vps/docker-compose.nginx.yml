@@ -1,0 +1,7 @@
+# Mode PROXY=nginx: VPS sudah menjalankan nginx untuk situs lain (port 80/443 dipakai). Caddy tidak dijalankan;
+# web & konsol hanya dibuka di loopback, nginx host yang meneruskan (deploy/vps/nginx-clinicrme.conf).
+services:
+  web:
+    ports: ["127.0.0.1:${WEB_PORT:-18080}:3000"]
+  platform-admin:
+    ports: ["127.0.0.1:${ADMIN_PORT:-18081}:3000"]
