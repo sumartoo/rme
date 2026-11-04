@@ -286,4 +286,28 @@ describe('Menu, cabang, sesi, status akun (IAM-FR-009/010/013/014)', () => {
     const [{ n }] = await su(`select count(*)::int n from app.audit_log where tenant_id = $1 and action = 'MFA_RESET'`, [ids.tenantA]);
     expect(n).toBe(1);
   });
+
+  test('I17 tautan tenaga kesehatan (IAM-FR-016): lewat undangan atau langsung; satu nakes satu akun; nakes klinik lain ditolak', async () => {
+    const DOKTER_PRAC_A = 'aaaaaaaa-0000-0000-0000-000000000020';                // nakes seed tenant A (sudah tertaut ke dokter@a.test)
+    const [p2] = await su<{ id: string }>(`insert into app.practitioner(tenant_id, full_name, practitioner_type) values ($1, 'drg. Uji Baru', 'DOKTER_GIGI') returning id`, [ids.tenantA]);
+    expect((await send('post', '/api/v1/users/invitations', admin).send({ email: 'drg.baru@a.test', roleIds: [await roleId('DOKTER')], practitionerId: DOKTER_PRAC_A })).body.code)
+      .toBe('IAM-409-PRACTITIONER-LINKED');
+    expect((await send('post', '/api/v1/users/invitations', admin).send({ email: 'drg.baru@a.test', roleIds: [await roleId('DOKTER')], practitionerId: 'bbbbbbbb-0000-0000-0000-000000000020' })).body.code)
+      .toBe('IAM-400-PRACTITIONER');                                                // nakes tenant B tidak terlihat (RLS)
+    const inv = await send('post', '/api/v1/users/invitations', admin).send({ email: 'drg.baru@a.test', roleIds: [await roleId('DOKTER')], practitionerId: p2.id });
+    expect(inv.status).toBe(201);
+    const [m] = await mailTo('drg.baru@a.test');
+    expect((await pub(`/api/v1/invitations/${tokenIn(m, 'invitation')}/accept`).send({ fullName: 'drg. Uji Baru', password: 'gigi-sehat-tiap-hari-8' })).status).toBe(201);   // pragma: allowlist secret gitleaks:allow — password uji sintetis
+    const [u] = await su(`select id, practitioner_id from app.app_user where email = 'drg.baru@a.test'`);
+    expect(u.practitioner_id).toBe(p2.id);
+    // Lepas lalu tautkan langsung; akun lain tidak dapat memakai nakes yang sama
+    expect((await send('post', `/api/v1/users/${u.id}/practitioner`, admin).send({ practitionerId: null })).body.practitionerId).toBeNull();
+    expect((await send('post', `/api/v1/users/${ids.kasirA}/practitioner`, admin).send({ practitionerId: DOKTER_PRAC_A })).body.code).toBe('IAM-409-PRACTITIONER-LINKED');
+    expect((await send('post', `/api/v1/users/${u.id}/practitioner`, admin).send({ practitionerId: p2.id })).status).toBe(200);
+    expect((await send('post', `/api/v1/users/${u.id}/practitioner`, kasir).send({ practitionerId: null })).status).toBe(403);
+    const list = await get('/api/v1/users?limit=200', admin);
+    expect(list.body.data.find((x: { email: string }) => x.email === 'drg.baru@a.test').practitionerId).toBe(p2.id);
+    const audits = await su(`select action from app.audit_log where tenant_id = $1 and action like 'PRACTITIONER_%' order by seq`, [ids.tenantA]);
+    expect(audits.map((a) => a.action)).toEqual(['PRACTITIONER_UNLINKED', 'PRACTITIONER_LINKED']);
+  });
 });

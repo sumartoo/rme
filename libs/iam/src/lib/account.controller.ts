@@ -19,7 +19,7 @@ const badInvite = () => problem(404, 'IAM-404-INVITATION', 'Undangan tidak ditem
 const weak = (msg: string) => problem(400, 'IAM-400-PASSWORD', msg);
 
 export interface MenuNode { code: string; label: string; route?: string; icon?: string; children: MenuNode[] }
-interface InvRow { id: string; email: string; expires_at: Date; role_ids: string[]; branch_ids: string[]; tenant_name: string; roles: string[] }
+interface InvRow { id: string; email: string; expires_at: Date; role_ids: string[]; branch_ids: string[]; practitioner_id: string | null; tenant_name: string; roles: string[] }
 
 /**
  * Akun & sesi pengguna klinik (Stage 6): undangan (IAM-FR-001, OD-078), reset password (IAM-FR-004),
@@ -32,7 +32,7 @@ export class AccountController {
   private async invitation(token: string): Promise<InvRow> {
     if (!TOKEN.test(token)) throw badInvite();
     const [inv] = await this.db.withTenant(ctx().hostTenantId!, (tx) => rows<InvRow>(tx, sql`
-      select i.id, i.email, i.expires_at, i.role_ids, i.branch_ids, t.display_name as tenant_name,
+      select i.id, i.email, i.expires_at, i.role_ids, i.branch_ids, i.practitioner_id, t.display_name as tenant_name,
              array(select r.name from role r where r.id = any(i.role_ids) order by r.name) as roles
         from user_invitation i join tenant t on t.id = i.tenant_id
        where i.token_hash = ${sha256Hex(token)} and i.accepted_at is null and i.expires_at > now()`));
@@ -63,7 +63,8 @@ export class AccountController {
           from app_user u where lower(u.email) = lower(${i.email})`);
       if (existing?.has_password) throw problem(409, 'IAM-409-USER-EXISTS', 'Akun dengan email ini sudah ada. Silakan masuk.');
       const userId = existing?.id ?? (await rows<{ id: string }>(tx, sql`
-        insert into app_user(tenant_id, email, full_name) values (app.current_tenant_id(), lower(${i.email}), ${b.fullName}) returning id`))[0].id;
+        insert into app_user(tenant_id, email, full_name, practitioner_id)
+        values (app.current_tenant_id(), lower(${i.email}), ${b.fullName}, ${i.practitioner_id}::uuid) returning id`))[0].id;
       await tx.execute(sql`select set_config('app.user_id', ${userId}, true)`);
       await tx.execute(sql`insert into user_credential(tenant_id, user_id, password_hash) values (app.current_tenant_id(), ${userId}, ${passwordHash})`);
       await assignInvitationRoles(tx, userId, i.role_ids, i.branch_ids);

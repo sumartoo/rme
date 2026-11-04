@@ -77,7 +77,7 @@
 | **iam** | | | | | | | | | |
 | `iam.role.manage` | ✓ |  |  |  |  |  |  |  | roleCreate; roleUpdate |
 | `iam.role.read` | ✓ |  |  |  |  |  |  |  | permissionList; roleList |
-| `iam.user.manage` | ✓ |  |  |  |  |  |  |  | userDisable; userEnable; userInvite; userResetMfa; userRevokeAllSessions |
+| `iam.user.manage` | ✓ |  |  |  |  |  |  |  | userDisable; userEnable; userInvite; userLinkPractitioner; userResetMfa; userRevokeAllSessions |
 | `iam.user.read` | ✓ |  |  |  |  |  |  |  | userInvitationList; userList |
 | **integration** | | | | | | | | | |
 | `integration.manage` | ✓ |  |  |  |  |  |  |  | satusehatConfigure; satusehatRetry; satusehatSyncMaster; satusehatTest |

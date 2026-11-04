@@ -269,6 +269,7 @@ ops = [
  ("get",  f"{P}/users/invitations", "userInvitationList", "IAM", "Undangan aktif yang belum diterima", ["IAM-FR-001"], "iam.user.read", None, "Invitation", {"list": 1}),
  ("post", f"{P}/users/invitations", "userInvite", "IAM", "Undang user (cek kuota paket)", ["IAM-FR-001", "IAM-FR-016", "PLT-FR-004", "NTF-FR-001"], "iam.user.manage", "InvitationCreate", "Invitation", {"code": "201"}),
  ("post", f"{P}/users/{{userId}}/disable", "userDisable", "IAM", "Nonaktifkan user & cabut semua sesi", ["IAM-FR-014"], "iam.user.manage", "ReasonInput", "User", {}),
+ ("post", f"{P}/users/{{userId}}/practitioner", "userLinkPractitioner", "IAM", "Tautkan/lepas tenaga kesehatan (dasar tanda tangan klinis)", ["IAM-FR-016"], "iam.user.manage", obj(["practitionerId"], practitionerId={"type": ["string", "null"], "format": "uuid"}), obj(id=UUID, practitionerId={"type": ["string", "null"], "format": "uuid"}), {}),
  ("post", f"{P}/users/{{userId}}/enable", "userEnable", "IAM", "Aktifkan kembali user (kuota paket berlaku)", ["IAM-FR-014", "PLT-FR-004"], "iam.user.manage", None, "User", {}),
  ("delete", f"{P}/users/{{userId}}/mfa", "userResetMfa", "IAM", "Reset MFA user (authenticator hilang); semua sesi dicabut", ["IAM-FR-005", "IAM-FR-013"], "iam.user.manage", None, None, {"code": "204"}),
  ("delete", f"{P}/users/{{userId}}/sessions", "userRevokeAllSessions", "IAM", "Cabut seluruh sesi user", ["IAM-FR-013"], "iam.user.manage", None, None, {"code": "204"}),

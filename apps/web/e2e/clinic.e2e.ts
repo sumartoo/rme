@@ -242,6 +242,8 @@ test('W11 lupa password: pesan sama untuk semua email; tautan reset → password
   watchCsp(page);
   await page.goto('/login');
   await page.getByRole('link', { name: 'Lupa password?' }).click();
+  // Navigasi klien: tunggu halaman baru, jangan sampai email terisi di form login yang sedang ditinggalkan
+  await expect(page.getByRole('heading', { name: 'Lupa password' })).toBeVisible();
   await page.getByLabel('Email').fill('kasir@klinik-web.test');
   await page.getByRole('button', { name: 'Kirim tautan' }).click();
   await expect(page.getByText('Bila email itu terdaftar di klinik ini')).toBeVisible();

@@ -561,6 +561,57 @@ paths:
           $ref: '#/components/responses/NotFound'
         '409':
           $ref: '#/components/responses/Conflict'
+  /api/v1/users/{userId}/practitioner:
+    post:
+      operationId: userLinkPractitioner
+      tags:
+      - IAM
+      summary: Tautkan/lepas tenaga kesehatan (dasar tanda tangan klinis)
+      x-requirements:
+      - IAM-FR-016
+      x-permission: iam.user.manage
+      parameters:
+      - $ref: '#/components/parameters/userId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                practitionerId:
+                  type:
+                  - string
+                  - 'null'
+                  format: uuid
+              required:
+              - practitionerId
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id: &id002
+                    type: string
+                    format: uuid
+                  practitionerId:
+                    type:
+                    - string
+                    - 'null'
+                    format: uuid
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
   /api/v1/users/{userId}/enable:
     post:
       operationId: userEnable
@@ -1873,9 +1924,7 @@ paths:
                 items:
                   type: object
                   properties:
-                    id: &id002
-                      type: string
-                      format: uuid
+                    id: *id002
                     name:
                       type: string
         '400':

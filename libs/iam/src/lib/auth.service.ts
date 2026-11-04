@@ -205,15 +205,15 @@ export class AuthService {
       let [ident] = await rows(tx, sql`select user_id from user_identity where provider = 'google' and subject = ${claims.sub}`);
       if (!ident) {
         // Penautan pertama hanya bila ada undangan aktif untuk email ini (SC-AUTH-01)
-        const [inv] = await rows(tx, sql`select id, role_ids, branch_ids from user_invitation
+        const [inv] = await rows(tx, sql`select id, role_ids, branch_ids, practitioner_id from user_invitation
                                           where lower(email) = lower(${claims.email}) and accepted_at is null and expires_at > now()
                                           order by created_at desc limit 1`);
         const [existing] = await rows(tx, sql`select id from app_user where lower(email) = lower(${claims.email})`);
         if (!inv && !existing) return { denied: 'NOT_INVITED' as const, userId: null };
         // Akun ada tetapi belum tertaut ke Google → harus lewat undangan penautan, bukan cocok email otomatis
         if (!inv && existing) return { denied: 'LINK_REQUIRED' as const, userId: existing.id as string };
-        const userId = existing?.id ?? (await rows(tx, sql`insert into app_user(tenant_id, email, full_name)
-                                         values (${tenantId}, ${claims.email}, ${claims.name ?? claims.email}) returning id`))[0].id;
+        const userId = existing?.id ?? (await rows(tx, sql`insert into app_user(tenant_id, email, full_name, practitioner_id)
+                                         values (${tenantId}, ${claims.email}, ${claims.name ?? claims.email}, ${inv.practitioner_id ?? null}::uuid) returning id`))[0].id;
         await tx.execute(sql`insert into user_identity(tenant_id, user_id, provider, subject, email_at_link)
                              values (${tenantId}, ${userId}, 'google', ${claims.sub}, ${claims.email})`);
         await assignInvitationRoles(tx, userId, inv.role_ids as string[], (inv.branch_ids ?? []) as string[]);

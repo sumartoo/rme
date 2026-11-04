@@ -36,12 +36,12 @@ Login password + lockout, Google OIDC dengan undangan, TOTP + recovery code, ses
 
 ## 5. Gate Stage 6
 
-- [ ] Test otomatis: setiap endpoint menolak user tanpa permission (matriks permission)
-- [ ] Menu frontend bukan satu-satunya kontrol akses (dibuktikan dengan test API langsung)
-- [ ] Status akun ditegakkan (nonaktif, terkunci) — jadwal login: LJT, tidak termasuk (DEC-028)
+- [x] Test otomatis: setiap endpoint menolak user tanpa permission (matriks permission) — X01
+- [x] Menu frontend bukan satu-satunya kontrol akses (dibuktikan dengan test API langsung) — I12, W05, X01
+- [x] Status akun ditegakkan (nonaktif, terkunci) — E04, E19, I15, W12 · jadwal login: LJT, tidak termasuk (DEC-028)
 - [ ] ~~Delegasi kedaluwarsa otomatis~~ — LJT, tidak termasuk (DEC-028)
-- [ ] S4-1: CI hijau di GitHub
-- [ ] PO menyetujui Stage 6
+- [x] S4-1: CI hijau di GitHub — `ci` (termasuk E2E & uji mutasi 17/17) dan `security` hijau di main ([run 41856592216](https://github.com/AtoAIs/atoai-rme-v2/actions/runs/41856592216))
+- [ ] PO menyetujui Stage 6 — [completion report](STAGE_COMPLETION_REPORT.md)
 
 ## 6. Progres Batch 1
 
@@ -51,3 +51,4 @@ Login password + lockout, Google OIDC dengan undangan, TOTP + recovery code, ses
 | 4 Nov 2026 | **Backend IAM:** migrasi 0008 (reset password, MFA dokter default, menu admin); endpoint undangan + terima dengan password, reset password (token dibuat worker saat kirim, 30 menit, sekali pakai, cabut semua sesi), user (daftar, undangan aktif, undang, nonaktif/aktifkan, cabut sesi), role (daftar, buat, ubah dengan If-Match; template hanya MFA; TENANT_ADMIN/MANAJER kunci MFA), permission, `GET /me/menu`, `POST /me/branch`, sesi saya. Kebijakan password (OD-079). Cegah eskalasi izin administratif. **Uji matriks permission** X01: 19 operasi terimplementasi → semua 403 untuk user tanpa izin | I01–I15, X01, unit `password-policy.spec.ts`, mutasi M16 (eskalasi → I04), M17 (token reset dipakai ulang → I06) |
 | 4 Nov 2026 | **S4-1:** repo `AtoAIs/atoai-rme-v2` tersambung. Run CI pertama: 3 kegagalan diperbaiki di PR #1 (panjang tag AES-GCM eksplisit — temuan Semgrep publik; smoke compose memakai perawat karena dokter kini wajib MFA; uji mutasi dipindah ke job sendiri karena melebihi 25 menit). PR #1 hijau (`ci` termasuk E2E, `security`) dan di-merge | [PR #1](https://github.com/AtoAIs/atoai-rme-v2/pull/1) |
 | 4 Nov 2026 | **Batch 2 — UI aplikasi klinik:** shell dengan menu samping dari `/me/menu` & pilih cabang aktif; halaman Pengguna (daftar, undangan aktif, undang, nonaktif/aktifkan, cabut sesi, reset MFA), Role & izin (role custom dengan matriks izin, MFA per role), Sesi & perangkat, Terima undangan (Google / buat password), Lupa & reset password. API tambahan: `/me` memuat cabang yang dapat dipilih; `DELETE /users/{id}/mfa`; migrasi 0009 menarik menu "Log audit" sampai halamannya ada | W07–W12 (E2E 22/22), I13, I16 |
+| 4 Nov 2026 | **Batch 3 — tautan nakes (IAM-FR-016):** migrasi 0010 (satu tenaga kesehatan hanya untuk satu akun; undangan dapat membawa tautan), `POST /users/{id}/practitioner` (tautkan/lepas, teraudit), undangan dengan `practitionerId` (diterapkan saat diterima lewat password maupun Google), daftar user memuat `practitionerId`. Pemilihan nakes di UI menunggu daftar nakes (Stage 7); pemeriksaan SIP saat tanda tangan klinis di Stage 9 (AC-IAM-FR-016-1) | I17 |

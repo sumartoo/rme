@@ -1,17 +1,20 @@
-# Uji mutasi — 2026-11-04T12:20:59Z
-TERDETEKSI  M1  pengecekan tenant sesi vs subdomain dihapus  → gagal: E12 | Tests:       1 failed, 94 passed, 95 total
-TERDETEKSI  M2  role DB aplikasi diberi BYPASSRLS  → gagal: E05 E10 E11 E13 F14 K03 K06 K09 K10 | Tests:       9 failed, 86 passed, 95 total
-TERDETEKSI  M3  batas percobaan MFA dilonggarkan  → gagal: E32 | Tests:       1 failed, 94 passed, 95 total
-TERDETEKSI  M4  rotasi sesi saat MFA dihapus  → gagal: E08 | Tests:       1 failed, 94 passed, 95 total
-TERDETEKSI  M5  partisi audit kembali dapat diakses role aplikasi (perbaikan migrasi 0002 dihapus)  → gagal: F14 | Tests:       1 failed, 94 passed, 95 total
-TERDETEKSI  M6  role DB platform diberi SELECT pada tabel klinis  → gagal: B08 P15 | Tests:       2 failed, 93 passed, 95 total
-TERDETEKSI  M7  guard klinik tidak lagi memblokir sesi saat tenant SUSPENDED  → gagal: P12 | Tests:       1 failed, 94 passed, 95 total
-TERDETEKSI  M8  guard platform tidak mewajibkan MFA  → gagal: P01 | Tests:       1 failed, 94 passed, 95 total
-TERDETEKSI  M9  trigger kuota user dihapus dari migrasi 0003  → gagal: P16 | Tests:       1 failed, 94 passed, 95 total
-TERDETEKSI  M11  ekspor tenant dibaca tanpa SET ROLE clinicrme_app (koneksi pemilik melewati RLS)  → gagal: K05 K06 K07 K10 | Tests:       4 failed, 91 passed, 95 total
-TERDETEKSI  M12  fungsi break-glass tidak lagi memeriksa masa berlaku grant  → gagal: B06 | Tests:       1 failed, 94 passed, 95 total
-TERDETEKSI  M13  sesi tanpa MFA boleh mendaftar ulang authenticator (menimpa secret)  → gagal: E33 E34 | Tests:       2 failed, 93 passed, 95 total
-TERDETEKSI  M14  RLS tenant_feature_flag tidak diaktifkan (migrasi 0006)  → gagal: K10 | Tests:       1 failed, 94 passed, 95 total
-TERDETEKSI  M15  anti-replay TOTP dimatikan (kode yang sama boleh dipakai ulang)  → gagal: E34 P20 | Tests:       2 failed, 93 passed, 95 total
+# Uji mutasi di GitHub Actions — run ci main 41856592216 (job uji mutasi, MUTATION_E2E=1), 2026-11-04
+# https://github.com/AtoAIs/atoai-rme-v2/actions/runs/41856592216
+TERDETEKSI  M1  pengecekan tenant sesi vs subdomain dihapus  → gagal: E12 | Tests:       1 failed, 110 passed, 111 total
+TERDETEKSI  M2  role DB aplikasi diberi BYPASSRLS  → gagal: E05 E10 E11 E13 F14 I02 I13 K03 K06 K09 K10 | Tests:       11 failed, 100 passed, 111 total
+TERDETEKSI  M3  batas percobaan MFA dilonggarkan  → gagal: E32 | Tests:       1 failed, 110 passed, 111 total
+TERDETEKSI  M4  rotasi sesi saat MFA dihapus  → gagal: E08 | Tests:       1 failed, 110 passed, 111 total
+TERDETEKSI  M5  partisi audit kembali dapat diakses role aplikasi (perbaikan migrasi 0002 dihapus)  → gagal: F14 | Tests:       1 failed, 110 passed, 111 total
+TERDETEKSI  M6  role DB platform diberi SELECT pada tabel klinis  → gagal: B08 P15 | Tests:       2 failed, 109 passed, 111 total
+TERDETEKSI  M7  guard klinik tidak lagi memblokir sesi saat tenant SUSPENDED  → gagal: P12 | Tests:       1 failed, 110 passed, 111 total
+TERDETEKSI  M8  guard platform tidak mewajibkan MFA  → gagal: P01 | Tests:       1 failed, 110 passed, 111 total
+TERDETEKSI  M9  trigger kuota user dihapus dari migrasi 0003  → gagal: P16 | Tests:       1 failed, 110 passed, 111 total
+TERDETEKSI  M11  ekspor tenant dibaca tanpa SET ROLE clinicrme_app (koneksi pemilik melewati RLS)  → gagal: K05 K06 K07 K10 | Tests:       4 failed, 107 passed, 111 total
+TERDETEKSI  M12  fungsi break-glass tidak lagi memeriksa masa berlaku grant  → gagal: B06 | Tests:       1 failed, 110 passed, 111 total
+TERDETEKSI  M13  sesi tanpa MFA boleh mendaftar ulang authenticator (menimpa secret)  → gagal: E33 E34 | Tests:       2 failed, 109 passed, 111 total
+TERDETEKSI  M14  RLS tenant_feature_flag tidak diaktifkan (migrasi 0006)  → gagal: K10 | Tests:       1 failed, 110 passed, 111 total
+TERDETEKSI  M15  anti-replay TOTP dimatikan (kode yang sama boleh dipakai ulang)  → gagal: E34 P20 | Tests:       2 failed, 109 passed, 111 total
+TERDETEKSI  M16  pencegahan eskalasi hak dimatikan (pemberi boleh memberi izin admin yang tidak dimilikinya)  → gagal: I04 | Tests:       1 failed, 110 passed, 111 total
+TERDETEKSI  M17  token reset password dapat dipakai ulang (used_at tidak diperiksa)  → gagal: I06 I08 I12 I13 I14 I15 | Tests:       6 failed, 105 passed, 111 total
 TERDETEKSI  M10  konsol dirender statis (nonce CSP hilang → script diblokir)  → gagal: U01 
-exit=0
+17/17 terdeteksi

@@ -18,10 +18,22 @@ const InviteBody = z.object({
   fullName: z.string().trim().min(2).max(200).optional(),
   roleIds: z.array(UUID).min(1).max(10),
   branchIds: z.array(UUID).max(50).optional(),
+  practitionerId: UUID.optional(),
 }).strict();
+const PractitionerBody = z.object({ practitionerId: UUID.nullable() }).strict();
+
+/** Tenaga kesehatan aktif milik klinik ini yang belum tertaut ke akun lain (IAM-FR-016). */
+async function assertLinkablePractitioner(tx: Tx, practitionerId: string, exceptUserId?: string) {
+  const [p] = await rows(tx, sql`select 1 from practitioner where id = ${practitionerId} and is_active`);
+  if (!p) throw problem(400, 'IAM-400-PRACTITIONER', 'Tenaga kesehatan tidak ditemukan atau tidak aktif');
+  const [taken] = await rows(tx, sql`select 1 from app_user where practitioner_id = ${practitionerId} and id is distinct from ${exceptUserId ?? null}::uuid`);
+  if (taken) throw problem(409, 'IAM-409-PRACTITIONER-LINKED', 'Tenaga kesehatan ini sudah tertaut ke akun lain');
+  const [pending] = await rows(tx, sql`select 1 from user_invitation where practitioner_id = ${practitionerId} and accepted_at is null and expires_at > now()`);
+  if (pending && !exceptUserId) throw problem(409, 'IAM-409-PRACTITIONER-LINKED', 'Tenaga kesehatan ini sudah ada di undangan aktif');
+}
 const ListQuery = z.object({ limit: z.coerce.number().int().min(1).max(200).default(50), cursor: z.string().max(300).optional() });
 
-interface UserRow { id: string; email: string; full_name: string; status: string; last_login_at: Date | null; roles: string[]; mfa_enrolled: boolean }
+interface UserRow { id: string; email: string; full_name: string; status: string; last_login_at: Date | null; roles: string[]; mfa_enrolled: boolean; practitioner_id: string | null }
 const iso = (d: Date | null) => (d ? new Date(d).toISOString() : null);
 
 /**
@@ -69,7 +81,7 @@ export class UsersController {
     if (!p.success) throw problem(400, 'GEN-400-QUERY', 'Parameter tidak valid');
     const { limit, cursor } = p.data;
     const r = await this.db.withTenantTx((tx) => rows<UserRow>(tx, sql`
-      select u.id, u.email, u.full_name, u.status, u.last_login_at,
+      select u.id, u.email, u.full_name, u.status, u.last_login_at, u.practitioner_id,
              exists(select 1 from user_mfa m where m.user_id = u.id) as mfa_enrolled,
              array(select distinct r.code from user_role_assignment a join role r on r.id = a.role_id
                     where a.user_id = u.id and (a.valid_to is null or a.valid_to > now()) order by r.code) as roles
@@ -77,7 +89,7 @@ export class UsersController {
        where (${cursor ?? null}::text is null or lower(u.email) > ${cursor ?? ''})
        order by lower(u.email) limit ${limit + 1}`));
     const data = r.slice(0, limit).map((u) => ({ id: u.id, email: u.email, fullName: u.full_name, status: u.status,
-      lastLoginAt: iso(u.last_login_at), roles: u.roles, mfaEnrolled: u.mfa_enrolled }));
+      lastLoginAt: iso(u.last_login_at), roles: u.roles, mfaEnrolled: u.mfa_enrolled, practitionerId: u.practitioner_id }));
     return { data, page: { hasMore: r.length > limit, nextCursor: r.length > limit ? data[data.length - 1].email.toLowerCase() : null } };
   }
 
@@ -101,15 +113,16 @@ export class UsersController {
         if (br.length !== new Set(b.branchIds).size) throw problem(400, 'IAM-400-BRANCH', 'Cabang tidak ditemukan');
       }
       await assertNoEscalation(tx, b.roleIds);
+      if (b.practitionerId) await assertLinkablePractitioner(tx, b.practitionerId);
       const [u] = await rows(tx, sql`select 1 from app_user where lower(email) = ${b.email}`);
       if (u) throw problem(409, 'IAM-409-USER-EXISTS', 'Pengguna dengan email ini sudah ada');
       const [pending] = await rows(tx, sql`select 1 from user_invitation where lower(email) = ${b.email} and accepted_at is null and expires_at > now()`);
       if (pending) throw problem(409, 'IAM-409-INVITED', 'Email ini sudah punya undangan aktif');
       // Token sementara (tidak pernah dikirim); worker membuat token baru saat email dikirim (OD-078)
       const [inv] = await rows<{ id: string; email: string; expires_at: Date }>(tx, sql`
-        insert into user_invitation(tenant_id, email, role_ids, branch_ids, token_hash, invited_by, expires_at)
+        insert into user_invitation(tenant_id, email, role_ids, branch_ids, token_hash, invited_by, expires_at, practitioner_id)
         values (app.current_tenant_id(), ${b.email}, ${pgArray(b.roleIds, 'uuid')}, ${pgArray(b.branchIds ?? [], 'uuid')}, ${sha256Hex(randomToken())},
-                ${ctx().userId}, now() + interval '7 days')
+                ${ctx().userId}, now() + interval '7 days', ${b.practitionerId ?? null}::uuid)
         returning id, email, expires_at`);
       await audit(tx, 'USER_INVITED', 'user_invitation', inv.id, null, { roleIds: b.roleIds, branchCount: b.branchIds?.length ?? 0 });
       return { id: inv.id, email: inv.email, expiresAt: iso(inv.expires_at), acceptedAt: null };
@@ -126,6 +139,20 @@ export class UsersController {
       const revoked = await this.sessions.revokeAllForUser(tx, id, 'USER_DISABLED');
       await audit(tx, 'USER_DISABLED', 'app_user', id, null, { reason, sessionsRevoked: revoked });
       return { id, status: 'DISABLED', sessionsRevoked: revoked };
+    });
+  }
+
+  /** IAM-FR-016: tautkan / lepas tenaga kesehatan (dasar tanda tangan klinis; SIP diperiksa saat pengesahan, Stage 9). */
+  @RequirePermission('iam.user.manage') @BodySchema(PractitionerBody) @Post('users/:id/practitioner') @HttpCode(200)
+  async linkPractitioner(@Param('id', new ParseUUIDPipe()) id: string, @Body() b: z.infer<typeof PractitionerBody>) {
+    return this.db.withTenantTx(async (tx) => {
+      const [u] = await rows<{ practitioner_id: string | null }>(tx, sql`select practitioner_id from app_user where id = ${id} for update`);
+      if (!u) throw problem(404, 'IAM-404', 'User tidak ditemukan');
+      if (b.practitionerId) await assertLinkablePractitioner(tx, b.practitionerId, id);
+      await tx.execute(sql`update app_user set practitioner_id = ${b.practitionerId}::uuid where id = ${id}`);
+      await audit(tx, b.practitionerId ? 'PRACTITIONER_LINKED' : 'PRACTITIONER_UNLINKED', 'app_user', id, null,
+                  { practitionerId: b.practitionerId ?? u.practitioner_id });
+      return { id, practitionerId: b.practitionerId };
     });
   }
 
