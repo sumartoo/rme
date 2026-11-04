@@ -7,7 +7,8 @@ import type { BucketKind, StorageConfig } from './storage';
 export function storageConfigFromEnv(env: Record<string, string | undefined>, appEnv: string): StorageConfig {
   const driver = (env['STORAGE_DRIVER'] ?? 'fs') as StorageConfig['driver'];
   if (driver !== 'fs' && driver !== 'gcs') throw new Error('STORAGE_DRIVER harus fs atau gcs');
-  if (driver === 'fs' && appEnv !== 'local' && appEnv !== 'test') throw new Error('STORAGE_DRIVER=fs hanya untuk APP_ENV local/test');
+  // dev = VPS pengembangan (CR-0003, data sintetis, volume dicadangkan); staging/prod wajib object storage
+  if (driver === 'fs' && !['local', 'test', 'dev'].includes(appEnv)) throw new Error('STORAGE_DRIVER=fs hanya untuk APP_ENV local/test/dev');
   const name = (k: string, def: string) => {
     const v = env[k] ?? def;
     if (!/^[a-z0-9][a-z0-9._-]{1,61}[a-z0-9]$/.test(v)) throw new Error(`${k} bukan nama bucket yang valid`);

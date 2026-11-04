@@ -45,9 +45,11 @@ describe('driver penyimpanan', () => {
 
 import { storageConfigFromEnv } from './config';
 describe('konfigurasi penyimpanan', () => {
-  it('default fs untuk lokal; fs ditolak di luar local/test; nama bucket divalidasi', () => {
+  it('default fs untuk lokal; fs boleh di dev (VPS, CR-0003), ditolak di staging/prod; nama bucket divalidasi', () => {
     expect(storageConfigFromEnv({}, 'local')).toMatchObject({ driver: 'fs', buckets: { files: 'clinicrme-files', exports: 'clinicrme-exports' } });
     expect(() => storageConfigFromEnv({}, 'prod')).toThrow(/hanya untuk APP_ENV/);
+    expect(() => storageConfigFromEnv({}, 'staging')).toThrow(/hanya untuk APP_ENV/);
+    expect(storageConfigFromEnv({}, 'dev').driver).toBe('fs');
     expect(storageConfigFromEnv({ STORAGE_DRIVER: 'gcs' }, 'prod').gcsEndpoint).toBe('https://storage.googleapis.com');
     expect(() => storageConfigFromEnv({ STORAGE_DRIVER: 'gcs', STORAGE_BUCKET_EXPORTS: 'Bad Bucket' }, 'prod')).toThrow(/STORAGE_BUCKET_EXPORTS/);
   });

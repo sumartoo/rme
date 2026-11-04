@@ -165,6 +165,54 @@ jobs:
       - if: always()
         run: docker compose down -v
 
+  vps-stack:
+    name: stack VPS dev (deploy.sh + Caddy TLS internal)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    env:
+      CLINICRME_ROOT: /tmp/clinicrme
+      CLINICRME_APP: ${{ github.workspace }}
+      DEPLOY_SKIP_GIT: '1'
+      COMPOSE_EXTRA: /tmp/clinicrme/ci-override.yml
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      # Sama dengan bootstrap.sh bagian .env (secret acak), domain uji clinic.test; sertifikat dari CA internal Caddy
+      - name: Siapkan .env & override CI
+        run: |
+          mkdir -p "$CLINICRME_ROOT"
+          r() { openssl rand -hex 16; }
+          { echo BASE_DOMAIN=clinic.test; echo ACME_EMAIL=ops@example.test; echo POSTGRES_DB=clinicrme
+            echo POSTGRES_OWNER_USER=clinicrme_owner; echo "POSTGRES_OWNER_PASSWORD=$(r)"
+            echo POSTGRES_API_USER=clinicrme_api; echo "POSTGRES_API_PASSWORD=$(r)"
+            echo POSTGRES_PLATFORM_USER=clinicrme_platform_api; echo "POSTGRES_PLATFORM_PASSWORD=$(r)"
+            echo "ENCRYPTION_KEY_HEX=$(openssl rand -hex 32)"; echo "DEV_SEED_PASSWORD=$(r)"; } > "$CLINICRME_ROOT/.env"
+          sed 's/^\t\ton_demand$/\t\ton_demand\n\t\tissuer internal/' deploy/vps/Caddyfile > "$CLINICRME_ROOT/Caddyfile"
+          grep -q 'issuer internal' "$CLINICRME_ROOT/Caddyfile"
+          printf 'services:\n  caddy:\n    volumes: !override [%s/Caddyfile:/etc/caddy/Caddyfile:ro, caddy_data:/data, caddy_config:/config]\n' "$CLINICRME_ROOT" > "$COMPOSE_EXTRA"
+      - name: deploy.sh --seed (deploy pertama)
+        run: bash deploy/vps/deploy.sh "$GITHUB_SHA" --seed
+      - name: deploy.sh ulang (idempoten, tanpa seed)
+        run: bash deploy/vps/deploy.sh "$GITHUB_SHA"
+      - name: Cek lewat Caddy — health, login demo, /me, endpoint internal tertutup, subdomain asing tanpa sertifikat
+        run: |
+          set -a; . "$CLINICRME_ROOT/.env"; set +a
+          R=(--resolve admin.clinic.test:443:127.0.0.1 --resolve demo.clinic.test:443:127.0.0.1 --resolve asing.clinic.test:443:127.0.0.1)
+          c() { curl -sk "${R[@]}" -o /dev/null -w '%{http_code}' "$@"; }
+          test "$(c https://admin.clinic.test/healthz)" = 200
+          test "$(c https://demo.clinic.test/healthz)" = 200
+          printf '{"email":"perawat@demo.test","password":"%s"}' "$DEV_SEED_PASSWORD" > /tmp/login.json
+          test "$(c -c /tmp/cj -H 'content-type: application/json' --data @/tmp/login.json https://demo.clinic.test/api/v1/auth/login)" = 200
+          sed 's/^#HttpOnly_//' /tmp/cj | awk '!/^#/ && NF>=7 && $4=="TRUE"' | grep -q .   # cookie sesi ber-flag Secure
+          curl -sfk "${R[@]}" -b /tmp/cj https://demo.clinic.test/api/v1/me | grep -q perawat@demo.test
+          test "$(c 'https://demo.clinic.test/internal/tls-allowed?domain=demo.clinic.test')" = 404
+          curl -sI "${R[@]}" https://demo.clinic.test/healthz -k | grep -qi strict-transport-security
+          if curl -sk "${R[@]}" -o /dev/null https://asing.clinic.test/healthz; then echo "subdomain asing dapat sertifikat"; exit 1; fi
+          if docker compose -f deploy/vps/docker-compose.yml -f "$COMPOSE_EXTRA" --env-file "$CLINICRME_ROOT/.env" ps --format '{{.Ports}}' | grep -E '0\.0\.0\.0:(5432|3000|8025)'; then echo "port internal terbuka"; exit 1; fi
+      - if: failure()
+        run: docker compose -f deploy/vps/docker-compose.yml -f "$COMPOSE_EXTRA" --env-file "$CLINICRME_ROOT/.env" logs --no-color --tail 200
+      - if: always()
+        run: docker compose -f deploy/vps/docker-compose.yml -f "$COMPOSE_EXTRA" --env-file "$CLINICRME_ROOT/.env" down -v
+
   images:
     name: image Docker (build · jalan · scan)
     runs-on: ubuntu-24.04

@@ -12,7 +12,7 @@
 |---|---|---|---|---|---|
 | Local | `local` | Developer laptop (`pnpm dev`, docker compose) | Synthetic (`dev:seed`) | Manual | ✅ Stage 4 |
 | Test / CI | `test` | GitHub Actions + PostgreSQL service | Synthetic, deleted after each run | Every PR | Workflows ready; active once the repo exists |
-| Dev | `dev` | GCP `asia-southeast2`, project `clinicrme-dev` | Synthetic | Automatic on merge to `main` | Stage 4 batch 3 (needs GCP project) |
+| Dev | `dev` | **PO-owned VPS**, docker compose (CR-0003, DEC-030; see DEPLOYMENT_VPS.md). GCP deferred | Synthetic (`dev:seed`) | Automatic after `ci` passes on `main` (workflow `deploy-dev`) | Ready — waiting for VPS access & domain |
 | Staging | `staging` | GCP, separate project | Synthetic or masked; **no real patient data** | Release tag + PO approval | Stage 15 |
 | Prod | `prod` | GCP, separate project | Real clinic data | Release tag + PO approval | Stage 15–16 |
 

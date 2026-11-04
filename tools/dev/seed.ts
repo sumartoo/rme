@@ -15,8 +15,10 @@ const USERS = [
 
 async function main() {
   loadDotEnv();
-  if (process.env.APP_ENV !== 'local') throw new Error('dev:seed hanya untuk APP_ENV=local');
+  // dev = VPS pengembangan (CR-0003): akun demo sintetis boleh, tetapi dengan password acak panjang (bukan default)
+  if (!['local', 'dev'].includes(process.env.APP_ENV ?? '')) throw new Error('dev:seed hanya untuk APP_ENV=local/dev');
   const password = need('DEV_SEED_PASSWORD');
+  if (process.env.APP_ENV === 'dev' && password.length < 16) throw new Error('DEV_SEED_PASSWORD minimal 16 karakter di APP_ENV=dev');
   const pwHash = await hash(password, { memoryCost: 19456, timeCost: 2, parallelism: 1 });
   const c = new Client({ connectionString: need('MIGRATION_DATABASE_URL') });
   await c.connect();

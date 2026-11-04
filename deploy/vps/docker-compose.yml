@@ -1,0 +1,147 @@
+# ClinicRME — lingkungan DEV di VPS (CR-0003). Data SINTETIS saja; bukan produksi (target produksi diputuskan terpisah).
+# Dijalankan oleh deploy/vps/deploy.sh dengan: docker compose -f deploy/vps/docker-compose.yml --env-file /opt/clinicrme/.env ...
+# Hanya Caddy yang membuka port publik (80/443). PostgreSQL, API, worker, Mailpit tidak terjangkau dari internet.
+name: clinicrme
+
+x-node-health: &node-health
+  # Image distroless tanpa shell/curl: cek kesehatan memakai node bawaan image
+  interval: 10s
+  timeout: 5s
+  retries: 12
+  start_period: 20s
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_OWNER_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_OWNER_PASSWORD:?jalankan bootstrap.sh}
+      POSTGRES_DB: ${POSTGRES_DB}
+      TZ: Asia/Jakarta
+    volumes: [pgdata:/var/lib/postgresql/data, ./init-roles.sh:/opt/init-roles.sh:ro]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  # --- Langkah satu kali per deploy (profile ops) ---
+  migrate:
+    profiles: [ops]
+    image: clinicrme-api:${RELEASE:-latest}
+    command: ["migrate.js"]
+    environment:
+      MIGRATION_DATABASE_URL: postgres://${POSTGRES_OWNER_USER}:${POSTGRES_OWNER_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      MIGRATIONS_DIR: /app/db/migrations
+    depends_on: { postgres: { condition: service_healthy } }
+
+  storage-init:
+    profiles: [ops]
+    image: busybox:1.37
+    # Volume berkas milik user nonroot (uid 65532) image distroless
+    command: ["sh", "-c", "mkdir -p /data/storage && chown -R 65532:65532 /data/storage"]
+    volumes: [storage:/data]
+
+  seed:
+    profiles: [ops]
+    build:
+      context: ../..
+      dockerfile: docker/node-app.Dockerfile
+      target: build
+      args: { APP: api }
+    image: clinicrme-tools:${RELEASE:-latest}
+    working_dir: /repo
+    command: ["pnpm", "dev:seed"]
+    environment:
+      APP_ENV: dev
+      MIGRATION_DATABASE_URL: postgres://${POSTGRES_OWNER_USER}:${POSTGRES_OWNER_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      DEV_SEED_PASSWORD: ${DEV_SEED_PASSWORD}
+    depends_on: { postgres: { condition: service_healthy } }
+
+  # --- Layanan ---
+  api:
+    build: { context: ../.., dockerfile: docker/node-app.Dockerfile, args: { APP: api } }
+    image: clinicrme-api:${RELEASE:-latest}
+    restart: unless-stopped
+    environment: &api-env
+      APP_ENV: dev
+      LOG_LEVEL: info
+      PORT: '3000'
+      BASE_DOMAIN: ${BASE_DOMAIN}
+      COOKIE_SECURE: 'true'
+      DATABASE_URL: postgres://${POSTGRES_API_USER}:${POSTGRES_API_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      PLATFORM_DATABASE_URL: postgres://${POSTGRES_PLATFORM_USER}:${POSTGRES_PLATFORM_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      ENCRYPTION_KEY_HEX: ${ENCRYPTION_KEY_HEX}
+      STORAGE_DRIVER: fs
+      STORAGE_FS_DIR: /data/storage
+      EXPORT_TTL_HOURS: '24'
+      GOOGLE_ISSUER: https://accounts.google.com
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-belum-diisi}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-belum-diisi}
+      GOOGLE_REDIRECT_URI: https://demo.${BASE_DOMAIN}/api/v1/auth/google/callback
+    volumes: [storage:/data]
+    depends_on: { postgres: { condition: service_healthy } }
+    healthcheck:
+      <<: *node-health
+      test: ["CMD", "/nodejs/bin/node", "-e", "fetch('http://127.0.0.1:3000/readyz').then(r=>process.exit(r.ok?0:1),()=>process.exit(1))"]
+
+  worker:
+    build: { context: ../.., dockerfile: docker/node-app.Dockerfile, args: { APP: worker } }
+    image: clinicrme-worker:${RELEASE:-latest}
+    restart: unless-stopped
+    environment:
+      APP_ENV: dev
+      LOG_LEVEL: info
+      # pg-boss membuat skemanya sendiri → pemilik skema (OD-074); data tenant dibaca dengan SET ROLE clinicrme_app
+      WORKER_DATABASE_URL: postgres://${POSTGRES_OWNER_USER}:${POSTGRES_OWNER_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      ENCRYPTION_KEY_HEX: ${ENCRYPTION_KEY_HEX}
+      STORAGE_DRIVER: fs
+      STORAGE_FS_DIR: /data/storage
+      WORKER_TMP_DIR: /tmp
+      SMTP_URL: ${SMTP_URL:-smtp://mailpit:1025}
+      MAIL_FROM: ${MAIL_FROM:-ClinicRME Dev <no-reply@clinicrme.local>}
+      CLINIC_URL_TEMPLATE: https://{code}.${BASE_DOMAIN}
+    volumes: [storage:/data]
+    depends_on: { postgres: { condition: service_healthy } }
+
+  web:
+    build: { context: ../.., dockerfile: docker/web.Dockerfile, args: { APP: web } }
+    image: clinicrme-web:${RELEASE:-latest}
+    restart: unless-stopped
+    environment: { API_INTERNAL_URL: 'http://api:3000', BASE_DOMAIN: '${BASE_DOMAIN}' }
+    depends_on: [api]
+    healthcheck:
+      <<: *node-health
+      test: ["CMD", "/nodejs/bin/node", "-e", "fetch('http://127.0.0.1:3000/healthz').then(r=>process.exit(r.ok?0:1),()=>process.exit(1))"]
+
+  platform-admin:
+    build: { context: ../.., dockerfile: docker/web.Dockerfile, args: { APP: platform-admin } }
+    image: clinicrme-platform-admin:${RELEASE:-latest}
+    restart: unless-stopped
+    environment: { API_INTERNAL_URL: 'http://api:3000', BASE_DOMAIN: '${BASE_DOMAIN}' }
+    depends_on: [api]
+    healthcheck:
+      <<: *node-health
+      test: ["CMD", "/nodejs/bin/node", "-e", "fetch('http://127.0.0.1:3000/healthz').then(r=>process.exit(r.ok?0:1),()=>process.exit(1))"]
+
+  # Email dev: tidak ada penyedia SMTP sungguhan (OD terbuka). Kotak masuk hanya lewat tunnel SSH:
+  #   ssh -L 8025:127.0.0.1:8025 deploy@<vps>  →  http://localhost:8025
+  mailpit:
+    image: axllent/mailpit:v1.28.3
+    restart: unless-stopped
+    ports: ["127.0.0.1:8025:8025"]
+
+  caddy:
+    image: caddy:2.10-alpine
+    restart: unless-stopped
+    ports: ["80:80", "443:443", "443:443/udp"]
+    environment: { BASE_DOMAIN: '${BASE_DOMAIN}', ACME_EMAIL: '${ACME_EMAIL}' }
+    volumes: [./Caddyfile:/etc/caddy/Caddyfile:ro, caddy_data:/data, caddy_config:/config]
+    depends_on: [web, platform-admin]
+
+volumes:
+  pgdata:
+  storage:
+  caddy_data:
+  caddy_config:

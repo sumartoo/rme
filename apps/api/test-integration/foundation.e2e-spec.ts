@@ -186,5 +186,14 @@ describe('Audit log berpartisi (migrasi 0002, temuan Stage 4)', () => {
     expect(m.n).toBeGreaterThan(0);
     expect(d.n).toBe(0);
   });
-});
 
+  test('F16 izin TLS on-demand (deploy VPS, CR-0003): hanya konsol & klinik yang dilayani; tidak terjangkau lewat proxy klinik', async () => {
+    const ask = async (d: string) => (await http.get(`/internal/tls-allowed?domain=${encodeURIComponent(d)}`)).status;
+    expect(await ask('admin.clinicrme.test')).toBe(200);
+    expect(await ask(HOST_A)).toBe(200);
+    expect(await ask('tidak-ada.clinicrme.test')).toBe(404);
+    expect(await ask('klinik-a.evil.test')).toBe(404);
+    expect(await ask('a.b.clinicrme.test')).toBe(404);
+    expect(await ask('')).toBe(404);
+  });
+});
