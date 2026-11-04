@@ -1,0 +1,15 @@
+# Uji kontrak OpenAPI (ADR-0008) — 2026-11-04T03:28:30Z
+# apps/api/src/app/openapi-contract.spec.ts: setiap route NestJS ↔ api/openapi.yaml (path, method, akses, status sukses, body)
+
+## Hasil saat ini
+Tests:       5 passed, 5 total
+
+## Temuan saat uji pertama kali dijalankan
+    +   "AuthController.enroll: impl=201 kontrak=200",
+→ POST /api/v1/auth/mfa/enroll mengembalikan 201 (default NestJS), kontrak menetapkan 200. Diperbaiki: @HttpCode(200);
+  uji E08 yang ikut mengunci 201 disesuaikan ke kontrak.
+
+## Pembuktian: permission yang tidak sesuai kontrak tertangkap (sementara, lalu dikembalikan)
+Perubahan: PatientController.list @RequirePermission('patient.read') → 'patient.update'
+    +   "PatientController.list: permission impl=patient.update kontrak=patient.read",
+Tests:       1 failed, 4 passed, 5 total

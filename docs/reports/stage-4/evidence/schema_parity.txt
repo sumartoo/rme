@@ -1,0 +1,8 @@
+# Kesetaraan migrasi baseline (0000–0001) vs desain db/schema (ADR-0009) — 2026-11-04T03:31:00Z
+# Node v22.23.4, pnpm 10.28.0, PostgreSQL 16.15 (Ubuntu 16.15-0ubuntu0.24.04.1) on x86_64-pc-linux-gnu
+# Dijalankan dari salinan bersih repo (tanpa node_modules/.env/dist): pnpm install --frozen-lockfile
+
+# Perintah: PG_ADMIN_URL=... pnpm check:schema   — 0002+ adalah perubahan sah setelah db/schema dibekukan (OD-071)
+Migrasi diterapkan: 0000_baseline, 0001_permissions_roles
+SAMA  struktur skema app (2827 baris DDL, 90 tabel, 79 policy RLS, 21 fungsi, 203 grant)
+SAMA  katalog permission (81 permission)

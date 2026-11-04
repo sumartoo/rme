@@ -1,0 +1,33 @@
+# Pemeriksaan salinan bersih (batch 2) — 2026-11-04T03:30:58Z
+# Node v22.23.4, pnpm 10.28.0, PostgreSQL 16.15 (Ubuntu 16.15-0ubuntu0.24.04.1) on x86_64-pc-linux-gnu
+# Dijalankan dari salinan bersih repo (tanpa node_modules/.env/dist): pnpm install --frozen-lockfile
+
+## install
+1 Done in 4.2s using pnpm v10.28.0
+
+## lint
+1 NX   Successfully ran target lint for 7 projects
+2 ✖ 1 problem (0 errors, 1 warning)
+1 ✖ 15 problems (0 errors, 15 warnings)
+1 ✖ 2 problems (0 errors, 2 warnings)
+1 ✖ 32 problems (0 errors, 32 warnings)
+1 ✖ 4 problems (0 errors, 4 warnings)
+
+## typecheck
+1 NX   Successfully ran target typecheck for 6 projects
+
+## test
+1 NX   Successfully ran target test for 7 projects
+1 Tests:       11 passed, 11 total
+1 Tests:       13 passed, 13 total
+2 Tests:       2 passed, 2 total
+1 Tests:       5 passed, 5 total
+1 Tests:       8 passed, 8 total
+
+## build
+1 NX   Successfully ran target build for 3 projects
+
+## bundle ↔ isi image produksi
+OK — 18 require eksternal di 2 bundle tersedia di /tmp/img-api/node_modules
+OK — 5 require eksternal di 1 bundle tersedia di /tmp/img-worker/node_modules
+ukuran node_modules: api 62M, worker 45M

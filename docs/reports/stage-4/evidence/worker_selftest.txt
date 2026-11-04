@@ -1,0 +1,14 @@
+# Smoke test worker (build webpack, pg-boss, job heartbeat + partisi audit + verifikasi hash chain) — 2026-11-04T03:31:03Z
+# Node v22.23.4, pnpm 10.28.0, PostgreSQL 16.15 (Ubuntu 16.15-0ubuntu0.24.04.1) on x86_64-pc-linux-gnu
+# Dijalankan dari salinan bersih repo (tanpa node_modules/.env/dist): pnpm install --frozen-lockfile
+
+# Perintah: WORKER_DATABASE_URL=... WORKER_SELFTEST=1 node apps/worker/dist/main.js → exit 0
+{"level":30,"time":1793762995969,"app":"worker","env":"test","queues":["system.heartbeat","system.audit_partitions","system.audit_chain_verify"],"msg":"worker siap"}
+{"level":30,"time":1793762997941,"app":"worker","env":"test","job":"system.heartbeat","job_id":"e6e32f8b-9256-4cc2-b54b-f95b4244ca08","msg":"job mulai"}
+{"level":30,"time":1793762997941,"app":"worker","env":"test","job":"system.heartbeat","job_id":"e6e32f8b-9256-4cc2-b54b-f95b4244ca08","msg":"job selesai"}
+{"level":30,"time":1793762997945,"app":"worker","env":"test","job":"system.audit_partitions","job_id":"bad50984-fdea-469e-a862-767996d8620e","msg":"job mulai"}
+{"level":30,"time":1793762997952,"app":"worker","env":"test","job":"system.audit_partitions","job_id":"bad50984-fdea-469e-a862-767996d8620e","msg":"job selesai"}
+{"level":30,"time":1793762999969,"app":"worker","env":"test","job":"system.audit_chain_verify","job_id":"d58d0bed-0682-4152-aae9-3da9a883da17","msg":"job mulai"}
+{"level":30,"time":1793762999972,"app":"worker","env":"test","job":"system.audit_chain_verify","job_id":"d58d0bed-0682-4152-aae9-3da9a883da17","msg":"job selesai"}
+{"level":30,"time":1793762999998,"app":"worker","env":"test","heartbeat":{"at":"2026-11-04T03:29:57.941Z","ok":true,"echo":"selftest-1793762995970"},"audit_partitions":{"partitions":[{"status":"EXISTS","partition_name":"audit_log_2026_11"},{"status":"EXISTS","partition_name":"audit_log_2026_12"},{"status":"EXISTS","partition_name":"audit_log_2027_01"}]},"audit_chain_verify":{"tenantsVerified":0},"msg":"SELFTEST OK"}
+{"level":30,"time":1793762999999,"app":"worker","env":"test","signal":"SELFTEST","msg":"worker berhenti — menunggu job berjalan selesai"}

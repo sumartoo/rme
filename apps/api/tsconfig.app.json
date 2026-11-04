@@ -1,0 +1,52 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "outDir": "dist",
+    "types": ["node"],
+    "rootDir": "src",
+    "tsBuildInfoFile": "dist/tsconfig.app.tsbuildinfo",
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+    "target": "es2021",
+    "strictNullChecks": true,
+    "noImplicitAny": true,
+    "strictBindCallApply": true,
+    "forceConsistentCasingInFileNames": true,
+    "noFallthroughCasesInSwitch": true
+  },
+  "include": ["src/**/*.ts"],
+  "exclude": [
+    "out-tsc",
+    "dist",
+    "jest.config.ts",
+    "jest.config.cts",
+    "src/**/*.spec.ts",
+    "src/**/*.test.ts",
+    "eslint.config.js",
+    "eslint.config.cjs",
+    "eslint.config.mjs"
+  ],
+  "references": [
+    {
+      "path": "../../libs/storage/tsconfig.lib.json"
+    },
+    {
+      "path": "../../libs/tenant/tsconfig.lib.json"
+    },
+    {
+      "path": "../../libs/shared/tsconfig.lib.json"
+    },
+    {
+      "path": "../../libs/platform/tsconfig.lib.json"
+    },
+    {
+      "path": "../../libs/patient/tsconfig.lib.json"
+    },
+    {
+      "path": "../../libs/iam/tsconfig.lib.json"
+    },
+    {
+      "path": "../../libs/db/tsconfig.lib.json"
+    }
+  ]
+}

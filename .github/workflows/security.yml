@@ -1,0 +1,62 @@
+# Pemindaian keamanan (OD-026): secret, dependency, SAST. PR, push main, dan mingguan.
+# Semua tool gratis; binary diunduh dengan verifikasi checksum. Trivy sengaja tidak dipakai (kompromi Maret 2026).
+name: security
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  schedule:
+    - cron: '23 1 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  secrets:
+    name: secret scanning (gitleaks, seluruh riwayat git)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - run: |
+          curl -sSLo gl.tgz https://github.com/gitleaks/gitleaks/releases/download/v8.30.1/gitleaks_8.30.1_linux_x64.tar.gz
+          echo "551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb  gl.tgz" | sha256sum -c -
+          tar xzf gl.tgz gitleaks
+          ./gitleaks git --redact --no-banner --exit-code 1 .
+
+  dependencies:
+    name: dependency (pnpm audit + osv-scanner)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+      # Gerbang: dependency PRODUKSI tanpa kerentanan high/critical (SC-SDLC-03)
+      - name: pnpm audit (produksi, high+)
+        run: pnpm audit --prod --audit-level high
+      - name: pnpm audit (semua, informasi)
+        run: pnpm audit || true
+      - name: osv-scanner lockfile (informasi; gagal bila pemindaian error)
+        run: |
+          curl -sSLo osv-scanner https://github.com/google/osv-scanner/releases/download/v2.7.0/osv-scanner_linux_amd64
+          echo "160c6253e2922e9e0a6a9771c5c4c40a4b3c6090b34a3cdd5e80c96cc2e4218b  osv-scanner" | sha256sum -c -
+          chmod +x osv-scanner
+          set +e; ./osv-scanner scan source --lockfile pnpm-lock.yaml 2>&1 | tee osv.txt; set -e
+          # osv-scanner tetap mencetak "0 vulnerabilities" bila API tidak terjangkau — jangan dianggap bersih
+          if grep -q "Error during extraction" osv.txt; then echo "osv-scanner tidak dapat menghubungi api.osv.dev"; exit 1; fi
+
+  sast:
+    name: SAST (Semgrep CE)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - run: pipx install semgrep==1.183.0
+      - name: Uji aturan proyek (.semgrep)
+        run: python3 tools/test_semgrep_rules.py
+      - name: Scan (aturan proyek + ruleset publik)
+        run: semgrep scan --metrics=off --error --config .semgrep/clinicrme.yml --config p/typescript --config p/nodejs apps libs tools

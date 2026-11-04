@@ -1,0 +1,52 @@
+# PoC Stage 3 — uji e2e keamanan — 2026-11-03T23:39:02Z
+# Node v22.23.4, NestJS 11.2.8, PostgreSQL 16.15 (Ubuntu 16.15-0ubuntu0.24.04.1) on x86_64-pc-linux-gnu
+# Perintah: cd poc/stage-3 && npm ci && REPO_ROOT=../.. PGHOST=... PGPORT=... PGSUPERUSER=<superuser> npm test
+
+(node:1910) DeprecationWarning: Calling client.query() when the client is already executing a query is deprecated and will be removed in pg@9.0. Use async/await or an external async flow control mechanism instead.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+PASS test/security.e2e.spec.ts
+  Autentikasi password (IAM-FR-003, SC-AUTH-03/04/06)
+    ✓ E01 login benar → cookie sesi HttpOnly, Secure, SameSite=Lax; /me berfungsi (60 ms)
+    ✓ E02 token sesi tidak disimpan mentah di database (23 ms)
+    ✓ E03 email tak terdaftar & password salah → respons identik (50 ms)
+    ✓ E04 5× password salah → akun terkunci; password benar pun ditolak; tercatat di audit (104 ms)
+    ✓ E05 user tenant A tidak dapat login lewat subdomain tenant B (16 ms)
+    ✓ E06 subdomain tidak dikenal → 404 (5 ms)
+  MFA TOTP (IAM-FR-005, SC-AUTH-05)
+    ✓ E07 admin (role requires_mfa) → semua endpoint ditolak sampai MFA diverifikasi (18 ms)
+    ✓ E08 enroll → kode salah ditolak → kode benar membuka akses; secret tersimpan terenkripsi (42 ms)
+    ✓ E09 recovery code hanya bisa dipakai sekali (73 ms)
+    ✓ E32 kode MFA salah berulang (batas 5) → sesi dicabut; tebakan berikutnya tidak bisa dilanjutkan (62 ms)
+  Isolasi tenant melalui API (GEN-FR-001, SC-TEN-01..05)
+    ✓ E10 daftar pasien hanya berisi pasien tenant sendiri (7 ms)
+    ✓ E11 membuka pasien tenant B dengan ID-nya langsung → 404 (bukan 403) (7 ms)
+    ✓ E12 cookie sesi tenant A dipakai di subdomain tenant B → 401 (3 ms)
+    ✓ E13 kueri tanpa tenant context gagal (fail-closed) dan role aplikasi tidak bisa membaca data (16 ms)
+  Otorisasi (IAM-FR-011, SC-AUTHZ-01)
+    ✓ E14b role wajib MFA (MANAJER) diblok MFA sebelum pengecekan permission (23 ms)
+    ✓ E14 user tanpa permission patient.read (role custom GUDANG) → 403 (20 ms)
+    ✓ E15 aplikasi menolak start bila ada endpoint tanpa deklarasi akses (8 ms)
+    ✓ E16 aplikasi start normal bila semua endpoint berdeklarasi (5 ms)
+  CSRF, sesi, nonaktif (SC-WEB-02, SC-AUTH-06/07)
+    ✓ E17 POST tanpa header CSRF → 403; dengan header → diproses (29 ms)
+    ✓ E18 sesi idle > 30 menit → 401 (23 ms)
+    ✓ E19 menonaktifkan user mencabut seluruh sesinya seketika (AC-IAM-FR-014-1) (77 ms)
+  Audit (AUD-FR-001..003)
+    ✓ E20 membuka rekam pasien tercatat sebagai READ dengan patient_id & request_id; chain tetap valid (29 ms)
+  Google Sign-In (IAM-FR-002, SC-AUTH-01/02)
+    ✓ E21 redirect memakai PKCE S256, state, nonce, scope minimum (14 ms)
+    ✓ E22 akun Google tanpa undangan → 403, tidak ada user dibuat (32 ms)
+    ✓ E23 dengan undangan → akun dibuat & ditautkan via sub; role dari undangan; PKCE diverifikasi IdP (51 ms)
+    ✓ E24 login berikutnya dengan sub yang sama tetap berhasil walau email Google berubah (11 ms)
+    ✓ E25 state salah → 401 (6 ms)
+    ✓ E26 nonce tidak cocok → 401 (7 ms)
+    ✓ E27 audience salah → 401 (7 ms)
+    ✓ E28 id_token ditandatangani kunci lain → 401 (46 ms)
+    ✓ E29 email belum terverifikasi → 401 (13 ms)
+    ✓ E30 state OIDC dari tenant A dipakai di callback tenant B → 401 (4 ms)
+    ✓ E31 akun yang sudah ada tidak otomatis ditautkan hanya karena email Google sama (19 ms)
+Test Suites: 1 passed, 1 total
+Tests:       33 passed, 33 total
+Snapshots:   0 total
+Time:        5.046 s, estimated 6 s
+Ran all test suites.

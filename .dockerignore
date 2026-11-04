@@ -1,0 +1,16 @@
+# Konteks build Docker: tanpa secret, artefak lokal, dan dokumen
+.env
+.env.*
+!.env.example
+**/node_modules
+**/dist
+**/.next
+**/out-tsc
+**/test-output
+.nx
+.git
+docs
+poc
+*.xlsx
+*.pdf
+~$*

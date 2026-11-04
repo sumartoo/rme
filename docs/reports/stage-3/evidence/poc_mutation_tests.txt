@@ -1,0 +1,23 @@
+# Uji mutasi — membuktikan uji mendeteksi kontrol yang dirusak — 2026-11-03T23:34:49Z
+# Setiap mutasi dijalankan pada suite lengkap lalu dikembalikan; run bersih: poc_e2e_tests.txt
+
+## M1: pengecekan tenant sesi vs subdomain dihapus (session.service.ts isUsable) — harapan: E12 gagal
+    ✕ E12 cookie sesi tenant A dipakai di subdomain tenant B → 401 (7 ms)
+Tests:       1 failed, 31 passed, 32 total
+
+## M2: role DB aplikasi diberi BYPASSRLS — harapan: uji isolasi gagal
+    ✕ E05 user tenant A tidak dapat login lewat subdomain tenant B (41 ms)
+    ✕ E10 daftar pasien hanya berisi pasien tenant sendiri (11 ms)
+    ✕ E11 membuka pasien tenant B dengan ID-nya langsung → 404 (bukan 403) (9 ms)
+    ✕ E13 kueri tanpa tenant context gagal (fail-closed) dan role aplikasi tidak bisa membaca data (7 ms)
+Tests:       4 failed, 28 passed, 32 total
+
+## M3: batas percobaan MFA dilonggarkan (MFA_MAX_ATTEMPTS=1000) — harapan: E32 gagal
+    ✕ E32 kode MFA salah berulang (batas 5) → sesi dicabut; tebakan berikutnya tidak bisa dilanjutkan (84 ms)
+Tests:       1 failed, 32 passed, 33 total
+
+## M4: sesi lama tidak dicabut saat naik MFA (rotasi dihapus) — harapan: E08 gagal
+    ✕ E08 enroll → kode salah ditolak → kode benar membuka akses; secret tersimpan terenkripsi (45 ms)
+Tests:       1 failed, 32 passed, 33 total
+
+Catatan: M1/M2 dijalankan pada suite 32 uji (sebelum E32 ditambahkan); M3/M4 pada suite 33 uji.

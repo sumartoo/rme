@@ -1,0 +1,8 @@
+# Pemindaian — 2026-11-04T14:03:45Z
+## gitleaks
+INF scanned ~2058888 bytes (2.06 MB) in 721ms
+INF no leaks found (setelah penanda gitleaks:allow pada password uji sintetis)
+## detect-secrets
+0 temuan {}
+## semgrep
+0 temuan

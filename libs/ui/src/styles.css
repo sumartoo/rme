@@ -1,0 +1,28 @@
+/*
+ * Token desain ClinicRME (ADR-0010). Aplikasi: @import "tailwindcss"; @import "@clinicrme/ui/styles.css";
+ * lalu @source ke libs/ui/src agar kelas di komponen ikut dibangkitkan.
+ */
+@theme {
+  --font-sans: ui-sans-serif, system-ui, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --color-background: oklch(0.985 0.002 247);
+  --color-foreground: oklch(0.21 0.02 257);
+  --color-card: oklch(1 0 0);
+  --color-muted: oklch(0.96 0.005 247);
+  --color-muted-foreground: oklch(0.5 0.02 257);
+  --color-border: oklch(0.91 0.008 247);
+  --color-ring: oklch(0.55 0.13 200);
+  --color-primary: oklch(0.47 0.11 200);
+  --color-primary-foreground: oklch(0.99 0 0);
+  --color-destructive: oklch(0.55 0.2 27);
+  --color-destructive-foreground: oklch(0.99 0 0);
+  --color-success: oklch(0.55 0.13 150);
+  --color-warning: oklch(0.72 0.15 75);
+  --radius-md: 0.5rem;
+}
+
+@layer base {
+  * { border-color: var(--color-border); }
+  body { background: var(--color-background); color: var(--color-foreground); font-family: var(--font-sans); }
+  :focus-visible { outline: 2px solid var(--color-ring); outline-offset: 2px; }
+  dialog::backdrop { background: oklch(0.2 0.02 257 / 0.45); }
+}

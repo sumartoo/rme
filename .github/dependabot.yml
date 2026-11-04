@@ -1,0 +1,17 @@
+# Pembaruan dependency mingguan (SC-SDLC-02): setiap PR dependency melewati CI & pemindaian keamanan.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule: { interval: weekly, day: monday }
+    open-pull-requests-limit: 5
+    groups:
+      nx: { patterns: ['nx', '@nx/*'] }
+      nestjs: { patterns: ['@nestjs/*'] }
+      tooling: { dependency-type: development }
+  - package-ecosystem: github-actions
+    directory: /
+    schedule: { interval: weekly, day: monday }
+  - package-ecosystem: docker
+    directory: /docker
+    schedule: { interval: weekly, day: monday }

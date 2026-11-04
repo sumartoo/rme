@@ -1,0 +1,102 @@
+{
+  "name": "@clinicrme/worker",
+  "version": "0.0.1",
+  "private": true,
+  "nx": {
+    "targets": {
+      "prune-lockfile": {
+        "dependsOn": [
+          "build"
+        ],
+        "cache": true,
+        "executor": "@nx/js:prune-lockfile",
+        "inputs": [
+          "default",
+          "^default",
+          "{workspaceRoot}/pnpm-workspace.yaml",
+          "{workspaceRoot}/package.json",
+          {
+            "runtime": "node -e \"try{console.log('pnpm major '+require('child_process').execSync('pnpm --version',{stdio:['ignore','pipe','ignore']}).toString().trim().split('.')[0])}catch{console.log('pnpm major unavailable')}\""
+          }
+        ],
+        "outputs": [
+          "{workspaceRoot}/apps/worker/dist/package.json",
+          "{workspaceRoot}/apps/worker/dist/pnpm-lock.yaml",
+          "{workspaceRoot}/apps/worker/dist/pnpm-workspace.yaml",
+          "{workspaceRoot}/apps/worker/dist/patches",
+          "{workspaceRoot}/apps/worker/dist/local_path_modules"
+        ],
+        "options": {
+          "buildTarget": "build"
+        }
+      },
+      "copy-workspace-modules": {
+        "dependsOn": [
+          "build"
+        ],
+        "cache": true,
+        "outputs": [
+          "{workspaceRoot}/apps/worker/dist/workspace_modules"
+        ],
+        "executor": "@nx/js:copy-workspace-modules",
+        "options": {
+          "buildTarget": "build"
+        }
+      },
+      "prune": {
+        "dependsOn": [
+          "prune-lockfile",
+          "copy-workspace-modules"
+        ],
+        "executor": "nx:noop"
+      },
+      "serve": {
+        "continuous": true,
+        "executor": "@nx/js:node",
+        "defaultConfiguration": "development",
+        "dependsOn": [
+          "build"
+        ],
+        "readyWhen": {
+          "signal": true
+        },
+        "options": {
+          "buildTarget": "@clinicrme/worker:build",
+          "runBuildTargetDependencies": false
+        },
+        "configurations": {
+          "development": {
+            "buildTarget": "@clinicrme/worker:build:development"
+          },
+          "production": {
+            "buildTarget": "@clinicrme/worker:build:production"
+          }
+        }
+      },
+      "test": {
+        "options": {
+          "passWithNoTests": true
+        }
+      }
+    },
+    "tags": [
+      "type:app",
+      "scope:worker"
+    ]
+  },
+  "dependencies": {
+    "@clinicrme/shared": "workspace:*",
+    "pg": "^8.23.1",
+    "pg-boss": "^12.38.0",
+    "pino": "^9.14.0",
+    "tslib": "^2.3.0",
+    "zod": "^4.6.7",
+    "@clinicrme/db": "workspace:*",
+    "@clinicrme/storage": "workspace:*",
+    "nodemailer": "^10.3.1"
+  },
+  "devDependencies": {
+    "@types/pg": "^8.23.1",
+    "@types/nodemailer": "^8.0.2"
+  }
+}

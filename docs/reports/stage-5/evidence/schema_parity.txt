@@ -1,0 +1,5 @@
+NOTICE:  database "crme_parity_schema" does not exist, skipping
+NOTICE:  database "crme_parity_migrations" does not exist, skipping
+Migrasi diterapkan: 0000_baseline, 0001_permissions_roles
+SAMA  struktur skema app (2827 baris DDL, 90 tabel, 79 policy RLS, 21 fungsi, 203 grant)
+SAMA  katalog permission (81 permission)

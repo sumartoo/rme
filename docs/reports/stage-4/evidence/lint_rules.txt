@@ -1,0 +1,16 @@
+# Uji aturan lint — 2026-11-04T00:40:25Z
+# File pelanggaran sementara libs/patient/src/lib/violation.ts (lalu dihapus):
+#   import { Pool } from 'pg';
+#   import { sql } from 'drizzle-orm';
+#   import { IamModule } from '@clinicrme/iam';
+#   export const x = [Pool, IamModule, sql.raw('select 1')];
+# Harapan: 3 error (impor pg langsung, feature → feature, sql.raw)
+
+
+libs/patient/src/lib/violation.ts
+  1:1   error  'pg' import is restricted from being used. Akses database hanya lewat @clinicrme/db (SC-TEN-02)    no-restricted-imports
+  3:1   error  A project tagged with "type:feature" can only depend on libs tagged with "type:data", "type:util"  @nx/enforce-module-boundaries
+  4:36  error  sql.raw dilarang (SC-WEB-04). Gunakan template sql`...` yang terparameter                          no-restricted-syntax
+
+✖ 3 problems (3 errors, 0 warnings)
+

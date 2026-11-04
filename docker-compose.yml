@@ -1,0 +1,33 @@
+# Stack lokal ClinicRME — infrastruktur saja; aplikasi dijalankan lewat Nx (`pnpm dev`).
+# Semua data sintetis. Kredensial berasal dari .env (dibuat otomatis oleh `pnpm dev:env`, tidak di-commit).
+name: clinicrme
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_OWNER_USER:-clinicrme_owner}
+      POSTGRES_PASSWORD: ${POSTGRES_OWNER_PASSWORD:?jalankan pnpm dev:env}
+      POSTGRES_DB: ${POSTGRES_DB:-clinicrme}
+      TZ: Asia/Jakarta
+    ports: ["127.0.0.1:${POSTGRES_PORT:-5432}:5432"]
+    volumes: [pgdata:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  # Email undangan & reset password (Stage 6) — UI: http://localhost:8025
+  mailpit:
+    image: axllent/mailpit:v1.28.3   # ≥ v1.28.1: perbaikan CVE-2026-21859
+    ports: ["127.0.0.1:1025:1025", "127.0.0.1:8025:8025"]
+
+  # Emulator Google Cloud Storage untuk dokumen & lampiran (ADR-0013, Stage 9)
+  gcs:
+    image: fsouza/fake-gcs-server:1.52.3
+    command: ["-scheme", "http", "-port", "4443", "-external-url", "http://localhost:4443", "-backend", "memory"]
+    ports: ["127.0.0.1:4443:4443"]
+
+volumes:
+  pgdata:

@@ -1,0 +1,8 @@
+packages:
+  - 'apps/*'
+  - 'libs/*'
+
+# Perbaikan keamanan dependency transitif (pnpm audit, Stage 4 batch 2)
+overrides:
+  # GHSA-q7qp-rjg7-q26m — DoS lewat fileFilter async; dibawa @nestjs/platform-express 11.x (multer 2.4.0)
+  multer: ^2.5.0

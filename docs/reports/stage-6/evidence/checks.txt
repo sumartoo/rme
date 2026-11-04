@@ -1,0 +1,19 @@
+# Pemeriksaan — 2026-11-04T14:01:28Z (Stage 6 batch 1)
+## lint · typecheck
+ NX   Successfully ran target lint for 12 projects
+ NX   Successfully ran target typecheck for 10 projects
+## test
+Tests:       4 passed, 4 total
+Tests:       22 passed, 22 total
+Tests:       2 passed, 2 total
+Tests:       6 passed, 6 total
+Tests:       12 passed, 12 total
+Tests:       6 passed, 6 total
+Tests:       5 passed, 5 total
+Tests:       6 passed, 6 total
+Tests:       14 passed, 14 total
+ NX   Successfully ran target test for 11 projects
+## e2e
+  16 passed (konsol U01–U10, klinik W01–W06)
+## mutasi M16, M17 (MUTATION_ONLY)
+TERDETEKSI  M16 → I04 · TERDETEKSI  M17 → I06

@@ -1,0 +1,150 @@
+# Role template bawaan (IAM-FR-007). Sumber untuk:
+#   - docs/03-security/PERMISSION_MATRIX.md
+#   - db/seed/010_permissions_roles.sql
+# Dibangkitkan oleh tools/gen_permission_matrix.py. Pola `*` cocok untuk satu segmen.
+# Tenant dapat membuat role custom; template hanya titik awal.
+
+segregation_of_duties:
+  # Pasangan permission yang tidak boleh dimiliki satu role template sekaligus (maker–checker)
+  - [billing.refund.request, billing.refund.approve]
+  - [billing.invoice.void.request, billing.invoice.void.approve]
+  - [pharmacy.stock.adjust, pharmacy.stock.approve]
+
+roles:
+  TENANT_ADMIN:
+    name: Admin Klinik
+    requires_mfa: true
+    note: Administrasi; tidak membaca rekam medis kecuali diberi role klinis
+    permissions:
+      - iam.*.*
+      - master.*.*
+      - master.import
+      - master.export
+      - tenant.*.*
+      - terminology.favorite.manage
+      - integration.*
+      - schedule.*
+      - audit.log.read
+      - report.dashboard.read
+      - report.operational.read
+      - patient.read
+      - patient.merge
+
+  DOKTER:
+    name: Dokter
+    requires_mfa: false
+    permissions:
+      - patient.read
+      - encounter.read
+      - queue.call
+      - clinical.*.*
+      - clinical.*.*.*
+      - clinical.prescription.approve_substitution
+      - document.upload
+      - appointment.read
+      - appointment.manage
+      - terminology.favorite.manage
+      - master.*.read
+      - pharmacy.drug.read
+      - report.clinical.read
+
+  PERAWAT:
+    name: Perawat / Bidan
+    requires_mfa: false
+    permissions:
+      - patient.read
+      - encounter.read
+      - queue.call
+      - clinical.record.read
+      - clinical.record.write
+      - clinical.vitals.write
+      - clinical.lab.result.write
+      - document.upload
+      - master.*.read
+
+  PENDAFTARAN:
+    name: Petugas Pendaftaran
+    requires_mfa: false
+    permissions:
+      - patient.read
+      - patient.create
+      - patient.update
+      - encounter.*
+      - appointment.*
+      - schedule.read
+      - queue.*
+      - document.upload
+      - master.*.read
+
+  FARMASI:
+    name: Apoteker / TTK
+    requires_mfa: false
+    permissions:
+      - patient.read
+      - encounter.read
+      - clinical.record.read
+      - pharmacy.dispense
+      - pharmacy.drug.*
+      - pharmacy.otc.sell
+      - pharmacy.stock.read
+      - pharmacy.stock.receive
+      - pharmacy.stock.adjust
+      - pharmacy.stock.opname
+      - report.pharmacy.read
+      - report.pharmacy.controlled
+      - master.*.read
+
+  KASIR:
+    name: Kasir
+    requires_mfa: false
+    permissions:
+      - patient.read
+      - encounter.read
+      - billing.invoice.read
+      - billing.invoice.issue
+      - billing.invoice.discount
+      - billing.payment.create
+      - billing.shift.manage
+      - billing.invoice.void.request
+      - billing.refund.request
+      - billing.receivable.read
+      - pharmacy.otc.sell
+      - master.*.read
+
+  MANAJER:
+    name: Manajer / Pemilik Klinik
+    requires_mfa: true
+    permissions:
+      - report.*.*
+      - report.export
+      - billing.invoice.read
+      - billing.invoice.void.approve
+      - billing.refund.approve
+      - billing.receivable.*
+      - billing.reconcile
+      - pharmacy.stock.read
+      - pharmacy.stock.approve
+      - integration.read
+      - audit.log.read
+      - master.*.read
+
+  AUDITOR:
+    name: Auditor (baca saja)
+    requires_mfa: true
+    permissions:
+      - audit.log.read
+      - report.*.*
+      - billing.invoice.read
+      - billing.receivable.read
+      - pharmacy.stock.read
+      - integration.read
+
+platform_roles:
+  PLATFORM_ADMIN:
+    name: Platform Admin
+    requires_mfa: true
+    permissions: [platform.tenant.manage, platform.tenant.read]
+  PLATFORM_SUPPORT:
+    name: Platform Support
+    requires_mfa: true
+    permissions: [platform.support.access, platform.tenant.read]

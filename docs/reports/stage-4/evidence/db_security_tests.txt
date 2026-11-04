@@ -1,0 +1,76 @@
+# Uji keamanan skema SQL pada DB hasil migrasi (T01–T26) — 2026-11-04T03:31:00Z
+# Node v22.23.4, pnpm 10.28.0, PostgreSQL 16.15 (Ubuntu 16.15-0ubuntu0.24.04.1) on x86_64-pc-linux-gnu
+# Dijalankan dari salinan bersih repo (tanpa node_modules/.env/dist): pnpm install --frozen-lockfile
+
+# Perintah: PGHOST=... MIGRATION_DATABASE_URL_BASE=... pnpm test:db
+Migrasi diterapkan: 0000_baseline, 0001_permissions_roles, 0002_partition_grants_audit_partitions
+--- T01–T05 Isolasi tenant (ADR-0002, AC-GEN-FR-001-1/2) ---
+PASS T01 tanpa tenant context: patient terlihat  (= 0)
+PASS T01b tanpa tenant context: encounter terlihat  (= 0)
+PASS T02 tenant A: jumlah patient  (= 1)
+PASS T02b tenant A: patient milik tenant lain  (= 0)
+PASS T02c tenant A: baca langsung ID pasien B  (= 0)
+PASS T02d tenant A: baris tenant terlihat  (= 1)
+PASS T03 insert patient untuk tenant B dari konteks A  (ditolak: new row violates row-level security policy for table "patient")
+PASS T03b ubah tenant_id baris sendiri ke tenant B  (ditolak: new row violates row-level security policy for table "patient")
+PASS T04 encounter tenant A merujuk pasien tenant B  (ditolak: insert or update on table "encounter" violates foreign key constraint "encounter_tenant_id)
+PASS T05 nama pasien B setelah upaya update dari A  (= Pasien Uji b)
+--- T06 Cakupan RLS pada seluruh tabel tenant ---
+PASS T06 semua tabel tenant memiliki RLS + FORCE + policy (78 tabel)
+PASS T06b role aplikasi tanpa BYPASSRLS
+--- T07–T09 Immutability rekam medis (ADR-0006, AC-CLN-FR-017-2) ---
+PASS T07 dua diagnosis primer pada satu kunjungan  (ditolak: duplicate key value violates unique constraint "ux_condition_primary")
+PASS T07b sahkan tanpa signed_by/hash  (ditolak: new row for relation "clinical_note" violates check constraint "clinical_note_check")
+PASS T08 ubah SOAP setelah disahkan  (ditolak: IMMUTABLE: clinical_note sudah disahkan; gunakan addendum)
+PASS T08b hapus catatan yang disahkan  (ditolak: IMMUTABLE: clinical_note sudah disahkan)
+PASS T08c tambah diagnosis setelah disahkan  (ditolak: IMMUTABLE: condition_dx untuk encounter yang sudah disahkan)
+PASS T08d ubah diagnosis setelah disahkan  (ditolak: IMMUTABLE: condition_dx untuk encounter yang sudah disahkan)
+PASS T09 ubah addendum  (ditolak: permission denied for table clinical_addendum)
+--- T10–T13 Farmasi & stok (PHM-FR-004/012/013) ---
+PASS T10 saldo batch setelah terima 100 & keluar 30  (= 70.0000)
+PASS T10b saldo = jumlah ledger  (= 70.0000)
+PASS T11 keluarkan melebihi saldo (stok negatif)  (ditolak: new row for relation "stock_balance" violates check constraint "stock_balance_qty_on_hand_)
+PASS T11b dispensing batch kedaluwarsa  (ditolak: Batch kedaluwarsa tidak dapat dikeluarkan (PHM-FR-013))
+PASS T12 ubah ledger stok  (ditolak: permission denied for table stock_movement)
+PASS T12b tulis saldo stok langsung  (ditolak: permission denied for table stock_balance)
+PASS T13 jual obat keras tanpa resep  (ditolak: Obat golongan KERAS tidak boleh dijual tanpa resep (AC-PHM-FR-012-1))
+--- T14–T18 Billing (BIL-FR-002/006/009/010) ---
+PASS T14 baris dengan total salah hitung  (ditolak: new row for relation "invoice_line" violates check constraint "invoice_line_check")
+PASS T14b format nomor invoice  (= t)
+PASS T15 ubah nominal invoice yang sudah diterbitkan  (ditolak: IMMUTABLE: isi invoice tidak dapat diubah setelah diterbitkan)
+PASS T15b tambah baris ke invoice terbit  (ditolak: IMMUTABLE: baris invoice terkunci)
+PASS T16 pembayaran ganda dengan idempotency key sama  (ditolak: duplicate key value violates unique constraint "payment_tenant_id_idempotency_key_key")
+PASS T16b ubah pembayaran  (ditolak: permission denied for table payment)
+PASS T17 void invoice yang sudah dibayar  (ditolak: Transisi status invoice PAID → VOID tidak valid)
+PASS T18 refund disetujui oleh pengaju sendiri  (ditolak: new row for relation "refund" violates check constraint "refund_check")
+PASS T18b ubah refund yang sudah disetujui  (ditolak: IMMUTABLE: refund yang sudah diputuskan tidak dapat diubah)
+--- T19 Tarif tidak tumpang tindih (AC-MST-FR-005-1) ---
+PASS T19 periode tarif tumpang tindih  (ditolak: conflicting key value violates exclusion constraint "ex_tariff_no_overlap")
+--- T20–T22 Audit hash chain (ADR-0007, AC-AUD-FR-003) ---
+PASS T20 app menulis audit_log langsung  (ditolak: permission denied for table audit_log)
+PASS T20b app mengubah audit_log  (ditolak: permission denied for table audit_log)
+PASS T20c entri audit terlihat untuk tenant A  (= 3)
+PASS T20d entri audit tenant A tidak terlihat dari B  (= 0)
+PASS T21 verifikasi chain utuh  (= t)
+PASS T22 manipulasi audit terdeteksi pada seq  (= 2)
+--- T23–T24 Role template & segregation of duties (IAM-FR-007, BIL-FR-010) ---
+PASS T23 role template terbentuk (idempoten)  (= 8)
+PASS T23b role admin & manajer wajib MFA  (= AUDITOR,MANAJER,TENANT_ADMIN)
+PASS T24 tidak ada role template yang bisa mengajukan & menyetujui refund/void/penyesuaian  (= 0)
+PASS T24b role tenant A tidak terlihat dari B  (= 0)
+=== SEMUA UJI LULUS ===
+--- T25 Partisi tidak dapat diakses langsung oleh role aplikasi (migrasi 0002) ---
+PASS T25 tidak ada hak role aplikasi pada 4 partisi
+PASS T25b role aplikasi membaca partisi default langsung (melewati RLS)  (ditolak: permission denied for table audit_log_default)
+PASS T25c role aplikasi menyisipkan audit langsung ke partisi  (ditolak: permission denied for table audit_log_default)
+PASS T25d role aplikasi tidak dapat menjalankan pembuat partisi  (ditolak: permission denied for function ensure_audit_partitions)
+PASS T25e lewat tabel induk, RLS tetap berlaku (hanya tenant aktif)  (= t)
+--- T26 Partisi bulanan audit_log ---
+PASS T26 partisi bulan berjalan (UTC) dibuat oleh migrasi  (= t)
+PASS T26b audit baru masuk partisi bulanan, bukan default  (= 0)
+PASS T26c idempoten: panggilan ulang tidak membuat apa pun  (= 0)
+PASS T26d bulan yang barisnya sudah di default → SKIPPED_DEFAULT_HAS_ROWS  (= SKIPPED_DEFAULT_HAS_ROWS)
+PASS T26e bulan lain tetap dibuat (bulan +3, +4)  (= 2)
+PASS T26f p_months_ahead di luar batas ditolak  (ditolak: p_months_ahead harus 0..24)
+PASS T26g partisi yang dibuat fungsi juga tanpa hak role aplikasi  (= 0)
+=== UJI MIGRASI LULUS ===

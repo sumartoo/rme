@@ -1,0 +1,2 @@
+81 permission, 8 role tenant, 2 role platform
+exit=0

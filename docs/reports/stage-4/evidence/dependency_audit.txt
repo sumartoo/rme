@@ -1,0 +1,26 @@
+# Audit dependency — 2026-11-04T03:23:49Z — pnpm 10.28.0, registry npm
+
+## Sebelum perbaikan (zod 3.25, multer 2.4.0 via @nestjs/platform-express 11.2.8)
+pnpm audit --prod → 2 vulnerabilities found · Severity: 2 high
+- zod <4.6.6 — GHSA-mrhx-c7xc-m3w5: memori habis saat validasi array besar tanpa batas panjang (path apps__api>zod)
+- multer >=2.0.0 <2.5.0 — GHSA-q7qp-rjg7-q26m: DoS lewat fileFilter async (path @nestjs/platform-express>multer)
+
+## Perbaikan
+- zod → ^4.6.7 (api, worker, iam, shared); default boolean diperbaiki (Zod 4: prefault) — tertangkap unit test config.spec
+- pnpm-workspace.yaml overrides: multer ^2.5.0
+- aturan Semgrep crme-zod-array-without-max (setiap z.array wajib .max)
+
+## Sesudah — gerbang CI: pnpm audit --prod --audit-level high
+No known vulnerabilities found
+exit code: 0
+
+## Semua dependency (termasuk dev tooling; informasi, bukan gerbang)
+9 vulnerabilities found
+Severity: 1 low | 8 moderate
+- moderate: esbuild <=0.24.2 — esbuild enables any website to send any requests to the development se (via drizzle-kit)
+- moderate: uuid <11.1.1 — uuid: Missing buffer bounds check in v3/v5/v6 when buf is provided (via webpack-dev-server)
+- low: deepmerge >=4.2.0 <=4.3.1 — deepmerge mergeObject() allows prototype poisoning of returned objects (via @nx/jest)
+- moderate: minimatch <11.0.1 — minimatch has potential denial of service via globparts amplification (via @nx/eslint)
+- moderate: glob >=9.0.0 <=14.0.1 — Glob: AbortSignal cancellation bypass allows post-timeout filesystem t (via @nx/jest)
+
+osv-scanner v2.7.0: api.osv.dev tidak terjangkau dari lingkungan build (diblokir) — dijalankan di workflow security, yang GAGAL bila API tidak terjangkau (bukan dianggap bersih).

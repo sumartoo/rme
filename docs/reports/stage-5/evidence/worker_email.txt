@@ -1,0 +1,25 @@
+# Worker: email outbox → SMTP (Mailpit v1.28.3 lokal) — 2026-11-04T09:22:54Z
+# DB dari migrasi 0000–0005 + seed sintetis; worker dari bundle produksi apps/worker/dist
+Migrasi diterapkan: 0000_baseline, 0001_permissions_roles, 0002_partition_grants_audit_partitions, 0003_platform_identity_and_tenant_lifecycle, 0004_tenant_profile_and_export, 0005_break_glass_and_notifications
+## outbox sebelum worker
+INVITATION_CREATED PENDING
+SUPPORT_ACCESS_GRANTED PENDING
+## log worker (ringkas)
+      1 "job":"notify.outbox.dispatch","job_id":"1b597a80-d45a-43e7-a8aa-62f7dab2b933","msg":"job mulai"
+      1 "job":"notify.outbox.dispatch","job_id":"1b597a80-d45a-43e7-a8aa-62f7dab2b933","msg":"job selesai"
+## outbox setelah worker
+INVITATION_CREATED DONE attempts=1
+SUPPORT_ACCESS_GRANTED DONE attempts=1
+## kotak masuk Mailpit
+calon.admin@a.test | Undangan ClinicRME — klinik-a
+admin@a.test | [ClinicRME] Akses dukungan dibuka untuk klinik-a
+## isi email break-glass (teks)
+Staf dukungan ClinicRME (Support Uji) mendapat akses sementara ke klinik-a.
+
+Alasan: Tiket #900: cek konfigurasi role
+Berlaku: 4 November 2026 pukul 16.22 WIB s.d. 4 November 2026 pukul 16.52 WIB
+Cakupan: hanya MEMBACA daftar pengguna/role dan log audit. Data pasien & rekam medis TIDAK dapat dibuka.
+Setiap akses tercatat di log audit klinik Anda.
+
+Bila tidak sesuai permintaan klinik, hubungi ClinicRME segera. Log audit: http://klinik-a.localhost:4200
+

@@ -1,0 +1,31 @@
+# Smoke stack lokal — jalur upgrade dari .env Stage 4 — 2026-11-04T04:40:21Z
+## 1. pnpm dev:env pada .env lama (tanpa kunci platform)
+.env sudah ada — ditambahkan kunci baru: POSTGRES_PLATFORM_USER, POSTGRES_PLATFORM_PASSWORD, PLATFORM_DATABASE_URL
+## 2. pnpm dev:db
+Migrasi diterapkan: 0000_baseline, 0001_permissions_roles, 0002_partition_grants_audit_partitions, 0003_platform_identity_and_tenant_lifecycle
+Role clinicrme_api: LOGIN, anggota clinicrme_app, NOBYPASSRLS ✓
+Role clinicrme_platform_api: LOGIN, anggota clinicrme_platform, NOBYPASSRLS ✓
+## 3. pnpm dev:seed
+Tenant demo siap: http://demo.localhost:3000
+Akun: admin@demo.test (TENANT_ADMIN), dokter@demo.test (DOKTER), perawat@demo.test (PERAWAT), pendaftaran@demo.test (PENDAFTARAN), kasir@demo.test (KASIR)
+Konsol platform: http://admin.localhost:3000 — akun admin@platform.test (PLATFORM_ADMIN, wajib TOTP)
+## 4. API (bundle produksi apps/api/dist/main.js) + alur konsol platform
+readyz 200
+POST /api/platform/v1/auth/login → 200 {"mfaEnrolled":false}
+GET  /api/platform/v1/tenants sebelum TOTP → AUTH-401-MFA-REQUIRED
+POST mfa/enroll → 200 (otpauth + 8 recovery code)
+POST mfa/verify → 204
+GET  plans → PILOT (user 25, cabang 2)
+POST tenants → 201 klinik-sehat TRIAL PILOT trial s.d. 2026-12-04
+GET  tenants → demo:ACTIVE klinik-sehat:TRIAL
+POST tenants/demo/status SUSPENDED → 200
+POST tenants/demo/status TRIAL (transisi tidak sah) → Transisi SUSPENDED → TRIAL tidak diizinkan (yang diizinkan: ACTIVE, TERMINATED)
+login dokter@demo.test saat SUSPENDED → TEN-403-SUSPENDED
+login admin@demo.test (TENANT_ADMIN) saat SUSPENDED → 200
+GET /api/platform/v1/me di host demo (cookie platform) → 404
+## 5. Log API: password/token/secret tidak tercatat
+DEV_SEED_PASSWORD: tidak ada di log ✓
+POSTGRES_PLATFORM_PASSWORD: tidak ada di log ✓
+POSTGRES_API_PASSWORD: tidak ada di log ✓
+cookie sesi platform: tidak ada di log ✓
+baris log: 50

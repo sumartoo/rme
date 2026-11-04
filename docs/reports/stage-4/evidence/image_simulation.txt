@@ -1,0 +1,24 @@
+# Simulasi image produksi (isi image tanpa base image — registry diblokir di lingkungan build) — 2026-11-04T03:31:04Z
+# Node v22.23.4, pnpm 10.28.0, PostgreSQL 16.15 (Ubuntu 16.15-0ubuntu0.24.04.1) on x86_64-pc-linux-gnu
+# Dijalankan dari salinan bersih repo (tanpa node_modules/.env/dist): pnpm install --frozen-lockfile
+
+# Isi = pnpm --filter <app> deploy --prod --legacy + bundle webpack + db/migrations (api), persis seperti docker/node-app.Dockerfile
+
+OK — 18 require eksternal di 2 bundle tersedia di /tmp/img-api/node_modules
+OK — 5 require eksternal di 1 bundle tersedia di /tmp/img-worker/node_modules
+ukuran node_modules: api 62M, worker 45M
+
+$ node migrate.js   (MIGRATION_DATABASE_URL, MIGRATIONS_DIR=/app/db/migrations)
+Migrasi diterapkan: 0000_baseline, 0001_permissions_roles, 0002_partition_grants_audit_partitions
+NOTICE:  role "crme_img_api" has already been granted membership in role "clinicrme_app" by role "postgres"
+$ node main.js   (NODE_ENV=production APP_ENV=dev, role crme_img_api ⊂ clinicrme_app)
+GET /readyz → {"status":"ok","checks":{"database":"ok"}}
+GET /api/v1/me (tenant tak dikenal) → 404
+x-powered-by: 0 baris · x-content-type-options: X-Content-Type-Options: nosniff
+
+## Temuan saat simulasi
+1. Dependency runtime root package.json (next, react — dari generator Nx) ikut terpasang di image api → 538 MB. Dihapus dari root → 62 MB.
+2. pg, drizzle-orm, jose, otplib tercatat sebagai devDependencies api → image akan crash saat start (dibuktikan: 'Cannot find module'). Dipindah ke dependencies; tools/check_bundle_deps.mjs mencegah terulang (job ci/quality).
+3. Worker tidak memakai NestJS (Node + pg-boss); dependency Nest sisa generator dihapus.
+
+Belum dibuktikan di sini: docker build dengan base image (node:22-bookworm-slim, distroless nodejs22) — job ci/images.

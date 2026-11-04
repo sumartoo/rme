@@ -1,0 +1,24 @@
+# Pemeriksaan salinan bersih — 2026-11-04T10:38:11Z
+# node v22.23.4, pnpm 10.28.0; STORAGE_TEST_GCS_ENDPOINT=http://localhost:4443 (fake-gcs-server 1.52.3)
+## nx sync:check
+[@nx/js:typescript-sync]: All files are up to date.
+## pnpm lint
+ NX   Successfully ran target lint for 12 projects
+## pnpm typecheck
+ NX   Successfully ran target typecheck for 10 projects
+## pnpm test
+Tests:       4 passed, 4 total
+Tests:       17 passed, 17 total
+Tests:       2 passed, 2 total
+Tests:       6 passed, 6 total
+Tests:       8 passed, 8 total
+Tests:       5 passed, 5 total
+Tests:       6 passed, 6 total
+Tests:       6 passed, 6 total
+Tests:       14 passed, 14 total
+ NX   Successfully ran target test for 11 projects
+## pnpm build
+ NX   Successfully ran target build for 4 projects and 1 task they depend on
+## dependensi runtime image (pnpm deploy --prod)
+OK — 18 require eksternal di 2 bundle tersedia di /tmp/img-api/node_modules
+OK — 6 require eksternal di 1 bundle tersedia di /tmp/img-worker/node_modules

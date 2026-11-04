@@ -1,0 +1,11 @@
+# Job worker system.audit_chain_verify (SC-AUD-03) — 2026-11-04T03:16:44Z
+# DB uji dengan 4 entri audit sintetis (2 tenant) lewat app.write_audit; worker dijalankan dari build (WORKER_SELFTEST=1)
+
+## 1. Rantai utuh → exit 0
+"audit_chain_verify":{"tenantsVerified":2}
+"msg":"SELFTEST OK"
+
+## 2. Superuser menonaktifkan trigger immutability lalu mengubah 1 entri (tenant A, seq 2) → exit 1
+"msg":"job gagal"
+Hash chain audit rusak: aaaaaaaa-0000-0000-0000-000000000000@seq 2
+"msg":"SELFTEST GAGAL"

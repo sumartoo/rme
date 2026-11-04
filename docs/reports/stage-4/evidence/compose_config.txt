@@ -1,0 +1,9 @@
+# Validasi docker-compose.yml — 2026-11-04T00:38:10Z — Docker Compose version v5.6.1
+# .env dibuat oleh pnpm dev:env (secret acak, tidak dicatat di sini)
+docker compose config: VALID
+services: gcs mailpit postgres 
+images: fsouza/fake-gcs-server:1.52.3 postgres:16-alpine axllent/mailpit:v1.28.3 (tag diverifikasi dari daftar rilis proyek, belum di-pull)
+
+CATATAN: registry image (Docker Hub, ghcr.io, gcr.io, ECR) diblokir di lingkungan build ini sehingga
+'docker compose up' belum dijalankan di sini. Alur dev:db / dev:seed / API diuji terhadap PostgreSQL 16 lokal
+dengan .env yang sama (lihat local_stack_smoke.txt). 'pnpm dev' end-to-end perlu dijalankan di mesin PO atau CI (batch 2).

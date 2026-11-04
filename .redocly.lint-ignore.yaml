@@ -1,0 +1,6 @@
+# Pengecualian lint yang disengaja.
+# Login Google memakai redirect 302 (OAuth Authorization Code), bukan respons 2xx.
+api/openapi.yaml:
+  operation-2xx-response:
+    - '#/paths/~1api~1v1~1auth~1google/get/responses'
+    - '#/paths/~1api~1v1~1auth~1google~1callback/get/responses'

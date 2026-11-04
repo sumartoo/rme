@@ -1,0 +1,179 @@
+# CI ClinicRME — setiap PR & push ke main (Stage 4, OD-025). Semua action dipin ke commit SHA
+# (tag dapat dipindahkan penyerang — insiden trivy-action Maret 2026). Tanpa secret repository.
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NX_DAEMON: 'false'
+  NX_NO_CLOUD: 'true'
+  PG_URL: postgres://postgres:postgres@localhost:5432 # pragma: allowlist secret — database CI sekali pakai
+
+jobs:
+  quality:
+    name: lint · typecheck · unit · build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      # lint memuat module boundaries, larangan pg langsung & sql.raw; unit memuat uji kontrak OpenAPI
+      - run: pnpm nx run-many -t lint typecheck test build
+      - name: Bundle hanya me-require paket yang ada di image produksi
+        run: |
+          pnpm --filter @clinicrme/api deploy --prod --legacy /tmp/img-api
+          pnpm --filter @clinicrme/worker deploy --prod --legacy /tmp/img-worker
+          node tools/check_bundle_deps.mjs /tmp/img-api apps/api/dist/main.js apps/api/dist/migrate.js
+          node tools/check_bundle_deps.mjs /tmp/img-worker apps/worker/dist/main.js
+      - name: Lint kontrak OpenAPI
+        run: npx --yes @redocly/cli@2.73.0 lint api/openapi.yaml
+
+  integration:
+    name: integrasi · SQL · skema · mutasi · worker
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres # pragma: allowlist secret — database CI sekali pakai
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 2s --health-timeout 3s --health-retries 30
+    env:
+      TEST_PG_ADMIN_URL: postgres://postgres:postgres@localhost:5432/postgres # pragma: allowlist secret
+      PG_ADMIN_URL: postgres://postgres:postgres@localhost:5432/postgres # pragma: allowlist secret
+      PGHOST: localhost
+      PGPORT: '5432'
+      PGUSER: postgres
+      PGPASSWORD: postgres # pragma: allowlist secret
+      MIGRATION_DATABASE_URL_BASE: postgres://postgres:postgres@localhost:5432 # pragma: allowlist secret
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Klien PostgreSQL 16 (pg_dump harus sama versi dengan server)
+        run: |
+          sudo apt-get update -q && sudo apt-get install -y -q postgresql-client-16
+          echo "/usr/lib/postgresql/16/bin" >> "$GITHUB_PATH"
+      - name: Uji integrasi API (suite Stage 3 + fondasi + konkurensi)
+        run: pnpm test:integration
+      - name: Uji keamanan skema SQL (DB dari migrasi)
+        run: pnpm test:db
+      - name: Migrasi baseline ≡ db/schema (ADR-0009)
+        run: pnpm check:schema
+      - name: Chromium untuk Playwright
+        run: pnpm exec playwright install --with-deps chromium
+      - name: Uji mutasi M1–M11 (RSK-020)
+        run: MUTATION_E2E=1 pnpm test:mutation
+      - name: Worker self-test (pg-boss + partisi audit)
+        run: |
+          psql "$PG_URL/postgres" -c "CREATE DATABASE crme_worker_ci"
+          MIGRATION_DATABASE_URL="$PG_URL/crme_worker_ci" pnpm db:migrate
+          pnpm nx run @clinicrme/worker:build
+          WORKER_DATABASE_URL="$PG_URL/crme_worker_ci" ENCRYPTION_KEY_HEX="$(openssl rand -hex 32)" WORKER_SELFTEST=1 APP_ENV=test node apps/worker/dist/main.js
+      - name: E2E konsol platform (Playwright, Chromium)
+        run: pnpm test:e2e
+      - name: Simpan trace Playwright bila gagal
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: playwright-trace
+          path: apps/platform-admin/test-results/
+          retention-days: 7
+
+  compose:
+    name: stack lokal (pnpm dev tanpa watch)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      # Sama dengan `pnpm dev` (README), tetapi aplikasi dijalankan dari hasil build agar langkah bisa diperiksa
+      - run: pnpm dev:setup
+      - run: pnpm nx run @clinicrme/api:build
+      - name: API → readyz, login demo, /me, password salah, tenant tak dikenal
+        run: |
+          set -a; . ./.env; set +a
+          node apps/api/dist/main.js > /tmp/api.log 2>&1 &
+          for _ in $(seq 1 30); do curl -sf localhost:3000/readyz && break; sleep 1; done
+          H="Host: demo.localhost:3000"
+          printf '{"email":"dokter@demo.test","password":"%s"}' "$DEV_SEED_PASSWORD" > /tmp/login.json
+          test "$(curl -s -o /dev/null -w '%{http_code}' -c /tmp/cj -H "$H" -H 'content-type: application/json' --data @/tmp/login.json localhost:3000/api/v1/auth/login)" = 200
+          curl -sf -b /tmp/cj -H "$H" localhost:3000/api/v1/me | grep -q dokter@demo.test
+          test "$(curl -s -o /dev/null -w '%{http_code}' -H "$H" -H 'content-type: application/json' -d '{"email":"dokter@demo.test","password":"salah"}' localhost:3000/api/v1/auth/login)" = 401
+          test "$(curl -s -o /dev/null -w '%{http_code}' -H 'Host: lain.localhost:3000' localhost:3000/api/v1/me)" = 404
+          if grep -q "$DEV_SEED_PASSWORD" /tmp/api.log; then echo "password muncul di log"; exit 1; fi
+      - if: always()
+        run: docker compose down -v
+
+  images:
+    name: image Docker (build · jalan · scan)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    needs: quality
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres # pragma: allowlist secret
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 2s --health-timeout 3s --health-retries 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - name: Build api, worker, web
+        run: |
+          docker build -f docker/node-app.Dockerfile --build-arg APP=api -t clinicrme-api:ci .
+          docker build -f docker/node-app.Dockerfile --build-arg APP=worker -t clinicrme-worker:ci .
+          docker build -f docker/web.Dockerfile -t clinicrme-web:ci .
+          docker build -f docker/web.Dockerfile --build-arg APP=platform-admin -t clinicrme-platform-admin:ci .
+      - name: Jalankan image (migrasi → API readyz → web healthz → worker self-test)
+        env:
+          IMG_DATABASE_URL: postgres://crme_img_api:img@localhost:5432/crme_img # pragma: allowlist secret — role uji sekali pakai
+          IMG_PLATFORM_DATABASE_URL: postgres://crme_img_platform:img@localhost:5432/crme_img # pragma: allowlist secret — role uji sekali pakai
+        run: |
+          psql "$PG_URL/postgres" -c "CREATE DATABASE crme_img" -c "CREATE ROLE crme_img_api LOGIN PASSWORD 'img'" -c "CREATE ROLE crme_img_platform LOGIN PASSWORD 'img'" # pragma: allowlist secret
+          docker run --rm --network host -e MIGRATION_DATABASE_URL="$PG_URL/crme_img" -e MIGRATIONS_DIR=/app/db/migrations clinicrme-api:ci migrate.js
+          psql "$PG_URL/crme_img" -c "GRANT clinicrme_app TO crme_img_api" -c "GRANT clinicrme_platform TO crme_img_platform"
+          docker run -d --name api --network host -e APP_ENV=dev -e PORT=3300 \
+            -e DATABASE_URL="$IMG_DATABASE_URL" -e PLATFORM_DATABASE_URL="$IMG_PLATFORM_DATABASE_URL" -e STORAGE_DRIVER=gcs -e ENCRYPTION_KEY_HEX="$(openssl rand -hex 32)" \
+            -e GOOGLE_CLIENT_ID=x -e GOOGLE_CLIENT_SECRET=x -e GOOGLE_REDIRECT_URI=https://x.invalid/cb clinicrme-api:ci
+          docker run -d --name web -p 3301:3000 clinicrme-web:ci
+          docker run -d --name padmin -p 3302:3000 clinicrme-platform-admin:ci
+          for _ in $(seq 1 30); do curl -sf localhost:3300/readyz && curl -sf localhost:3301/healthz && curl -sf localhost:3302/healthz && break; sleep 1; done
+          curl -sf localhost:3300/readyz && curl -sf localhost:3301/healthz && curl -sf localhost:3302/healthz
+          docker run --rm --network host -e WORKER_DATABASE_URL="$PG_URL/crme_img" -e ENCRYPTION_KEY_HEX="$(openssl rand -hex 32)" -e WORKER_SELFTEST=1 -e APP_ENV=test clinicrme-worker:ci
+          test "$(docker inspect -f '{{.Config.User}}' clinicrme-api:ci)" = nonroot
+      - name: Scan kerentanan image (osv-scanner; informasi — gerbang dependency aplikasi ada di workflow security)
+        run: |
+          curl -sSLo osv-scanner https://github.com/google/osv-scanner/releases/download/v2.7.0/osv-scanner_linux_amd64
+          echo "160c6253e2922e9e0a6a9771c5c4c40a4b3c6090b34a3cdd5e80c96cc2e4218b  osv-scanner" | sha256sum -c -
+          chmod +x osv-scanner
+          for img in api worker web platform-admin; do docker save clinicrme-$img:ci -o /tmp/$img.tar; ./osv-scanner scan image --archive /tmp/$img.tar --format table || echo "::warning::temuan di image $img (lihat log)"; done

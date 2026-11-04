@@ -1,0 +1,14 @@
+# Worker: ekspor tenant end-to-end dengan emulator GCS (fake-gcs-server 1.52.3, bucket kosong) — 2026-11-04T08:17:11Z
+# DB dari migrasi 0000–0004 + seed sintetis 2 tenant; 1 job ekspor tenant A di antrean; worker dari bundle produksi apps/worker/dist
+Migrasi diterapkan: 0000_baseline, 0001_permissions_roles, 0002_partition_grants_audit_partitions, 0003_platform_identity_and_tenant_lifecycle, 0004_tenant_profile_and_export
+## log worker (ringkas)
+      1 "job":"system.audit_partitions","msg":"job mulai"
+      1 "job":"system.audit_partitions","msg":"job selesai"
+      1 "job":"tenant.export.run","msg":"job mulai"
+      1 "job":"tenant.export.run","msg":"job selesai"
+## job ekspor
+status=DONE tabel=73 baris=20 bytes=5260 kunci_terenkripsi=true error=-
+## objek di bucket clinicrme-exports
+tenants/aaaaaaaa-0000-0000-0000-000000000000/export/2026/11/43dc8a71-7d27-4cc6-bb09-8401cf5bb96d.crmex 5260 bytes
+## audit tenant A
+EXPORT_COMPLETED SYSTEM

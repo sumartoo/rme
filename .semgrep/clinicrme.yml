@@ -1,0 +1,60 @@
+# Aturan SAST khusus ClinicRME (Semgrep CE). Dijalankan di CI bersama ruleset publik p/typescript & p/nodejs.
+# Setiap aturan punya file uji di .semgrep/ (semgrep --test .semgrep).
+rules:
+  - id: crme-no-sql-raw
+    languages: [typescript]
+    severity: ERROR
+    message: "sql.raw dilarang (SC-WEB-04). Gunakan template sql`...` yang terparameter atau sql.identifier."
+    pattern: sql.raw(...)
+
+  - id: crme-tenant-from-request
+    languages: [typescript]
+    severity: ERROR
+    message: "Tenant tidak boleh diambil dari input klien (SC-TEN-01). Gunakan ctx().tenantId dari sesi."
+    pattern-either:
+      - pattern: $REQ.body.tenant_id
+      - pattern: $REQ.body.tenantId
+      - pattern: $REQ.query.tenant_id
+      - pattern: $REQ.query.tenantId
+      - pattern: $REQ.headers['x-tenant-id']
+
+  - id: crme-zod-array-without-max
+    languages: [typescript]
+    severity: ERROR
+    message: "z.array tanpa .max(n): body besar dapat menghabiskan memori saat validasi (GHSA-mrhx-c7xc-m3w5). Tambahkan .max()."
+    patterns:
+      - pattern: z.array(...)
+      - pattern-not-inside: $X.max(...)
+      - pattern-not-inside: $X.length(...)
+
+  - id: crme-no-math-random-for-secrets
+    languages: [typescript]
+    severity: ERROR
+    message: "Math.random() bukan sumber acak kriptografis. Gunakan randomToken() dari @clinicrme/shared (node:crypto)."
+    patterns:
+      - pattern: Math.random()
+      - pattern-not-inside: |
+          describe(...)
+    paths:
+      exclude: ["*.spec.ts", "*.e2e-spec.ts", "**/test-integration/**"]
+
+  - id: crme-no-log-request-body
+    languages: [typescript]
+    severity: ERROR
+    message: "Jangan mencatat body request/objek domain ke log (SC-LOG-01: tanpa PHI)."
+    patterns:
+      - pattern-either:
+          - pattern: $LOG.$F(..., $REQ.body, ...)
+          - pattern: '$LOG.$F({..., body: $REQ.body, ...}, ...)'
+      - metavariable-regex:
+          metavariable: $LOG
+          regex: ^(console|log|logger|this\.log|this\.logger|pino)$
+      - metavariable-regex:
+          metavariable: $F
+          regex: ^(log|info|warn|error|debug|trace|fatal)$
+
+  - id: crme-no-dangerously-set-inner-html
+    languages: [typescript]
+    severity: ERROR
+    message: "dangerouslySetInnerHTML dilarang tanpa sanitasi (SC-WEB-03)."
+    pattern: <$EL dangerouslySetInnerHTML={...} />

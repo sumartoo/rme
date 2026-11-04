@@ -1,0 +1,13 @@
+# Pemindaian rahasia & SAST — 2026-11-04T10:46:12Z (salinan bersih)
+## gitleaks 8.30.1 (berkas sumber yang akan di-commit)
+INF scanned ~1824924 bytes (1.82 MB) in 168ms
+INF no leaks found
+## detect-secrets
+0 temuan 
+## Semgrep aturan proyek
+9/9 kasus positif terdeteksi, 6/6 kasus negatif bersih, 6 aturan: crme-no-dangerously-set-inner-html, crme-no-log-request-body, crme-no-math-random-for-secrets, crme-no-sql-raw, crme-tenant-from-request, crme-zod-array-without-max
+kode aplikasi: 0 temuan []
+## pnpm audit --prod --audit-level high
+No known vulnerabilities found
+## actionlint
+0 masalah

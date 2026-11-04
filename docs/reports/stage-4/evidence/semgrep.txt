@@ -1,0 +1,8 @@
+# Semgrep CE 1.183.0 — aturan proyek .semgrep/clinicrme.yml — 2026-11-04T03:21:37Z
+# Ruleset publik (p/typescript, p/nodejs) tidak dapat diunduh dari lingkungan build (semgrep.dev diblokir) → dijalankan di workflow security
+
+## Uji aturan (python3 tools/test_semgrep_rules.py)
+9/9 kasus positif terdeteksi, 6/6 kasus negatif bersih, 6 aturan: crme-no-dangerously-set-inner-html, crme-no-log-request-body, crme-no-math-random-for-secrets, crme-no-sql-raw, crme-tenant-from-request, crme-zod-array-without-max
+
+## Scan kode (apps, libs, tools)
+temuan: 0 · error: 0 · file dipindai: 80

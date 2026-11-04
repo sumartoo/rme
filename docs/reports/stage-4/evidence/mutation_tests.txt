@@ -1,0 +1,11 @@
+# Uji mutasi M1–M5 di monorepo (RSK-020) — 2026-11-04T03:31:02Z
+# Node v22.23.4, pnpm 10.28.0, PostgreSQL 16.15 (Ubuntu 16.15-0ubuntu0.24.04.1) on x86_64-pc-linux-gnu
+# Dijalankan dari salinan bersih repo (tanpa node_modules/.env/dist): pnpm install --frozen-lockfile
+
+# Perintah: TEST_PG_ADMIN_URL=... pnpm test:mutation
+# Uji mutasi — 2026-11-04T03:30:03Z
+TERDETEKSI  M1  pengecekan tenant sesi vs subdomain dihapus  → gagal: E12 | Tests:       1 failed, 51 passed, 52 total
+TERDETEKSI  M2  role DB aplikasi diberi BYPASSRLS  → gagal: E05 E10 E11 E13 F14 | Tests:       5 failed, 47 passed, 52 total
+TERDETEKSI  M3  batas percobaan MFA dilonggarkan  → gagal: E32 | Tests:       1 failed, 51 passed, 52 total
+TERDETEKSI  M4  rotasi sesi saat MFA dihapus  → gagal: E08 | Tests:       1 failed, 51 passed, 52 total
+TERDETEKSI  M5  partisi audit kembali dapat diakses role aplikasi (perbaikan migrasi 0002 dihapus)  → gagal: F14 | Tests:       1 failed, 51 passed, 52 total

@@ -1,0 +1,14 @@
+# Uji kontrak OpenAPI — 2026-11-04T10:45:58Z
+Tests:       6 passed, 6 total
+
+## Redocly lint
+api/openapi.yaml: validated in 249ms 2 problems are explicitly ignored. 
+
+## Operasi baru/berubah batch 3b–4
+GET   /api/v1/auth/session                                 (sesi)                   authSession                  → 200,400,401,429
+POST  /api/platform/v1/support-access                      platform.support.access  platformSupportAccess        → 201,400,401,403,404,409
+GET   /api/platform/v1/support-access                      (sesi)                   platformSupportAccessList    → 200,400,401
+POST  /api/platform/v1/support-access/{grantId}/revoke     (sesi)                   platformSupportAccessRevoke  → 200,400,401,403,404,409
+GET   /api/platform/v1/support-access/{grantId}/users      platform.support.access  platformSupportUsers         → 200,400,401,403,404
+GET   /api/platform/v1/support-access/{grantId}/audit-log  platform.support.access  platformSupportAuditLog      → 200,400,401,403,404
+jumlah operasi total: 158

@@ -1,0 +1,44 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compileOnSave": false,
+  "files": [],
+  "references": [
+    {
+      "path": "./apps/api"
+    },
+    {
+      "path": "./libs/shared"
+    },
+    {
+      "path": "./libs/db"
+    },
+    {
+      "path": "./libs/iam"
+    },
+    {
+      "path": "./apps/worker"
+    },
+    {
+      "path": "./libs/patient"
+    },
+    {
+      "path": "./apps/web"
+    },
+    {
+      "path": "./libs/platform"
+    },
+    {
+      "path": "./libs/ui"
+    },
+    {
+      "path": "./apps/platform-admin"
+    },
+    {
+      "path": "./libs/storage"
+    },
+    {
+      "path": "./libs/tenant"
+    }
+  ],
+  "compilerOptions": {}
+}

@@ -1,0 +1,26 @@
+# Smoke stack lokal — 2026-11-04T00:38:47Z
+# .env dari pnpm dev:env; PostgreSQL 16 lokal menggantikan container compose (registry diblokir di lingkungan ini). Secret tidak dicatat.
+
+$ pnpm dev:db
+Database sudah terbaru
+Role clinicrme_api: LOGIN, anggota clinicrme_app, NOBYPASSRLS ✓
+$ pnpm dev:seed
+Tenant demo siap: http://demo.localhost:3000
+Akun: admin@demo.test (TENANT_ADMIN), dokter@demo.test (DOKTER), perawat@demo.test (PERAWAT), pendaftaran@demo.test (PENDAFTARAN), kasir@demo.test (KASIR)
+Password semua akun demo: nilai DEV_SEED_PASSWORD di .env
+$ pnpm dev:db   # idempoten
+Database sudah terbaru
+Role clinicrme_api: LOGIN, anggota clinicrme_app, NOBYPASSRLS ✓
+
+$ curl localhost:3000/readyz
+{"status":"ok","checks":{"database":"ok"}}
+$ curl -H "Host: demo.localhost" POST /api/v1/auth/login {dokter@demo.test, <DEV_SEED_PASSWORD>}
+{"ok":true}
+$ curl (cookie) GET /api/v1/me
+{'email': 'dokter@demo.test', 'tenantId': 'dddddddd-0000-0000-0000-000000000000', 'permissions': 27}
+$ curl POST /api/v1/auth/login {password salah}
+{"type":"about:blank","title":"Email atau password salah","status":401,"code":"AUTH-401-INVALID"}
+$ curl -H "Host: tidakada.localhost" GET /api/v1/me
+{"type":"about:blank","title":"Klinik tidak ditemukan","status":404,"code":"TEN-404-UNKNOWN"}
+
+Baris log API: 28 (JSON). Password demo muncul di log: 0 kali. Token sesi muncul di log: 0 kali.
