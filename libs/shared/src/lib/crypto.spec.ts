@@ -1,4 +1,4 @@
-import { decrypt, encrypt, pkceChallenge, randomToken, sign, verifySigned } from './crypto';
+import { blindIndex, decrypt, encrypt, pkceChallenge, randomToken, sign, verifySigned } from './crypto';
 
 const KEY = 'c'.repeat(64);
 
@@ -31,5 +31,14 @@ describe('crypto', () => {
 
   it('PKCE S256 sesuai vektor uji RFC 7636 Lampiran B', () => {
     expect(pkceChallenge('dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk')).toBe('E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM'); // pragma: allowlist secret — vektor uji publik RFC 7636
+  });
+
+  it('indeks buta: deterministik per tujuan, berbeda antar-tujuan & antar-kunci', () => {
+    const a = blindIndex(KEY, 'nik', '3201010101010001');
+    expect(a).toMatch(/^[0-9a-f]{64}$/);
+    expect(blindIndex(KEY, 'nik', '3201010101010001')).toBe(a);
+    expect(blindIndex(KEY, 'patient-nik', '3201010101010001')).not.toBe(a);
+    expect(blindIndex('d'.repeat(64), 'nik', '3201010101010001')).not.toBe(a);
+    expect(blindIndex(KEY, 'nik', '3201010101010002')).not.toBe(a);
   });
 });

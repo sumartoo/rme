@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Uji mutasi kontrol keamanan (Stage 3 M1–M4 diulang di monorepo — RSK-020; M5 Stage 4; M6–M14 Stage 5; M15–M17 Stage 6).
+# Uji mutasi kontrol keamanan (Stage 3 M1–M4 diulang di monorepo — RSK-020; M5 Stage 4; M6–M14 Stage 5; M15–M17 Stage 6; M18–M19 Stage 7).
 # Setiap mutasi sengaja merusak satu kontrol, menjalankan suite integrasi API, dan LULUS hanya bila
 # uji yang menjaga kontrol itu GAGAL. Kode selalu dikembalikan (trap), juga bila skrip dihentikan.
 #
@@ -22,7 +22,9 @@ TOTP=libs/shared/src/lib/totp.ts
 IAMUSERS=libs/iam/src/lib/users.controller.ts
 ACCOUNT=libs/iam/src/lib/account.controller.ts
 EXPORT=libs/db/src/lib/tenant-export.ts
-FILES=("$AUTH" "$SESSION" "$MIG2" "$MIG3" "$GUARD" "$PGUARD" "$LAYOUT" "$EXPORT" "$MIG5" "$MIG6" "$TOTP" "$IAMUSERS" "$ACCOUNT")
+MDCOMMON=libs/masterdata/src/lib/common.ts
+PRACT=libs/masterdata/src/lib/practitioners.controller.ts
+FILES=("$AUTH" "$SESSION" "$MIG2" "$MIG3" "$GUARD" "$PGUARD" "$LAYOUT" "$EXPORT" "$MIG5" "$MIG6" "$TOTP" "$IAMUSERS" "$ACCOUNT" "$MDCOMMON" "$PRACT")
 BACKUP=$(mktemp -d)
 cp "${FILES[@]}" "$BACKUP"/
 restore() { for f in "${FILES[@]}"; do cp "$BACKUP/$(basename "$f")" "$f"; done; }
@@ -81,6 +83,10 @@ mutate M16 "pencegahan eskalasi hak dimatikan (pemberi boleh memberi izin admin 
   "sed -i 's/ADMIN_PERMISSION.test(p) \&\& !mine.has(p)/false/' $IAMUSERS && grep -q 'some((p) => false)' $IAMUSERS" ""
 mutate M17 "token reset password dapat dipakai ulang (used_at tidak diperiksa)" 'I06' \
   "sed -i 's/ and r.used_at is null and r.expires_at > now()/ and r.expires_at > now()/; s/ where id = \${r.id} and used_at is null returning id/ where id = \${r.id} returning id/' $ACCOUNT && ! grep -q 'r.used_at is null' $ACCOUNT" ""
+mutate M18 "audit master tidak menyamarkan kolom rahasia (NIK)" 'M06' \
+  "sed -i \"s/secret.includes(k) \&\& v !== null ? '\[rahasia\]' : v/v/\" $MDCOMMON && ! grep -q \"? '\[rahasia\]' : v\" $MDCOMMON" ""
+mutate M19 "NIK tenaga kesehatan dikembalikan utuh di respons (tanpa penyamaran)" 'M06' \
+  "sed -i 's/(nik ? \`\${nik.slice(0, 4)}\*\*\*\*\*\*\*\*\${nik.slice(-4)}\` : null)/nik/' $PRACT && ! grep -q 'nik.slice(0, 4)' $PRACT" ""
 
 # Mutasi UI: suite Playwright (U##) sebagai detektor
 if [ "${MUTATION_E2E:-0}" = "1" ]; then

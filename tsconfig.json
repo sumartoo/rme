@@ -38,6 +38,9 @@
     },
     {
       "path": "./libs/tenant"
+    },
+    {
+      "path": "./libs/masterdata"
     }
   ],
   "compilerOptions": {}

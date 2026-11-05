@@ -1,5 +1,5 @@
 'use client';
-import { Building2, Download, LogOut, Monitor, Settings, Shield, User, Users, type LucideIcon } from 'lucide-react';
+import { Building2, Database, Download, LogOut, Monitor, Settings, Shield, Stethoscope, User, Users, type LucideIcon } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
@@ -7,7 +7,8 @@ import { Button, Select, cn } from '@clinicrme/ui';
 import { ApiError, AuthSession, Me, MenuNode, api } from '../../lib/api';
 import { Session, SessionContext } from '../../lib/session';
 
-const ICONS: Record<string, LucideIcon> = { settings: Settings, building: Building2, users: Users, shield: Shield, download: Download, user: User, monitor: Monitor };
+const ICONS: Record<string, LucideIcon> = { settings: Settings, building: Building2, 'building-2': Building2, users: Users, shield: Shield,
+  download: Download, user: User, monitor: Monitor, database: Database, stethoscope: Stethoscope };
 
 /**
  * Shell aplikasi klinik: menu samping dari `GET /me/menu` (IAM-FR-010) dan pilihan cabang aktif (IAM-FR-009).

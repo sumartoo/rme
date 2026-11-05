@@ -19,6 +19,15 @@ export function decrypt(keyHex: string, blob: Buffer): string {
   return Buffer.concat([d.update(blob.subarray(28)), d.final()]).toString('utf8');
 }
 
+/**
+ * Indeks buta (blind index) untuk pencarian & keunikan nilai terenkripsi (NIK): HMAC-SHA256 dengan subkunci
+ * per tujuan, diturunkan dari kunci data — nilai yang sama di tujuan berbeda tidak dapat dikorelasikan.
+ */
+export function blindIndex(keyHex: string, purpose: string, value: string): string {
+  const sub = createHmac('sha256', Buffer.from(keyHex, 'hex')).update(`blind-index:${purpose}`).digest();
+  return createHmac('sha256', sub).update(value).digest('hex');
+}
+
 /** Nilai bertanda tangan HMAC untuk cookie state OIDC. */
 export function sign(keyHex: string, payload: object): string {
   const body = Buffer.from(JSON.stringify(payload)).toString('base64url');

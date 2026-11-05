@@ -1,10 +1,10 @@
 'use client';
 import { useCallback, useEffect, useState } from 'react';
 import {
-  Alert, Badge, Button, Card, CardContent, CardDescription, CardHeader, CardTitle, Dialog, Field, Input, TBody, TD, TH, THead, TR, Table, Textarea,
+  Alert, Badge, Button, Card, CardContent, CardDescription, CardHeader, CardTitle, Dialog, Field, Input, Select, TBody, TD, TH, THead, TR, Table, Textarea,
 } from '@clinicrme/ui';
-import { InvitationItem, Page, Role, UserItem, api, errorText } from '../../../../lib/api';
-import { fmtDateTime } from '../../../../lib/format';
+import { InvitationItem, Page, Practitioner, Role, UserItem, api, errorText } from '../../../../lib/api';
+import { PRACTITIONER_TYPE_LABEL, fmtDateTime } from '../../../../lib/format';
 import { can, useSession } from '../../../../lib/session';
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -16,6 +16,7 @@ export default function UsersPage() {
   const [users, setUsers] = useState<UserItem[]>();
   const [invites, setInvites] = useState<InvitationItem[]>([]);
   const [roles, setRoles] = useState<Role[]>([]);
+  const [practitioners, setPractitioners] = useState<Practitioner[]>([]);
   const [error, setError] = useState<string>();
   const [notice, setNotice] = useState<string>();
   const [inviteOpen, setInviteOpen] = useState(false);
@@ -27,6 +28,8 @@ export default function UsersPage() {
       const [u, i] = await Promise.all([api<Page<UserItem>>('/users?limit=200'), api<InvitationItem[]>('/users/invitations')]);
       setUsers(u.data); setInvites(i);
       if (manage && can(s, 'iam.role.read')) setRoles(await api<Role[]>('/roles'));
+      // IAM-FR-016: tenaga kesehatan aktif yang belum punya akun dapat ditautkan saat mengundang
+      if (manage && can(s, 'master.practitioner.read')) setPractitioners((await api<Page<Practitioner>>('/practitioners?unlinked=true&limit=200')).data);
     } catch (e) { setError(errorText(e, 'Gagal memuat pengguna')); }
   }, [manage, s]);
   useEffect(() => { void load(); }, [load]);
@@ -98,7 +101,7 @@ export default function UsersPage() {
           )}
         </CardContent>
       </Card>
-      {manage ? <InviteDialog open={inviteOpen} roles={roles} onClose={() => setInviteOpen(false)}
+      {manage ? <InviteDialog open={inviteOpen} roles={roles} practitioners={practitioners} onClose={() => setInviteOpen(false)}
                              onDone={(email) => { setInviteOpen(false); void act(async () => undefined, `Undangan dikirim ke ${email}.`); }} /> : null}
       <Dialog open={!!resetMfa} onClose={() => setResetMfa(undefined)} title="Reset MFA?" description={resetMfa?.email ?? ''}>
         <p className="text-sm">Authenticator & recovery code pengguna ini dihapus dan semua sesinya dicabut. Ia harus mendaftarkan
@@ -115,13 +118,16 @@ export default function UsersPage() {
   );
 }
 
-function InviteDialog({ open, roles, onClose, onDone }: { open: boolean; roles: Role[]; onClose: () => void; onDone: (email: string) => void }) {
+function InviteDialog({ open, roles, practitioners, onClose, onDone }: {
+  open: boolean; roles: Role[]; practitioners: Practitioner[]; onClose: () => void; onDone: (email: string) => void;
+}) {
   const [email, setEmail] = useState('');
   const [fullName, setFullName] = useState('');
   const [picked, setPicked] = useState<string[]>([]);
+  const [practitionerId, setPractitionerId] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string>();
-  useEffect(() => { if (open) { setEmail(''); setFullName(''); setPicked([]); setError(undefined); } }, [open]);
+  useEffect(() => { if (open) { setEmail(''); setFullName(''); setPicked([]); setPractitionerId(''); setError(undefined); } }, [open]);
   const ok = EMAIL.test(email.trim()) && picked.length > 0;
 
   async function submit(e: React.FormEvent) {
@@ -129,7 +135,8 @@ function InviteDialog({ open, roles, onClose, onDone }: { open: boolean; roles: 
     if (!ok) return;
     setBusy(true); setError(undefined);
     try {
-      await api('/users/invitations', { method: 'POST', body: { email: email.trim(), ...(fullName.trim() ? { fullName: fullName.trim() } : {}), roleIds: picked } });
+      await api('/users/invitations', { method: 'POST', body: { email: email.trim(), ...(fullName.trim() ? { fullName: fullName.trim() } : {}), roleIds: picked,
+        ...(practitionerId ? { practitionerId } : {}) } });
       onDone(email.trim().toLowerCase());
     } catch (err) { setError(errorText(err, 'Gagal mengundang')); }
     finally { setBusy(false); }
@@ -151,6 +158,18 @@ function InviteDialog({ open, roles, onClose, onDone }: { open: boolean; roles: 
             </label>
           ))}
         </fieldset>
+        {practitioners.length ? (
+          <Field id="inv-practitioner" label="Tenaga kesehatan (opsional)" hint="Untuk dokter/nakes: menautkan akun ke data STR/SIP (dasar tanda tangan klinis).">
+            <Select id="inv-practitioner" value={practitionerId} onChange={(e) => {
+              setPractitionerId(e.target.value);
+              const p = practitioners.find((x) => x.id === e.target.value);
+              if (p && !fullName.trim()) setFullName(p.fullName);
+            }}>
+              <option value="">— tidak ditautkan —</option>
+              {practitioners.map((p) => <option key={p.id} value={p.id}>{p.fullName} · {PRACTITIONER_TYPE_LABEL[p.practitionerType]}</option>)}
+            </Select>
+          </Field>
+        ) : null}
         <div className="flex justify-end gap-2">
           <Button type="button" variant="outline" onClick={onClose}>Batal</Button>
           <Button type="submit" loading={busy} disabled={!ok}>Kirim undangan</Button>

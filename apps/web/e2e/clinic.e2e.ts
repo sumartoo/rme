@@ -297,6 +297,53 @@ test('W12 sesi & perangkat: cabut sesi lain → perangkat itu keluar; nonaktifka
   await ctx.close();
 });
 
+test('W13 master data: tambah poli di cabang, tenaga kesehatan dengan NIK tersamar & SIP, lalu tautkan saat mengundang (Stage 7)', async ({ page }) => {
+  watchCsp(page);
+  await signInAdmin(page);
+  const menu = page.getByTestId('side-menu');
+  await menu.getByRole('link', { name: 'Fasilitas & cabang' }).click();
+  await expect(page.getByTestId('facility-row').filter({ hasText: 'Klinik Web E2E' })).toBeVisible();
+  await page.getByRole('button', { name: 'Tambah unit' }).click();
+  const ud = page.getByRole('dialog', { name: 'Tambah poli/unit' });
+  await ud.getByLabel('Cabang *').selectOption({ label: 'Cabang Timur' });
+  await ud.getByLabel('Kode *').fill('gigi');
+  await ud.getByLabel('Nama *').fill('Poli Gigi');
+  await ud.getByRole('button', { name: 'Simpan' }).click();
+  await expect(page.getByText('Poli/unit "Poli Gigi" ditambahkan.')).toBeVisible();
+  await expect(page.getByTestId('unit-row').filter({ hasText: 'Poli Gigi' })).toContainText('GIGI');
+
+  await menu.getByRole('link', { name: 'Tenaga kesehatan' }).click();
+  await page.getByRole('button', { name: 'Tambah tenaga kesehatan' }).click();
+  const pd = page.getByRole('dialog', { name: 'Tambah tenaga kesehatan' });
+  await pd.getByLabel('Nama lengkap (dengan gelar) *').fill('drg. Web Sintetis');
+  await pd.getByLabel('Jenis').selectOption({ label: 'Dokter gigi' });
+  await pd.getByLabel('NIK').fill('123');
+  await expect(pd.getByText('NIK harus 16 digit angka')).toBeVisible();
+  await pd.getByLabel('NIK').fill('3201011201900077');
+  await pd.getByLabel('Nomor SIP').fill('SIP-WEB-1');
+  await pd.getByLabel('SIP berlaku sampai').fill('2030-01-31');
+  await pd.getByRole('button', { name: 'Simpan' }).click();
+  const row = page.getByTestId('practitioner-row').filter({ hasText: 'drg. Web Sintetis' });
+  await expect(row).toContainText('3201********0077');
+  await expect(row).not.toContainText('3201011201900077');
+  await row.getByRole('button', { name: 'Ubah' }).click();
+  const ed = page.getByRole('dialog', { name: 'Ubah tenaga kesehatan' });
+  await ed.getByLabel('Nomor SIP').fill('SIP-WEB-2');
+  await ed.getByRole('button', { name: 'Simpan' }).click();
+  await expect(row).toContainText('SIP-WEB-2');
+  await expect(row).toContainText('3201********0077');                 // NIK tetap walau tidak diisi ulang
+
+  await menu.getByRole('link', { name: 'Pengguna' }).click();
+  await page.getByRole('button', { name: 'Undang pengguna' }).click();
+  const inv = page.getByRole('dialog', { name: 'Undang pengguna' });
+  await inv.getByLabel('Email').fill('drg@klinik-web.test');
+  await inv.getByLabel('Tenaga kesehatan (opsional)').selectOption({ label: 'drg. Web Sintetis · Dokter gigi' });
+  await expect(inv.getByLabel('Nama (opsional)')).toHaveValue('drg. Web Sintetis');
+  await inv.getByLabel(/^Dokter/).check();
+  await inv.getByRole('button', { name: 'Kirim undangan' }).click();
+  await expect(page.getByText('Undangan dikirim ke drg@klinik-web.test.')).toBeVisible();
+});
+
 test('W06 keamanan: CSP bernonce, no-store; proxy hanya untuk klinik dari subdomain; tidak ada pelanggaran CSP', async ({ page }) => {
   const res = await page.goto('/login');
   const h = res!.headers();

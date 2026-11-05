@@ -5,6 +5,7 @@ import type { IncomingMessage } from 'node:http';
 import { randomUUID } from 'node:crypto';
 import { AppConfig, BodyValidationInterceptor, ProblemFilter, REDACT_CENSOR, REDACT_PATHS, RequestContext } from '@clinicrme/shared';
 import { IamModule } from '@clinicrme/iam';
+import { MasterdataModule } from '@clinicrme/masterdata';
 import { PatientModule } from '@clinicrme/patient';
 import { PlatformModule } from '@clinicrme/platform';
 import { TenantModule } from '@clinicrme/tenant';
@@ -48,6 +49,7 @@ export class AppModule {
         IamModule,
         PlatformModule,
         TenantModule,
+        MasterdataModule,
         PatientModule,
       ],
       controllers: [HealthController, ...(extra.controllers ?? [])],

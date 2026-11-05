@@ -34,7 +34,7 @@ export default [
   },
   {
     // Akses database hanya lewat libs/db (Db.withTenant / withTenantTx) — SC-TEN-02
-    files: ['apps/api/src/**/*.ts', 'apps/web/**/*.ts', 'apps/web/**/*.tsx', 'libs/iam/**/*.ts', 'libs/patient/**/*.ts', 'libs/platform/**/*.ts', 'libs/tenant/**/*.ts', 'libs/storage/**/*.ts', 'libs/shared/**/*.ts'],
+    files: ['apps/api/src/**/*.ts', 'apps/web/**/*.ts', 'apps/web/**/*.tsx', 'libs/iam/**/*.ts', 'libs/patient/**/*.ts', 'libs/platform/**/*.ts', 'libs/tenant/**/*.ts', 'libs/masterdata/**/*.ts', 'libs/storage/**/*.ts', 'libs/shared/**/*.ts'],
     rules: {
       'no-restricted-imports': ['error', {
         paths: [

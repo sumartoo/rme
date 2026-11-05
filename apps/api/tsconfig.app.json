@@ -28,10 +28,10 @@
   ],
   "references": [
     {
-      "path": "../../libs/storage/tsconfig.lib.json"
+      "path": "../../libs/tenant/tsconfig.lib.json"
     },
     {
-      "path": "../../libs/tenant/tsconfig.lib.json"
+      "path": "../../libs/storage/tsconfig.lib.json"
     },
     {
       "path": "../../libs/shared/tsconfig.lib.json"
@@ -41,6 +41,9 @@
     },
     {
       "path": "../../libs/patient/tsconfig.lib.json"
+    },
+    {
+      "path": "../../libs/masterdata/tsconfig.lib.json"
     },
     {
       "path": "../../libs/iam/tsconfig.lib.json"

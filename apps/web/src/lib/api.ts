@@ -64,3 +64,20 @@ export interface ExportJob {
   id: string; status: ExportStatus; requestedAt: string; finishedAt: string | null; expiresAt: string | null;
   sizeBytes: number | null; sha256: string | null; tableCount: number | null; rowCount: number | null; error: string | null; downloadUrl: string | null;
 }
+
+// ------------------------------------------------------------------ Master data (Stage 7)
+export type FacilityType = 'KLINIK_UTAMA' | 'KLINIK_PRATAMA' | 'PRAKTIK_MANDIRI';
+export interface Facility { id: string; name: string; facilityType: FacilityType; licenseNumber: string | null; isActive: boolean; version: number }
+export type Timezone = 'Asia/Jakarta' | 'Asia/Makassar' | 'Asia/Jayapura';
+export interface BranchItem {
+  id: string; facilityId: string; code: string; name: string; address: string | null; regionCode: string | null; phone: string | null;
+  timezone: Timezone; isActive: boolean; version: number;
+}
+export type UnitType = 'POLI' | 'RUANG' | 'FARMASI' | 'KASIR' | 'LAB' | 'LAINNYA';
+export interface ServiceUnit { id: string; branchId: string; code: string; name: string; unitType: UnitType; specialty: string | null; isActive: boolean; version: number }
+export type PractitionerType = 'DOKTER' | 'DOKTER_GIGI' | 'DOKTER_SPESIALIS' | 'PERAWAT' | 'BIDAN' | 'APOTEKER' | 'TTK' | 'ANALIS' | 'LAINNYA';
+export interface Practitioner {
+  id: string; fullName: string; nikMasked: string | null; practitionerType: PractitionerType; specialty: string | null;
+  strNumber: string | null; strValidUntil: string | null; sipNumber: string | null; sipValidUntil: string | null;
+  satusehatIhsId: string | null; isActive: boolean; linkedUserId: string | null; version: number;
+}

@@ -1514,6 +1514,98 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
+  /api/v1/facilities:
+    get:
+      operationId: facilityList
+      tags:
+      - Master
+      summary: Daftar fasilitas
+      x-requirements:
+      - MST-FR-001
+      x-permission: master.facility.read
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Facility'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+    post:
+      operationId: facilityCreate
+      tags:
+      - Master
+      summary: Tambah fasilitas
+      x-requirements:
+      - MST-FR-001
+      - MST-FR-009
+      x-permission: master.facility.manage
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Facility'
+      responses:
+        '201':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Facility'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /api/v1/facilities/{facilityId}:
+    put:
+      operationId: facilityUpdate
+      tags:
+      - Master
+      summary: Ubah fasilitas
+      x-requirements:
+      - MST-FR-001
+      - MST-FR-009
+      x-permission: master.facility.manage
+      parameters:
+      - $ref: '#/components/parameters/facilityId'
+      - $ref: '#/components/parameters/IfMatch'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Facility'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Facility'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '412':
+          $ref: '#/components/responses/PreconditionFailed'
   /api/v1/branches:
     get:
       operationId: branchList
@@ -1568,6 +1660,45 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '409':
           $ref: '#/components/responses/Conflict'
+  /api/v1/branches/{branchId}:
+    put:
+      operationId: branchUpdate
+      tags:
+      - Master
+      summary: Ubah cabang (aktifkan ulang cek kuota)
+      x-requirements:
+      - MST-FR-001
+      - MST-FR-009
+      - PLT-FR-004
+      x-permission: master.facility.manage
+      parameters:
+      - $ref: '#/components/parameters/branchId'
+      - $ref: '#/components/parameters/IfMatch'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Branch'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Branch'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '412':
+          $ref: '#/components/responses/PreconditionFailed'
   /api/v1/service-units:
     get:
       operationId: unitList
@@ -1621,6 +1752,44 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '409':
           $ref: '#/components/responses/Conflict'
+  /api/v1/service-units/{unitId}:
+    put:
+      operationId: unitUpdate
+      tags:
+      - Master
+      summary: Ubah poli/unit
+      x-requirements:
+      - MST-FR-001
+      - MST-FR-009
+      x-permission: master.facility.manage
+      parameters:
+      - $ref: '#/components/parameters/unitId'
+      - $ref: '#/components/parameters/IfMatch'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ServiceUnit'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ServiceUnit'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '412':
+          $ref: '#/components/responses/PreconditionFailed'
   /api/v1/practitioners:
     get:
       operationId: practitionerList
@@ -1686,6 +1855,31 @@ paths:
         '409':
           $ref: '#/components/responses/Conflict'
   /api/v1/practitioners/{practitionerId}:
+    get:
+      operationId: practitionerGet
+      tags:
+      - Master
+      summary: Detail tenaga kesehatan
+      x-requirements:
+      - MST-FR-002
+      x-permission: master.practitioner.read
+      parameters:
+      - $ref: '#/components/parameters/practitionerId'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Practitioner'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
     put:
       operationId: practitionerUpdate
       tags:
@@ -5001,6 +5195,12 @@ components:
       required: true
       description: appointmentId
       schema: *id002
+    branchId:
+      name: branchId
+      in: path
+      required: true
+      description: branchId
+      schema: *id002
     chargeId:
       name: chargeId
       in: path
@@ -5032,6 +5232,12 @@ components:
       description: entity
       schema:
         type: string
+    facilityId:
+      name: facilityId
+      in: path
+      required: true
+      description: facilityId
+      schema: *id002
     feature:
       name: feature
       in: path
@@ -5161,6 +5367,12 @@ components:
       description: token
       schema:
         type: string
+    unitId:
+      name: unitId
+      in: path
+      required: true
+      description: unitId
+      schema: *id002
     userId:
       name: userId
       in: path
@@ -5546,15 +5758,40 @@ components:
       required:
       - id
       - createdAt
+    Facility:
+      type: object
+      properties:
+        id: *id002
+        name:
+          type: string
+        facilityType:
+          type: string
+          enum:
+          - KLINIK_UTAMA
+          - KLINIK_PRATAMA
+          - PRAKTIK_MANDIRI
+        licenseNumber:
+          type: string
+        isActive: *id001
+        version: *id003
+      required:
+      - id
+      - name
+      - facilityType
     Branch:
       type: object
       properties:
         id: *id002
+        facilityId: *id002
         code:
           type: string
         name:
           type: string
         address:
+          type: string
+        regionCode:
+          type: string
+        phone:
           type: string
         timezone:
           type: string
@@ -5562,6 +5799,8 @@ components:
           - Asia/Jakarta
           - Asia/Makassar
           - Asia/Jayapura
+        isActive: *id001
+        version: *id003
       required:
       - id
       - code
@@ -5586,6 +5825,8 @@ components:
           - LAINNYA
         specialty:
           type: string
+        isActive: *id001
+        version: *id003
       required:
       - id
       - code
@@ -5601,6 +5842,13 @@ components:
           type: string
         specialty:
           type: string
+        nik:
+          type: string
+          pattern: ^\d{16}$
+          writeOnly: true
+        nikMasked:
+          type: string
+          readOnly: true
         strNumber:
           type: string
         strValidUntil: &id005
@@ -5609,6 +5857,16 @@ components:
         sipNumber:
           type: string
         sipValidUntil: *id005
+        satusehatIhsId:
+          type: string
+        isActive: *id001
+        linkedUserId:
+          type:
+          - string
+          - 'null'
+          format: uuid
+          readOnly: true
+        version: *id003
       required:
       - id
       - fullName
