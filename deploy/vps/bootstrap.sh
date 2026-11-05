@@ -6,7 +6,7 @@
 # Mode proxy: `nginx` bila VPS sudah punya nginx untuk situs lain (otomatis terdeteksi) — port 80/443 & firewall
 # TIDAK disentuh; `caddy` untuk VPS kosong — firewall ufw 22/80/443 dinyalakan.
 # Yang dilakukan: Docker Engine + plugin compose (bila belum ada), user `deploy` (tanpa password, hanya kunci SSH),
-# swap 2 GB bila RAM < 4 GB, folder /opt/clinicrme, dan /opt/clinicrme/.env berisi secret acak (chmod 600).
+# swap 2 GB bila RAM < 4 GB, folder /home/deploy/apps/clinicrme, dan /home/deploy/apps/clinicrme/.env berisi secret acak (chmod 600).
 # Tidak menyentuh data bila dijalankan ulang (.env yang ada tidak ditimpa).
 set -euo pipefail
 BASE_DOMAIN=${1:?pemakaian: bootstrap.sh <BASE_DOMAIN> <ACME_EMAIL>}
@@ -54,8 +54,14 @@ if [ "$(awk '/MemTotal/ {print int($2/1024)}' /proc/meminfo)" -lt 3800 ] && ! sw
   grep -q /swapfile /etc/fstab || echo '/swapfile none swap sw 0 0' >> /etc/fstab
 fi
 
-install -d -m 750 -o deploy -g deploy /opt/clinicrme /opt/clinicrme/backup
-ENV=/opt/clinicrme/.env
+install -d -m 755 -o deploy -g deploy /home/deploy/apps
+install -d -m 750 -o deploy -g deploy /home/deploy/apps/clinicrme /home/deploy/apps/clinicrme/backup /home/deploy/apps/clinicrme/releases
+# Versi awal bootstrap menulis .env ke /opt/clinicrme — pindahkan bila ada
+if [ -f /opt/clinicrme/.env ] && [ ! -f /home/deploy/apps/clinicrme/.env ]; then
+  mv /opt/clinicrme/.env /home/deploy/apps/clinicrme/.env && rmdir /opt/clinicrme/backup /opt/clinicrme 2>/dev/null || true
+  echo "Dipindahkan: /opt/clinicrme/.env → /home/deploy/apps/clinicrme/.env"
+fi
+ENV=/home/deploy/apps/clinicrme/.env
 if [ ! -f "$ENV" ]; then
   r() { openssl rand -base64 33 | tr -dc 'A-Za-z0-9' | head -c "${1:-32}"; }
   umask 077

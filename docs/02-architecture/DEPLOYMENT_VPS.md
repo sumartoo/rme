@@ -34,20 +34,9 @@ Mode `nginx` tidak mengubah firewall maupun vhost situs lain; vhost ClinicRME be
    ssh root@IP_VPS "bash /root/bootstrap.sh DOMAIN email-anda@contoh.com"
    ```
    Bila login memakai user biasa ber-sudo: `scp deploy\vps\bootstrap.sh USER@IP_VPS:~/` lalu `ssh -t USER@IP_VPS "sudo bash ~/bootstrap.sh DOMAIN EMAIL"`.
-   Hasil: Docker (bila belum ada), user `deploy` (hanya kunci SSH), `/opt/clinicrme/.env` berisi secret acak; mode `caddy` juga menyalakan firewall 22/80/443.
+   Hasil: Docker (bila belum ada), user `deploy` (hanya kunci SSH), `/home/deploy/apps/clinicrme/.env` berisi secret acak; mode `caddy` juga menyalakan firewall 22/80/443.
    **Jangan kirim isi `.env` atau password root lewat chat.**
-3. **Kunci baca repo untuk VPS (deploy key).** Sebagai user deploy:
-   ```bash
-   sudo -iu deploy
-   ssh-keygen -t ed25519 -N '' -f ~/.ssh/github_repo -C clinicrme-vps
-   printf 'Host github.com\n  IdentityFile ~/.ssh/github_repo\n  IdentitiesOnly yes\n' >> ~/.ssh/config
-   cat ~/.ssh/github_repo.pub
-   ```
-   Tempel kunci publik itu di GitHub → repo → Settings → Deploy keys → Add deploy key (**tanpa** centang *Allow write access*). Lalu:
-   ```bash
-   ssh-keyscan github.com >> ~/.ssh/known_hosts
-   git clone git@github.com:AtoAIs/atoai-rme-v2.git /opt/clinicrme/app
-   ```
+3. **Tidak perlu deploy key.** Kebijakan organisasi AtoAIs menonaktifkan deploy key, dan VPS memang tidak perlu kredensial repo: workflow `deploy-dev` mengirim kode rilis lewat SSH (`git archive`) ke `/home/deploy/apps/clinicrme/releases/<sha>`; `/home/deploy/apps/clinicrme/app` adalah symlink ke rilis aktif (3 rilis terakhir disimpan).
 4. **Kunci SSH untuk GitHub Actions.** Masih sebagai `deploy`:
    ```bash
    ssh-keygen -t ed25519 -N '' -f ~/gh_actions -C github-actions-deploy
@@ -64,12 +53,12 @@ Mode `nginx` tidak mengubah firewall maupun vhost situs lain; vhost ClinicRME be
 
    Tab **Variables**: `DEPLOY_VPS_ENABLED` = `true`. Buat juga *Environment* bernama `dev` (Settings → Environments).
 6. **Deploy pertama + data demo.** GitHub → Actions → `deploy-dev` → *Run workflow* → centang **seed**. Selesai ±10–15 menit (build pertama).
-   Password akun demo = `DEV_SEED_PASSWORD` di `/opt/clinicrme/.env` (lihat di VPS: `sudo grep DEV_SEED /opt/clinicrme/.env`).
+   Password akun demo = `DEV_SEED_PASSWORD` di `/home/deploy/apps/clinicrme/.env` (lihat di VPS: `sudo grep DEV_SEED /home/deploy/apps/clinicrme/.env`).
 
 7. **Mode nginx saja — pasang vhost + sertifikat** (setelah deploy pertama sukses):
    ```bash
    sudo apt-get install -y certbot python3-certbot-nginx     # bila belum ada
-   sudo bash /opt/clinicrme/app/deploy/vps/nginx-install.sh DOMAIN
+   sudo bash /home/deploy/apps/clinicrme/app/deploy/vps/nginx-install.sh DOMAIN
    ```
    Klinik baru (dibuat dari konsol) perlu sertifikat sendiri: `sudo bash .../nginx-install.sh DOMAIN <kode-klinik>` (nama lama dipertahankan).
 
@@ -79,12 +68,12 @@ Setelah itu setiap merge ke `main` yang lolos CI otomatis ter-deploy.
 
 | Kebutuhan | Perintah (di VPS, user `deploy`) |
 |---|---|
-| Status layanan | `cd /opt/clinicrme/app && docker compose -f deploy/vps/docker-compose.yml --env-file ../.env ps` |
+| Status layanan | `cd /home/deploy/apps/clinicrme/app && docker compose -f deploy/vps/docker-compose.yml --env-file ../.env ps` |
 | Log API | `... logs -f --tail 100 api` |
 | Kotak masuk email dev | dari komputer Anda: `ssh -L 8025:127.0.0.1:8025 deploy@IP_VPS` → buka `http://localhost:8025` |
-| Deploy ulang commit tertentu | `bash /opt/clinicrme/app/deploy/vps/deploy.sh <sha>` |
-| Cadangan database | otomatis sebelum setiap migrasi di `/opt/clinicrme/backup/` (7 terakhir) |
-| Pulihkan cadangan | `docker compose ... exec -T postgres pg_restore -U clinicrme_owner -d clinicrme --clean < /opt/clinicrme/backup/<berkas>.dump` |
+| Deploy ulang commit tertentu | GitHub → Actions → `deploy-dev` → Run workflow (dari main), atau di VPS: `cd /home/deploy/apps/clinicrme && ln -sfn releases/<sha> app && DEPLOY_SKIP_GIT=1 bash app/deploy/vps/deploy.sh <sha>` |
+| Cadangan database | otomatis sebelum setiap migrasi di `/home/deploy/apps/clinicrme/backup/` (7 terakhir) |
+| Pulihkan cadangan | `docker compose ... exec -T postgres pg_restore -U clinicrme_owner -d clinicrme --clean < /home/deploy/apps/clinicrme/backup/<berkas>.dump` |
 
 ## Keamanan
 

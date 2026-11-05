@@ -21,14 +21,14 @@ Lingkungan `dev` (ENVIRONMENTS.md) tidak lagi di Cloud Run + Cloud SQL, melainka
 | HTTPS | Load balancer + sertifikat terkelola | Mode `nginx` (VPS PO sudah menjalankan nginx untuk situs lain): nginx host + certbot per nama. Mode `caddy` (VPS kosong): Let's Encrypt **on-demand** hanya untuk konsol & klinik terdaftar (`/internal/tls-allowed`) |
 | Domain | `dev.clinicrme.id` (usulan) | `medika.atoai.id` (subdomain milik PO): `demo.medika.atoai.id`, `admin.medika.atoai.id` |
 | Email | — (OD terbuka) | Mailpit, hanya dapat dibuka lewat tunnel SSH |
-| Deploy | Push Artifact Registry → Cloud Run | Workflow `deploy-dev`: setelah `ci` hijau di main → SSH ke VPS → `deploy/vps/deploy.sh` (build di VPS, migrasi, layanan) |
+| Deploy | Push Artifact Registry → Cloud Run | Workflow `deploy-dev`: setelah `ci` hijau di main → kirim kode (`git archive`) lewat SSH → `deploy/vps/deploy.sh` (build di VPS, migrasi, layanan). VPS tanpa kredensial repo |
 
 ## Batasan & yang tidak berubah
 
 - **Hanya data sintetis.** VPS dev bukan produksi; target staging/produksi diputuskan terpisah (GCP tetap opsi).
 - Model keamanan tetap: role DB `clinicrme_api`/`clinicrme_platform_api` LOGIN tanpa superuser/BYPASSRLS (dicek `init-roles.sh`), RLS fail-closed, audit hash chain.
 - PostgreSQL, API, worker, Mailpit tidak membuka port publik. Mode `nginx` tidak mengubah firewall maupun vhost situs lain di VPS.
-- Secret dibuat acak di VPS (`/opt/clinicrme/.env`, chmod 600), tidak pernah lewat chat atau repo.
+- Secret dibuat acak di VPS (`/home/deploy/apps/clinicrme/.env`, chmod 600), tidak pernah lewat chat atau repo.
 - Tidak ada layanan berbayar baru selain VPS & domain milik PO.
 
 ## Analisis dampak

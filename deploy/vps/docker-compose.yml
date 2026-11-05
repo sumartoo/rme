@@ -1,5 +1,5 @@
 # ClinicRME — lingkungan DEV di VPS (CR-0003). Data SINTETIS saja; bukan produksi (target produksi diputuskan terpisah).
-# Dijalankan oleh deploy/vps/deploy.sh dengan: docker compose -f deploy/vps/docker-compose.yml --env-file /opt/clinicrme/.env ...
+# Dijalankan oleh deploy/vps/deploy.sh dengan: docker compose -f deploy/vps/docker-compose.yml --env-file /home/deploy/apps/clinicrme/.env ...
 # Mode proxy (PROXY di .env): `caddy` (default, VPS kosong) → hanya Caddy membuka 80/443;
 # `nginx` (VPS yang sudah punya nginx) → docker-compose.nginx.yml membuka web/konsol di 127.0.0.1 saja.
 # PostgreSQL, API, worker, Mailpit tidak pernah terjangkau dari internet.

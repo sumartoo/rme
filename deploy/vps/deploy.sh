@@ -1,14 +1,15 @@
 #!/usr/bin/env bash
 # shellcheck disable=SC1090 # sumber berkas ditentukan saat runtime
-# Deploy satu commit ke VPS DEV (CR-0003). Dipanggil GitHub Actions lewat SSH sebagai user `deploy`:
-#   bash /opt/clinicrme/app/deploy/vps/deploy.sh <commit-sha> [--seed]
+# Deploy satu commit ke VPS DEV (CR-0003). Dipanggil GitHub Actions lewat SSH sebagai user `deploy` setelah kode
+# rilis dikirim ke /home/deploy/apps/clinicrme/releases/<sha> (app = symlink):
+#   DEPLOY_SKIP_GIT=1 bash /home/deploy/apps/clinicrme/app/deploy/vps/deploy.sh <commit-sha> [--seed]
 # Urutan: ambil kode → build image → PostgreSQL → migrasi → role LOGIN → layanan → cek kesehatan.
 # Gagal di langkah mana pun → berhenti; layanan lama tetap jalan sampai `up` berhasil membangun penggantinya.
 set -euo pipefail
 SHA=${1:?pemakaian: deploy.sh <commit-sha> [--seed]}
 [[ $SHA =~ ^[0-9a-f]{7,40}$ ]] || { echo "commit tidak valid"; exit 2; }
 SEED=${2:-}
-ROOT=${CLINICRME_ROOT:-/opt/clinicrme}
+ROOT=${CLINICRME_ROOT:-/home/deploy/apps/clinicrme}
 APP=${CLINICRME_APP:-$ROOT/app}
 ENVF=$ROOT/.env
 [ -f "$ENVF" ] || { echo "$ENVF belum ada — jalankan bootstrap.sh dulu"; exit 2; }
@@ -18,7 +19,7 @@ if [ "${DEPLOY_SKIP_GIT:-}" != 1 ]; then   # CI menguji skrip ini pada checkout 
   git fetch --quiet --depth 50 origin main
   git checkout --quiet --force "$SHA"
 fi
-echo "▶ commit $(git log -1 --format='%h %s')"
+if git rev-parse --git-dir >/dev/null 2>&1; then echo "▶ commit $(git log -1 --format='%h %s')"; else echo "▶ rilis $SHA"; fi
 
 PROXY=$(sed -n 's/^PROXY=//p' "$ENVF" | tail -1); PROXY=${PROXY:-caddy}
 case $PROXY in

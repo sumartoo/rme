@@ -1,0 +1,10 @@
+# Skrip & konfigurasi yang dijalankan di Linux/container harus LF, walau repo di-checkout di Windows (core.autocrlf)
+*.sh            text eol=lf
+Caddyfile       text eol=lf
+*.conf          text eol=lf
+*.inc           text eol=lf
+*.yml           text eol=lf
+*.yaml          text eol=lf
+*.Dockerfile    text eol=lf
+Dockerfile      text eol=lf
+*.sql           text eol=lf

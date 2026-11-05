@@ -11,7 +11,7 @@ shift
 command -v nginx >/dev/null || { echo "nginx tidak ditemukan — pakai PROXY=caddy"; exit 2; }
 DIR=$(cd "$(dirname "$0")" && pwd)
 SITE=/etc/nginx/sites-available/clinicrme
-ENVF=${CLINICRME_ROOT:-/opt/clinicrme}/.env
+ENVF=${CLINICRME_ROOT:-/home/deploy/apps/clinicrme}/.env
 port() { v=$(sed -n "s/^$1=//p" "$ENVF" 2>/dev/null | tail -1); echo "${v:-$2}"; }
 WEB_PORT=$(port WEB_PORT 18080); ADMIN_PORT=$(port ADMIN_PORT 18081)
 EMAIL=$(sed -n 's/^ACME_EMAIL=//p' "$ENVF" 2>/dev/null | tail -1)
