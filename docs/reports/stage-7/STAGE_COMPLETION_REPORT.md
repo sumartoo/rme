@@ -27,7 +27,7 @@ Semua data bisa diimpor dan diekspor lewat Excel/CSV, dengan pemeriksaan (dry-ru
 | Uji integrasi API | 141/141 (M01–M27 baru) |
 | Uji matriks permission (X01) | otomatis mencakup semua operasi master baru (403 untuk user tanpa izin) |
 | E2E browser | 26/26 (W13–W16 baru) |
-| Uji mutasi baru | M18–M22, semua terdeteksi lokal; seluruh M1–M22 dijalankan di GitHub Actions sebelum persetujuan (§3) |
+| Uji mutasi baru | M18–M22, semua terdeteksi lokal; seluruh M1–M22 hijau di GitHub Actions, 22/22 terdeteksi (§3) |
 | Uji SQL | 88 + uji migrasi lulus |
 | Migrasi | 0011–0014 |
 | Operasi API baru | ±35 operasi (kontrak OpenAPI 180 operasi) |
@@ -60,7 +60,7 @@ Semua data bisa diimpor dan diekspor lewat Excel/CSV, dengan pemeriksaan (dry-ru
 - [ ] **Lisensi ICD resmi** belum ada. Dicatat sebagai **syarat terbuka S7-1**: izin resmi (WHO/Kemenkes) dan pemuatan data resmi wajib selesai sebelum pilot (Stage 16). RSK-018 tetap terbuka.
 - [x] Subset diagnosis divalidasi tenaga medis. Mekanisme dan penegakan sudah ada. Validasi isi oleh dokter klinik pilot dilakukan saat data resmi dimuat.
 - [x] Matriks permission X01 mencakup semua endpoint master baru
-- [ ] Uji mutasi lengkap M1–M22 hijau di GitHub Actions. Dijalankan manual setelah merge, hasilnya ditambahkan ke bukti.
+- [x] Uji mutasi lengkap M1–M22 hijau di GitHub Actions: 22/22 terdeteksi, 0 lolos ([run 42020323156](https://github.com/AtoAIs/atoai-rme-v2/actions/runs/42020323156/job/127221155254), 5 Nov 2026, ±74 menit)
 - [ ] PO menyetujui Stage 7
 
 ## 4. Keamanan & privasi
