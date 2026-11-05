@@ -9,13 +9,17 @@ import { freshTotp } from './support/totp';
 /**
  * Master data Stage 7 batch 1: fasilitas, cabang, poli/unit (MST-FR-001), tenaga kesehatan (MST-FR-002), audit
  * sebelum/sesudah (MST-FR-009), optimistic locking (GEN-FR-007), kuota cabang (PLT-FR-004), isolasi tenant.
- * NIK tenaga kesehatan: terenkripsi, tidak pernah utuh di respons maupun audit. Data sintetis saja.
+ * NIK tenaga kesehatan: terenkripsi, tidak pernah utuh di respons maupun audit. Batch 2: layanan (MST-FR-004), tarif
+ * berperiode (MST-FR-005), penjamin (MST-FR-006), satuan & konversi (MST-FR-007), supplier (MST-FR-010). Data sintetis saja.
  */
 const HOST = 'klinik-a.clinicrme.test';
 const FACILITY_A = 'aaaaaaaa-0000-0000-0000-000000000001';
 const BRANCH_A = 'aaaaaaaa-0000-0000-0000-000000000010';
 const BRANCH_B = 'bbbbbbbb-0000-0000-0000-000000000010';
 const PRACT_B = 'bbbbbbbb-0000-0000-0000-000000000020';
+const SERVICE_A = 'aaaaaaaa-0000-0000-0000-000000000031';
+const PAYER_UMUM_A = 'aaaaaaaa-0000-0000-0000-000000000030';
+const UOM_TAB_A = 'aaaaaaaa-0000-0000-0000-000000000040';
 const NIK = '3201011201900001';   // NIK sintetis (struktur valid, bukan milik orang)
 let app: INestApplication;
 let http: ReturnType<typeof request>;
@@ -34,7 +38,7 @@ const login = async (email: string) => {
   return jar(r);
 };
 const get = (path: string, j: Jar) => http.get(path).set('Host', HOST).set('Cookie', j.cookie);
-const send = (method: 'post' | 'put', path: string, j: Jar) => http[method](path).set('Host', HOST).set('Cookie', j.cookie).set('X-CSRF-Token', j.csrf);
+const send = (method: 'post' | 'put' | 'delete', path: string, j: Jar) => http[method](path).set('Host', HOST).set('Cookie', j.cookie).set('X-CSRF-Token', j.csrf);
 const lastAudit = async (action: string, id: string) => (await su<{ summary: Record<string, unknown> }>(
   `select change_summary as summary from app.audit_log where action = $1 and resource_id = $2 order by seq desc limit 1`, [action, id]))[0]?.summary;
 
@@ -180,6 +184,118 @@ describe('Tenaga kesehatan (MST-FR-002)', () => {
   test('M10 menu master tampil sesuai permission (IAM-FR-010)', async () => {
     const m = await get('/api/v1/me/menu', admin);
     const master = m.body.find((n: { code: string }) => n.code === 'master');
-    expect(master.children.map((c: { code: string }) => c.code)).toEqual(['master.organization', 'master.practitioners']);
+    expect(master.children.map((c: { code: string }) => c.code)).toEqual(expect.arrayContaining(['master.organization', 'master.practitioners']));
+  });
+});
+
+describe('Layanan & tarif (MST-FR-004, MST-FR-005)', () => {
+  test('M11 layanan: tambah, kode unik, ubah dengan If-Match, cari & filter jenis', async () => {
+    const c = await send('post', '/api/v1/service-items', admin).send({ code: 'tdk-jahit', name: 'Jahit Luka', serviceType: 'TINDAKAN', icd9cmCode: '86.59' });
+    expect(c.status).toBe(201);
+    expect(c.body).toMatchObject({ code: 'TDK-JAHIT', icd9cmCode: '86.59', isActive: true });
+    expect((await send('post', '/api/v1/service-items', admin).send({ code: 'KONS', name: 'Dobel', serviceType: 'KONSULTASI' })).body.code).toBe('MST-409-CODE');
+    expect((await send('post', '/api/v1/service-items', admin).send({ code: 'X1', name: 'ICD salah', serviceType: 'TINDAKAN', icd9cmCode: 'abc' })).status).toBe(400);
+    const u = await send('put', `/api/v1/service-items/${c.body.id}`, admin).set('If-Match', '"1"').send({ name: 'Hecting / Jahit Luka' });
+    expect(u.body).toMatchObject({ name: 'Hecting / Jahit Luka', serviceType: 'TINDAKAN', version: 2 });
+    expect((await get('/api/v1/service-items?q=jahit', kasir)).body.data.map((x: { code: string }) => x.code)).toEqual(['TDK-JAHIT']);
+    expect((await get('/api/v1/service-items?type=KONSULTASI', kasir)).body.data.map((x: { code: string }) => x.code)).toEqual(['KONS']);
+  });
+
+  test('M12 tarif: periode tidak boleh tumpang tindih; harga Rupiah bulat; tarif per cabang & per penjamin terpisah', async () => {
+    const base = { serviceItemId: SERVICE_A, price: '75000', validFrom: '2026-01-01' };
+    const t1 = await send('post', '/api/v1/tariffs', admin).send(base);
+    expect(t1.status).toBe(201);
+    expect(t1.body).toMatchObject({ price: '75000.00', validTo: null, branchId: null, payerType: null });
+    expect((await send('post', '/api/v1/tariffs', admin).send({ ...base, validFrom: '2026-06-01' })).body.code).toBe('MST-409-OVERLAP');
+    expect((await send('post', '/api/v1/tariffs', admin).send({ ...base, price: '75000.50' })).status).toBe(400);
+    // Kunci berbeda (cabang tertentu / penjamin tertentu) boleh di periode yang sama
+    expect((await send('post', '/api/v1/tariffs', admin).send({ ...base, branchId: BRANCH_A, price: 80000 })).status).toBe(201);
+    const byPayer = await send('post', '/api/v1/tariffs', admin).send({ ...base, payerId: PAYER_UMUM_A, price: '70000' });
+    expect(byPayer.body).toMatchObject({ payerId: PAYER_UMUM_A, payerType: 'UMUM' });                     // kategori dari penjamin
+    expect((await send('post', '/api/v1/tariffs', admin).send({ ...base, payerId: PAYER_UMUM_A, payerType: 'ASURANSI' })).body.code).toBe('MST-400-PAYER');
+    expect((await send('post', '/api/v1/tariffs', admin).send({ ...base, branchId: BRANCH_B })).body.code).toBe('MST-400-BRANCH');
+  });
+
+  test('M13 harga baru = periode baru (closePrevious); periode lama tertutup, tidak ditimpa; berlaku-pada-tanggal benar', async () => {
+    const t = await send('post', '/api/v1/tariffs', admin).send({ serviceItemId: SERVICE_A, price: '90000', validFrom: '2026-07-01', closePrevious: true });
+    expect(t.status).toBe(201);
+    const june = await get(`/api/v1/tariffs?serviceItemId=${SERVICE_A}&on=2026-06-30`, kasir);
+    const july = await get(`/api/v1/tariffs?serviceItemId=${SERVICE_A}&on=2026-07-01`, kasir);
+    const general = (r: request.Response) => r.body.data.filter((x: { branchId: string | null; payerType: string | null }) => !x.branchId && !x.payerType);
+    expect(general(june)).toEqual([expect.objectContaining({ price: '75000.00', validFrom: '2026-01-01', validTo: '2026-06-30' })]);
+    expect(general(july)).toEqual([expect.objectContaining({ price: '90000.00', validFrom: '2026-07-01', validTo: null })]);
+    const [old] = general(june);
+    expect(await lastAudit('TARIFF_ENDED', old.id)).toEqual({ changed: ['validTo'], before: { validTo: null }, after: { validTo: '2026-06-30' } });
+    // Database menolak penimpaan harga bahkan lewat SQL langsung oleh role aplikasi (trigger 0012)
+    await expect(su(`set role clinicrme_app; select set_config('app.tenant_id', '${ids.tenantA}', false);
+                     update app.tariff set price = 1 where id = '${old.id}'`)).rejects.toThrow(/MST-409-TARIFF-IMMUTABLE/);
+    await expect(su(`set role clinicrme_app; select set_config('app.tenant_id', '${ids.tenantA}', false);
+                     delete from app.tariff where id = '${old.id}'`)).rejects.toThrow(/permission denied/);
+  });
+
+  test('M14 tutup periode: hanya dapat dimajukan; tidak boleh sebelum tanggal mulai atau diperpanjang', async () => {
+    const t = await send('post', '/api/v1/tariffs', admin).send({ serviceItemId: SERVICE_A, payerType: 'ASURANSI', price: '120000', validFrom: '2026-03-01' });
+    const end = (validTo: string) => send('post', `/api/v1/tariffs/${t.body.id}/end`, admin).send({ validTo });
+    expect((await end('2026-02-01')).body.code).toBe('MST-400-TARIFF-DATE');
+    expect((await end('2026-12-31')).body).toMatchObject({ validTo: '2026-12-31' });
+    expect((await end('2027-06-30')).body.code).toBe('MST-409-TARIFF-IMMUTABLE');
+    expect((await end('2026-09-30')).body).toMatchObject({ validTo: '2026-09-30' });
+    expect((await send('post', `/api/v1/tariffs/${t.body.id}/end`, kasir).send({ validTo: '2026-08-01' })).status).toBe(403);
+  });
+});
+
+describe('Penjamin, satuan, supplier (MST-FR-006, 007, 010)', () => {
+  test('M15 penjamin: kontrak tervalidasi & tersimpan; kategori terkunci bila sudah dipakai tarif', async () => {
+    const c = await send('post', '/api/v1/payers', admin).send({ code: 'asr-sehat', name: 'Asuransi Sehat Sintetis', payerType: 'ASURANSI',
+      contract: { contractNumber: 'K-001', plafon: '5000000', copayPercent: 10, paymentTermDays: 30 } });
+    expect(c.status).toBe(201);
+    expect(c.body.contract).toEqual({ contractNumber: 'K-001', plafon: '5000000', copayPercent: 10, paymentTermDays: 30 });
+    expect((await send('post', '/api/v1/payers', admin).send({ code: 'X2', name: 'Salah', payerType: 'ASURANSI', contract: { copayPercent: 150 } })).status).toBe(400);
+    const u = await send('put', `/api/v1/payers/${c.body.id}`, admin).set('If-Match', '"1"').send({ contract: { contractNumber: 'K-001', plafon: '7500000' } });
+    expect(u.body.contract).toEqual({ contractNumber: 'K-001', plafon: '7500000' });
+    expect((await send('put', `/api/v1/payers/${PAYER_UMUM_A}`, admin).set('If-Match', '"1"').send({ payerType: 'PERUSAHAAN' })).body.code).toBe('MST-409-PAYER-TYPE');
+    expect((await get('/api/v1/payers?type=ASURANSI', kasir)).body.map((p: { code: string }) => p.code)).toEqual(['ASR-SEHAT']);
+  });
+
+  test('M16 satuan & konversi: 1 BOX = 10 STRIP = 100 TAB; konversi melingkar ditolak; hapus konversi', async () => {
+    const mk = async (code: string, name: string) => (await send('post', '/api/v1/uoms', admin).send({ code, name })).body;
+    const box = await mk('box', 'Box');
+    const strip = await mk('STRIP', 'Strip');
+    expect((await send('post', '/api/v1/uoms', admin).send({ code: 'TAB', name: 'Dobel' })).body.code).toBe('MST-409-CODE');
+    const set = (from: string, to: string, factor: string | number) => send('put', `/api/v1/uoms/${from}/conversions/${to}`, admin).send({ factor });
+    expect((await set(box.id, strip.id, 10)).body).toEqual({ fromUomId: box.id, toUomId: strip.id, factor: '10' });
+    expect((await set(strip.id, UOM_TAB_A, '10.0')).body.factor).toBe('10');
+    expect((await set(UOM_TAB_A, box.id, '0.01')).body.code).toBe('MST-409-UOM-CYCLE');        // TAB → BOX menutup lingkaran
+    expect((await set(strip.id, box.id, '0.1')).body.code).toBe('MST-409-UOM-CYCLE');
+    expect((await set(box.id, box.id, 1)).body.code).toBe('MST-400-UOM-SELF');
+    expect((await set(box.id, strip.id, 0)).status).toBe(400);
+    const list = await get('/api/v1/uoms', kasir);
+    expect(list.body.find((u: { code: string }) => u.code === 'BOX').conversions).toEqual([{ toUomId: strip.id, factor: '10' }]);
+    expect((await send('delete', `/api/v1/uoms/${strip.id}/conversions/${UOM_TAB_A}`, admin)).status).toBe(204);
+    expect((await set(UOM_TAB_A, strip.id, '0.1')).status).toBe(200);                          // tanpa jalur STRIP → TAB, kini boleh
+    const u = await send('put', `/api/v1/uoms/${box.id}`, admin).set('If-Match', '"1"').send({ name: 'Kotak' });
+    expect(u.body).toMatchObject({ code: 'BOX', name: 'Kotak', version: 2 });
+  });
+
+  test('M17 supplier: tambah, ubah, cari; NPWP/email divalidasi; izin kelola admin & farmasi (bukan kasir)', async () => {
+    const c = await send('post', '/api/v1/suppliers', admin).send({ code: 'pbf-01', name: 'PBF Sintetis Jaya', npwp: '01.234.567.8-901.000', email: 'Order@PBF.test', phone: '' });
+    expect(c.status).toBe(201);
+    expect(c.body).toMatchObject({ code: 'PBF-01', email: 'order@pbf.test', phone: null });
+    expect((await send('post', '/api/v1/suppliers', admin).send({ name: 'NPWP salah', npwp: '123' })).status).toBe(400);
+    const u = await send('put', `/api/v1/suppliers/${c.body.id}`, admin).set('If-Match', '"1"').send({ contactPerson: 'Bu Sinta' });
+    expect(u.body).toMatchObject({ contactPerson: 'Bu Sinta', npwp: '01.234.567.8-901.000' });
+    expect((await get('/api/v1/suppliers?q=sintetis', kasir)).body).toHaveLength(1);
+    expect((await send('post', '/api/v1/suppliers', kasir).send({ name: 'Tidak boleh' })).status).toBe(403);
+    const perms = await su<{ code: string; perms: string[] }>(`select r.code, array_agg(rp.permission_code order by rp.permission_code) as perms from app.role r
+      join app.role_permission rp on rp.role_id = r.id where r.tenant_id = $1 and rp.permission_code in ('master.supplier.manage', 'master.uom.manage')
+      group by r.code order by r.code`, [ids.tenantA]);
+    expect(perms).toEqual([{ code: 'FARMASI', perms: ['master.supplier.manage', 'master.uom.manage'] },
+                           { code: 'TENANT_ADMIN', perms: ['master.supplier.manage', 'master.uom.manage'] }]);
+  });
+
+  test('M18 menu master batch 2 tampil untuk admin', async () => {
+    const m = await get('/api/v1/me/menu', admin);
+    const master = m.body.find((n: { code: string }) => n.code === 'master');
+    expect(master.children.map((c: { code: string }) => c.code)).toEqual(['master.organization', 'master.practitioners', 'master.services', 'master.payers', 'master.supplies']);
   });
 });

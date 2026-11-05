@@ -85,6 +85,13 @@
       "when": 1794038400000,
       "tag": "0011_master_menu",
       "breakpoints": false
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1794124800000,
+      "tag": "0012_master_services_tariffs",
+      "breakpoints": false
     }
   ]
 }

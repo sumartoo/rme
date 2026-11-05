@@ -81,3 +81,14 @@ export interface Practitioner {
   strNumber: string | null; strValidUntil: string | null; sipNumber: string | null; sipValidUntil: string | null;
   satusehatIhsId: string | null; isActive: boolean; linkedUserId: string | null; version: number;
 }
+export type ServiceType = 'KONSULTASI' | 'TINDAKAN' | 'PAKET' | 'ADMINISTRASI' | 'LAB' | 'LAINNYA';
+export type PayerType = 'UMUM' | 'ASURANSI' | 'PERUSAHAAN' | 'BPJS';
+export interface ServiceItem { id: string; code: string; name: string; serviceType: ServiceType; icd9cmCode: string | null; isActive: boolean; version: number }
+export interface Tariff { id: string; serviceItemId: string; branchId: string | null; payerType: PayerType | null; payerId: string | null; price: string; validFrom: string; validTo: string | null }
+export interface PayerContract { contractNumber?: string; validUntil?: string; plafon?: string; copayPercent?: number; paymentTermDays?: number; notes?: string }
+export interface Payer { id: string; code: string; name: string; payerType: PayerType; contract: PayerContract | null; isActive: boolean; version: number }
+export interface Uom { id: string; code: string; name: string; isActive: boolean; version: number; conversions: { toUomId: string; factor: string }[] }
+export interface Supplier {
+  id: string; code: string | null; name: string; contactPerson: string | null; phone: string | null; email: string | null;
+  address: string | null; npwp: string | null; isActive: boolean; version: number;
+}

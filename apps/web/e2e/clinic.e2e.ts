@@ -344,6 +344,75 @@ test('W13 master data: tambah poli di cabang, tenaga kesehatan dengan NIK tersam
   await expect(page.getByText('Undangan dikirim ke drg@klinik-web.test.')).toBeVisible();
 });
 
+test('W14 layanan & tarif berperiode, penjamin dengan kontrak, satuan & konversi, supplier (Stage 7 batch 2)', async ({ page }) => {
+  watchCsp(page);
+  await signInAdmin(page);
+  const menu = page.getByTestId('side-menu');
+  await menu.getByRole('link', { name: 'Penjamin' }).click();
+  await page.getByRole('button', { name: 'Tambah penjamin' }).click();
+  const pd = page.getByRole('dialog', { name: 'Tambah penjamin' });
+  await pd.getByLabel('Kode *').fill('asr-web');
+  await pd.getByLabel('Nama *').fill('Asuransi Web Sintetis');
+  await pd.getByLabel('Plafon (Rp)').fill('5000000');
+  await pd.getByLabel('Co-pay (%)').fill('10');
+  await pd.getByRole('button', { name: 'Simpan' }).click();
+  await expect(page.getByTestId('payer-row').filter({ hasText: 'Asuransi Web Sintetis' })).toContainText('plafon Rp 5.000.000 · co-pay 10%');
+
+  await menu.getByRole('link', { name: 'Layanan & tarif' }).click();
+  await page.getByRole('button', { name: 'Tambah layanan' }).click();
+  const sd = page.getByRole('dialog', { name: 'Tambah layanan' });
+  await sd.getByLabel('Kode *').fill('kons-umum');
+  await sd.getByLabel('Nama *').fill('Konsultasi Dokter Umum');
+  await sd.getByRole('button', { name: 'Simpan' }).click();
+  await expect(page.getByText('Layanan "Konsultasi Dokter Umum" ditambahkan.')).toBeVisible();
+  const addTariff = async (price: string, from: string) => {
+    await page.getByRole('button', { name: 'Tambah tarif' }).click();
+    const td = page.getByRole('dialog', { name: 'Tambah tarif' });
+    await td.getByLabel('Harga (Rp) *').fill(price);
+    await td.getByLabel('Berlaku mulai *').fill(from);
+    await td.getByRole('button', { name: 'Simpan tarif' }).click();
+    await expect(td).toBeHidden();
+  };
+  await addTariff('75000', '2026-01-01');
+  await addTariff('90000', '2099-01-01');                                  // harga baru → tarif lama ditutup otomatis
+  const rows = page.getByTestId('tariff-row');
+  await expect(rows.filter({ hasText: 'Rp 90.000' })).toContainText('akan datang');
+  await expect(rows.filter({ hasText: 'Rp 75.000' })).toContainText('31 Des 2098');
+
+  await menu.getByRole('link', { name: 'Satuan & supplier' }).click();
+  for (const [code, name] of [['box', 'Box'], ['strip', 'Strip']]) {
+    await page.getByRole('button', { name: 'Tambah satuan' }).click();
+    const ud = page.getByRole('dialog', { name: 'Tambah satuan' });
+    await ud.getByLabel('Kode *').fill(code);
+    await ud.getByLabel('Nama *').fill(name);
+    await ud.getByRole('button', { name: 'Simpan' }).click();
+    await expect(ud).toBeHidden();
+  }
+  const uomRow = (code: string) => page.getByTestId('uom-row').filter({ has: page.getByRole('cell', { name: code, exact: true }) });
+  await uomRow('BOX').getByRole('button', { name: 'Konversi' }).click();
+  const cd = page.getByRole('dialog', { name: 'Konversi dari BOX' });
+  await cd.getByLabel('Satuan tujuan').selectOption({ label: 'STRIP — Strip' });
+  await cd.getByLabel('Faktor *').fill('10');
+  await cd.getByRole('button', { name: 'Simpan konversi' }).click();
+  await expect(uomRow('BOX')).toContainText('1 BOX = 10 STRIP');
+  await uomRow('STRIP').getByRole('button', { name: 'Konversi' }).click();
+  const cd2 = page.getByRole('dialog', { name: 'Konversi dari STRIP' });
+  await cd2.getByLabel('Satuan tujuan').selectOption({ label: 'BOX — Box' });
+  await cd2.getByLabel('Faktor *').fill('0.1');
+  await cd2.getByRole('button', { name: 'Simpan konversi' }).click();
+  await expect(cd2.getByText(/Konversi melingkar/)).toBeVisible();          // ditolak API
+  await cd2.getByRole('button', { name: 'Tutup' }).click();
+
+  await page.getByRole('button', { name: 'Tambah supplier' }).click();
+  const spd = page.getByRole('dialog', { name: 'Tambah supplier' });
+  await spd.getByLabel('Nama *').fill('PBF Web Sintetis');
+  await spd.getByLabel('NPWP').fill('123');
+  await expect(spd.getByRole('button', { name: 'Simpan' })).toBeDisabled();
+  await spd.getByLabel('NPWP').fill('01.234.567.8-901.000');
+  await spd.getByRole('button', { name: 'Simpan' }).click();
+  await expect(page.getByTestId('supplier-row').filter({ hasText: 'PBF Web Sintetis' })).toContainText('01.234.567.8-901.000');
+});
+
 test('W06 keamanan: CSP bernonce, no-store; proxy hanya untuk klinik dari subdomain; tidak ada pelanggaran CSP', async ({ page }) => {
   const res = await page.goto('/login');
   const h = res!.headers();

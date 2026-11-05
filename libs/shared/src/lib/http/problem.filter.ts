@@ -45,6 +45,9 @@ const DB_RULES: Record<string, (msg: string) => ProblemBody> = {
   CRQ01: (m) => ({ type: 'about:blank', title: tail(m, 'Batas paket tercapai'), status: 403, code: 'PLT-403-QUOTA' }),
   CRS01: (m) => ({ type: 'about:blank', title: tail(m, 'Transisi status tidak diizinkan'), status: 409, code: 'PLT-409-STATUS' }),
   CRG01: (m) => ({ type: 'about:blank', title: tail(m, 'Akses dukungan tidak berlaku'), status: 403, code: 'PLT-403-GRANT' }),
+  CRM01: (m) => ({ type: 'about:blank', title: tail(m, 'Data master tidak dapat diubah'), status: 409, code: m.split(':')[0] || 'MST-409' }),
+  // Exclusion constraint (mis. periode tarif tumpang tindih) → 409
+  '23P01': () => ({ type: 'about:blank', title: 'Periode bertabrakan dengan data yang sudah ada', status: 409, code: 'MST-409-OVERLAP' }),
   CRP01: (m) => ({ type: 'about:blank', title: tail(m, 'Data provisioning tidak valid'), status: 400, code: m.split(':')[0] || 'PLT-400' }),
 };
 

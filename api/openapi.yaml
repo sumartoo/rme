@@ -1981,6 +1981,44 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '409':
           $ref: '#/components/responses/Conflict'
+  /api/v1/service-items/{serviceItemId}:
+    put:
+      operationId: serviceItemUpdate
+      tags:
+      - Master
+      summary: Ubah layanan
+      x-requirements:
+      - MST-FR-004
+      - MST-FR-009
+      x-permission: master.service.manage
+      parameters:
+      - $ref: '#/components/parameters/serviceItemId'
+      - $ref: '#/components/parameters/IfMatch'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ServiceItem'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ServiceItem'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '412':
+          $ref: '#/components/responses/PreconditionFailed'
   /api/v1/tariffs:
     get:
       operationId: tariffList
@@ -2045,6 +2083,47 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '409':
           $ref: '#/components/responses/Conflict'
+  /api/v1/tariffs/{tariffId}/end:
+    post:
+      operationId: tariffEnd
+      tags:
+      - Master
+      summary: Tutup periode tarif (tanggal akhir hanya dapat dimajukan)
+      x-requirements:
+      - MST-FR-005
+      - MST-FR-009
+      x-permission: master.tariff.manage
+      parameters:
+      - $ref: '#/components/parameters/tariffId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                validTo: &id005
+                  type: string
+                  format: date
+              required:
+              - validTo
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Tariff'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
   /api/v1/payers:
     get:
       operationId: payerList
@@ -2099,6 +2178,44 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '409':
           $ref: '#/components/responses/Conflict'
+  /api/v1/payers/{payerId}:
+    put:
+      operationId: payerUpdate
+      tags:
+      - Master
+      summary: Ubah penjamin & kontrak
+      x-requirements:
+      - MST-FR-006
+      - MST-FR-009
+      x-permission: master.payer.manage
+      parameters:
+      - $ref: '#/components/parameters/payerId'
+      - $ref: '#/components/parameters/IfMatch'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Payer'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Payer'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '412':
+          $ref: '#/components/responses/PreconditionFailed'
   /api/v1/suppliers:
     get:
       operationId: supplierList
@@ -2116,17 +2233,81 @@ paths:
               schema:
                 type: array
                 items:
-                  type: object
-                  properties:
-                    id: *id002
-                    name:
-                      type: string
+                  $ref: '#/components/schemas/Supplier'
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
+    post:
+      operationId: supplierCreate
+      tags:
+      - Master
+      summary: Tambah supplier
+      x-requirements:
+      - MST-FR-010
+      - MST-FR-009
+      x-permission: master.supplier.manage
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Supplier'
+      responses:
+        '201':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Supplier'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /api/v1/suppliers/{supplierId}:
+    put:
+      operationId: supplierUpdate
+      tags:
+      - Master
+      summary: Ubah supplier
+      x-requirements:
+      - MST-FR-010
+      - MST-FR-009
+      x-permission: master.supplier.manage
+      parameters:
+      - $ref: '#/components/parameters/supplierId'
+      - $ref: '#/components/parameters/IfMatch'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Supplier'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Supplier'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '412':
+          $ref: '#/components/responses/PreconditionFailed'
   /api/v1/uoms:
     get:
       operationId: uomList
@@ -2144,27 +2325,148 @@ paths:
               schema:
                 type: array
                 items:
-                  type: object
-                  properties:
-                    id: *id002
-                    code:
-                      type: string
-                    name:
-                      type: string
-                    conversions:
-                      type: array
-                      items:
-                        type: object
-                        properties:
-                          toUomId: *id002
-                          factor:
-                            type: string
+                  $ref: '#/components/schemas/Uom'
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
+    post:
+      operationId: uomCreate
+      tags:
+      - Master
+      summary: Tambah satuan
+      x-requirements:
+      - MST-FR-007
+      - MST-FR-009
+      x-permission: master.uom.manage
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Uom'
+      responses:
+        '201':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Uom'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /api/v1/uoms/{uomId}:
+    put:
+      operationId: uomUpdate
+      tags:
+      - Master
+      summary: Ubah satuan
+      x-requirements:
+      - MST-FR-007
+      - MST-FR-009
+      x-permission: master.uom.manage
+      parameters:
+      - $ref: '#/components/parameters/uomId'
+      - $ref: '#/components/parameters/IfMatch'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Uom'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Uom'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '412':
+          $ref: '#/components/responses/PreconditionFailed'
+  /api/v1/uoms/{uomId}/conversions/{toUomId}:
+    put:
+      operationId: uomConversionSet
+      tags:
+      - Master
+      summary: Tetapkan konversi (1 asal = factor × tujuan; tidak melingkar)
+      x-requirements:
+      - MST-FR-007
+      x-permission: master.uom.manage
+      parameters:
+      - $ref: '#/components/parameters/uomId'
+      - $ref: '#/components/parameters/toUomId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                factor:
+                  type: string
+              required:
+              - factor
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  fromUomId: *id002
+                  toUomId: *id002
+                  factor:
+                    type: string
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+    delete:
+      operationId: uomConversionDelete
+      tags:
+      - Master
+      summary: Hapus konversi
+      x-requirements:
+      - MST-FR-007
+      x-permission: master.uom.manage
+      parameters:
+      - $ref: '#/components/parameters/uomId'
+      - $ref: '#/components/parameters/toUomId'
+      responses:
+        '204':
+          description: Berhasil
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
   /api/v1/regions:
     get:
       operationId: regionList
@@ -5287,6 +5589,12 @@ components:
       required: true
       description: patientId
       schema: *id002
+    payerId:
+      name: payerId
+      in: path
+      required: true
+      description: payerId
+      schema: *id002
     practitionerId:
       name: practitionerId
       in: path
@@ -5330,6 +5638,12 @@ components:
       required: true
       description: roleId
       schema: *id002
+    serviceItemId:
+      name: serviceItemId
+      in: path
+      required: true
+      description: serviceItemId
+      schema: *id002
     sessionId:
       name: sessionId
       in: path
@@ -5348,6 +5662,18 @@ components:
       required: true
       description: substitutionId
       schema: *id002
+    supplierId:
+      name: supplierId
+      in: path
+      required: true
+      description: supplierId
+      schema: *id002
+    tariffId:
+      name: tariffId
+      in: path
+      required: true
+      description: tariffId
+      schema: *id002
     tenantId:
       name: tenantId
       in: path
@@ -5359,6 +5685,12 @@ components:
       in: path
       required: true
       description: ticketId
+      schema: *id002
+    toUomId:
+      name: toUomId
+      in: path
+      required: true
+      description: toUomId
       schema: *id002
     token:
       name: token
@@ -5372,6 +5704,12 @@ components:
       in: path
       required: true
       description: unitId
+      schema: *id002
+    uomId:
+      name: uomId
+      in: path
+      required: true
+      description: uomId
       schema: *id002
     userId:
       name: userId
@@ -5851,9 +6189,7 @@ components:
           readOnly: true
         strNumber:
           type: string
-        strValidUntil: &id005
-          type: string
-          format: date
+        strValidUntil: *id005
         sipNumber:
           type: string
         sipValidUntil: *id005
@@ -5888,6 +6224,10 @@ components:
           - ADMINISTRASI
           - LAB
           - LAINNYA
+        icd9cmCode:
+          type: string
+        isActive: *id001
+        version: *id003
       required:
       - id
       - code
@@ -5910,6 +6250,10 @@ components:
         price: *id006
         validFrom: *id005
         validTo: *id005
+        closePrevious:
+          type: boolean
+          writeOnly: true
+          description: Tutup periode sebelumnya yang masih berlaku pada validFrom
       required:
       - serviceItemId
       - price
@@ -5923,13 +6267,72 @@ components:
         name:
           type: string
         payerType: *id007
+        isActive: *id001
+        version: *id003
         contract:
           type: object
+          properties:
+            contractNumber:
+              type: string
+            validUntil: *id005
+            plafon: *id006
+            copayPercent:
+              type: number
+            paymentTermDays: *id003
+            notes:
+              type: string
       required:
       - id
       - code
       - name
       - payerType
+    Uom:
+      type: object
+      properties:
+        id: *id002
+        code:
+          type: string
+        name:
+          type: string
+        isActive: *id001
+        version: *id003
+        conversions:
+          type: array
+          items:
+            type: object
+            properties:
+              toUomId: *id002
+              factor:
+                type: string
+                pattern: ^\d{1,12}(\.\d{1,6})?$
+      required:
+      - id
+      - code
+      - name
+    Supplier:
+      type: object
+      properties:
+        id: *id002
+        code:
+          type: string
+        name:
+          type: string
+        contactPerson:
+          type: string
+        phone:
+          type: string
+        email:
+          type: string
+          format: email
+        address:
+          type: string
+        npwp:
+          type: string
+        isActive: *id001
+        version: *id003
+      required:
+      - id
+      - name
     ImportJob:
       type: object
       properties:

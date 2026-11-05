@@ -87,6 +87,8 @@ roles:
       - pharmacy.drug.*
       - pharmacy.otc.sell
       - pharmacy.stock.read
+      - master.supplier.manage   # migrasi 0012 (Stage 7)
+      - master.uom.manage        # migrasi 0012 (Stage 7)
       - pharmacy.stock.receive
       - pharmacy.stock.adjust
       - pharmacy.stock.opname

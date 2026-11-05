@@ -2,7 +2,7 @@
 
 > Dibangkitkan oleh `tools/gen_permission_matrix.py` dari `api/openapi.yaml` (x-permission) dan `db/seed/role_templates.yaml`. Jangan diedit manual.
 
-**82 permission** · 8 role template tenant · 2 role platform · pemeriksaan: ✅ lulus
+**84 permission** · 8 role template tenant · 2 role platform · pemeriksaan: ✅ lulus
 
 ## Prinsip
 
@@ -15,11 +15,11 @@
 
 | Kode | Nama | MFA wajib | Jumlah permission | Catatan |
 |---|---|---|---|---|
-| `TENANT_ADMIN` | Admin Klinik | ✓ | 31 | Administrasi; tidak membaca rekam medis kecuali diberi role klinis |
+| `TENANT_ADMIN` | Admin Klinik | ✓ | 33 | Administrasi; tidak membaca rekam medis kecuali diberi role klinis |
 | `DOKTER` | Dokter |  | 27 |  |
 | `PERAWAT` | Perawat / Bidan |  | 15 |  |
 | `PENDAFTARAN` | Petugas Pendaftaran |  | 19 |  |
-| `FARMASI` | Apoteker / TTK |  | 20 |  |
+| `FARMASI` | Apoteker / TTK |  | 22 |  |
 | `KASIR` | Kasir |  | 18 |  |
 | `MANAJER` | Manajer / Pemilik Klinik | ✓ | 25 |  |
 | `AUDITOR` | Auditor (baca saja) | ✓ | 12 |  |
@@ -84,18 +84,20 @@
 | `integration.read` | ✓ |  |  |  |  |  | ✓ | ✓ | satusehatReconciliation; satusehatRecords; satusehatSummary |
 | **master** | | | | | | | | | |
 | `master.export` | ✓ |  |  |  |  |  |  |  | masterExport |
-| `master.facility.manage` | ✓ |  |  |  |  |  |  |  | branchCreate; unitCreate |
-| `master.facility.read` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |  | branchList; unitList |
+| `master.facility.manage` | ✓ |  |  |  |  |  |  |  | branchCreate; branchUpdate; facilityCreate; facilityUpdate; unitCreate; unitUpdate |
+| `master.facility.read` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |  | branchList; facilityList; unitList |
 | `master.import` | ✓ |  |  |  |  |  |  |  | masterImport |
-| `master.payer.manage` | ✓ |  |  |  |  |  |  |  | payerCreate |
+| `master.payer.manage` | ✓ |  |  |  |  |  |  |  | payerCreate; payerUpdate |
 | `master.payer.read` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |  | payerList |
 | `master.practitioner.manage` | ✓ |  |  |  |  |  |  |  | practitionerCreate; practitionerUpdate |
-| `master.practitioner.read` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |  | practitionerList |
-| `master.service.manage` | ✓ |  |  |  |  |  |  |  | serviceItemCreate |
+| `master.practitioner.read` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |  | practitionerGet; practitionerList |
+| `master.service.manage` | ✓ |  |  |  |  |  |  |  | serviceItemCreate; serviceItemUpdate |
 | `master.service.read` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |  | serviceItemList |
+| `master.supplier.manage` | ✓ |  |  |  | ✓ |  |  |  | supplierCreate; supplierUpdate |
 | `master.supplier.read` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |  | supplierList |
-| `master.tariff.manage` | ✓ |  |  |  |  |  |  |  | tariffCreate |
+| `master.tariff.manage` | ✓ |  |  |  |  |  |  |  | tariffCreate; tariffEnd |
 | `master.tariff.read` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |  | tariffList |
+| `master.uom.manage` | ✓ |  |  |  | ✓ |  |  |  | uomConversionDelete; uomConversionSet; uomCreate; uomUpdate |
 | `master.uom.read` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |  | uomList |
 | **patient** | | | | | | | | | |
 | `patient.create` |  |  |  | ✓ |  |  |  |  | patientCreate; patientDuplicateCheck |

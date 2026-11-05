@@ -38,3 +38,13 @@ export const PRACTITIONER_TYPE_LABEL = {
   APOTEKER: 'Apoteker', TTK: 'Tenaga teknis kefarmasian', ANALIS: 'Analis/ATLM', LAINNYA: 'Lainnya',
 } as const;
 export const TIMEZONE_LABEL = { 'Asia/Jakarta': 'WIB', 'Asia/Makassar': 'WITA', 'Asia/Jayapura': 'WIT' } as const;
+export const SERVICE_TYPE_LABEL = { KONSULTASI: 'Konsultasi', TINDAKAN: 'Tindakan', PAKET: 'Paket', ADMINISTRASI: 'Administrasi', LAB: 'Laboratorium', LAINNYA: 'Lainnya' } as const;
+export const PAYER_TYPE_LABEL = { UMUM: 'Umum', ASURANSI: 'Asuransi', PERUSAHAAN: 'Perusahaan', BPJS: 'BPJS' } as const;
+/** Rupiah dari string desimal API (tanpa float untuk nilai besar). */
+export const fmtRupiah = (s: string | null | undefined) => {
+  if (s === null || s === undefined || s === '') return '—';
+  const [int] = s.split('.');
+  return 'Rp ' + int.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+};
+/** Tanggal hari ini (YYYY-MM-DD) di WIB. */
+export const todayWib = () => new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Jakarta' });
