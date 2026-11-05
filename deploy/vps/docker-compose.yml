@@ -47,14 +47,9 @@ services:
 
   seed:
     profiles: [ops]
-    build:
-      context: ../..
-      dockerfile: docker/node-app.Dockerfile
-      target: build
-      args: { APP: api }
-    image: clinicrme-tools:${RELEASE:-latest}
-    working_dir: /repo
-    command: ["pnpm", "dev:seed"]
+    # Bundel tools/dev/seed.ts di dalam image api (tidak perlu image build terpisah)
+    image: clinicrme-api:${RELEASE:-latest}
+    command: ["seed.js"]
     environment:
       APP_ENV: dev
       MIGRATION_DATABASE_URL: postgres://${POSTGRES_OWNER_USER}:${POSTGRES_OWNER_PASSWORD}@postgres:5432/${POSTGRES_DB}

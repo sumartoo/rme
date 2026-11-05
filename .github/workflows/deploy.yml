@@ -1,7 +1,7 @@
 # Deploy otomatis ke VPS DEV (CR-0003) setelah workflow `ci` hijau di main. Tanpa action pihak ketiga selain
 # checkout: kode dikirim lewat SSH sebagai arsip `git archive` → VPS tidak menyimpan kredensial repo (deploy key
 # dinonaktifkan kebijakan organisasi AtoAIs). Rilis di /home/deploy/apps/clinicrme/releases/<sha>, `app` = symlink rilis aktif,
-# 3 rilis terakhir disimpan. Build image dilakukan di VPS (tanpa registry). Data SINTETIS saja.
+# 3 rilis terakhir disimpan. Image dibuild di runner lalu dikirim lewat SSH (tanpa registry, hemat disk VPS). Data SINTETIS saja.
 # Environment GitHub `production` (Settings → Environments; nama mengikuti pengaturan PO — isinya tetap VPS DEV):
 #   variable VPS_HOST, VPS_USER (deploy), DEPLOY_VPS_ENABLED=true   (boleh juga di level repository)
 #   secret   VPS_SSH_KEY (kunci privat khusus deploy), VPS_KNOWN_HOSTS (ssh-keyscan VPS)
@@ -34,7 +34,7 @@ jobs:
       (github.event_name == 'workflow_dispatch' ||
        (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push'))
     runs-on: ubuntu-24.04
-    timeout-minutes: 45
+    timeout-minutes: 60
     environment: production
     env:
       SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
@@ -71,6 +71,19 @@ jobs:
           printf '%s\n' "$VPS_KNOWN_HOSTS" | tr -d '\r' > ~/.ssh/known_hosts
           ssh-keygen -y -f ~/.ssh/id_deploy > /dev/null || { echo "::error::VPS_SSH_KEY bukan kunci privat OpenSSH yang valid (salin lengkap dari BEGIN sampai END)"; exit 1; }
           echo "Sidik jari kunci: $(ssh-keygen -lf ~/.ssh/id_deploy | awk '{print $2}')"
+      # Build di runner GitHub (disk & CPU lega), VPS hanya menerima image jadi (docker save | ssh docker load)
+      - name: Build image rilis
+        if: steps.gate.outputs.go == 'true'
+        run: |
+          printf 'POSTGRES_OWNER_PASSWORD=build-only\nBASE_DOMAIN=build.invalid\n' > /tmp/build.env  # pragma: allowlist secret — hanya untuk interpolasi compose saat build
+          RELEASE="$SHA" docker compose -f deploy/vps/docker-compose.yml --env-file /tmp/build.env build api worker web platform-admin
+          docker image ls 'clinicrme-*'
+      - name: Kirim image ke VPS
+        if: steps.gate.outputs.go == 'true'
+        run: |
+          docker save "clinicrme-api:$SHA" "clinicrme-worker:$SHA" "clinicrme-web:$SHA" "clinicrme-platform-admin:$SHA" \
+            | gzip -1 | ssh -i ~/.ssh/id_deploy -o IdentitiesOnly=yes -o BatchMode=yes -o StrictHostKeyChecking=yes \
+              -o ServerAliveInterval=30 "$VPS_USER@$VPS_HOST" "gunzip | docker load"
       - name: Kirim kode rilis ke VPS
         if: steps.gate.outputs.go == 'true'
         run: |

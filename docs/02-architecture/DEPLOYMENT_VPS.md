@@ -6,7 +6,7 @@ Lingkungan **dev** ClinicRME berjalan di satu VPS dengan docker compose. Hanya d
 Internet ──443──► Caddy ──► web (klinik *.DOMAIN)  ──┐
                        └──► platform-admin (admin.DOMAIN) ──► api ──► postgres
                                                      worker ──► mailpit (127.0.0.1:8025, tunnel SSH)
-GitHub: ci hijau di main ──► deploy-dev ──SSH──► deploy/vps/deploy.sh <sha>
+GitHub: ci hijau di main ──► deploy-dev: build image di runner ──SSH (docker load + kode)──► deploy/vps/deploy.sh <sha>
 ```
 
 ## Dua mode proxy
@@ -20,7 +20,7 @@ Mode `nginx` tidak mengubah firewall maupun vhost situs lain; vhost ClinicRME be
 
 ## Kebutuhan VPS
 
-- Ubuntu 22.04 / 24.04 / 26.04, minimal **2 vCPU / 4 GB RAM**. **Ruang disk kosong ≥ 15 GB** disarankan (build image butuh ±6 GB; `deploy.sh` menolak build bila sisa < 6 GB pada build pertama, < 3 GB berikutnya).
+- Ubuntu 22.04 / 24.04 / 26.04, minimal **2 vCPU / 4 GB RAM**. **Ruang disk kosong ≥ 3 GB**: image dibuild di runner GitHub lalu dikirim jadi (±1–1,5 GB; disimpan rilis aktif + satu sebelumnya). Build di VPS hanya bila deploy.sh dijalankan manual tanpa image (butuh ≥ 6 GB).
 - Akses root lewat SSH (cukup sekali, untuk bootstrap).
 - Domain milik PO dengan dua A record ke IP VPS: `DOMAIN` dan `*.DOMAIN`.
   Klinik demo: `https://demo.DOMAIN`; konsol platform: `https://admin.DOMAIN`.

@@ -19,7 +19,10 @@ RUN pnpm nx run @clinicrme/${APP}:build --skip-nx-cache
 # Dependency produksi aplikasi saja (pnpm deploy), lalu bundle webpack di atasnya
 RUN pnpm --filter @clinicrme/${APP} deploy --prod --legacy /out \
  && cp apps/${APP}/dist/*.js /out/ \
- && mkdir -p /out/db && if [ "${APP}" = "api" ]; then cp -r db/migrations /out/db/migrations; fi
+ && mkdir -p /out/db && if [ "${APP}" = "api" ]; then cp -r db/migrations /out/db/migrations; fi \
+ # Seed data demo SINTETIS untuk VPS dev (CR-0003): satu berkas, memakai pg & argon2 dari dependency api; ditolak di staging/prod
+ && if [ "${APP}" = "api" ]; then pnpm exec esbuild tools/dev/seed.ts --bundle --platform=node --target=node22 \
+      --external:pg --external:@node-rs/argon2 --outfile=/out/seed.js --log-level=warning; fi
 
 FROM gcr.io/distroless/nodejs22-debian12:nonroot AS runtime
 ARG APP

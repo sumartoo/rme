@@ -32,16 +32,22 @@ C="docker compose -f deploy/vps/docker-compose.yml $PROXY_FILE ${COMPOSE_EXTRA:+
 export RELEASE=$SHA
 echo "▶ mode proxy: $PROXY"
 
-DROOT=$(docker info -f '{{.DockerRootDir}}' 2>/dev/null || echo /var/lib/docker)
-FREE_GB=$(df --output=avail -BG "$DROOT" 2>/dev/null | tail -1 | tr -dc 0-9)
-# Build pertama (belum ada image clinicrme) ±6 GB; build berikutnya memakai cache layer → cukup ±3 GB
-if docker image ls -q 'clinicrme-api' | grep -q .; then NEED=${DEPLOY_MIN_FREE_GB:-3}; else NEED=${DEPLOY_MIN_FREE_GB:-6}; fi
-if [ "${FREE_GB:-0}" -lt "$NEED" ]; then
-  echo "✗ ruang disk untuk Docker tinggal ${FREE_GB} GB (butuh ≥ ${NEED} GB untuk build). Kosongkan disk dulu."; exit 3
+IMAGES="clinicrme-api clinicrme-worker clinicrme-web clinicrme-platform-admin"
+prebuilt=1
+for i in $IMAGES; do docker image inspect "$i:$SHA" >/dev/null 2>&1 || prebuilt=0; done
+if [ $prebuilt = 1 ]; then
+  echo "▶ image $SHA sudah ada (dibuild di GitHub Actions & dikirim) — tanpa build di VPS"
+else
+  DROOT=$(docker info -f '{{.DockerRootDir}}' 2>/dev/null || echo /var/lib/docker)
+  FREE_GB=$(df --output=avail -BG "$DROOT" 2>/dev/null | tail -1 | tr -dc 0-9)
+  # Build pertama (belum ada image clinicrme) ±6 GB; build berikutnya memakai cache layer → cukup ±3 GB
+  if docker image ls -q 'clinicrme-api' | grep -q .; then NEED=${DEPLOY_MIN_FREE_GB:-3}; else NEED=${DEPLOY_MIN_FREE_GB:-6}; fi
+  if [ "${FREE_GB:-0}" -lt "$NEED" ]; then
+    echo "✗ ruang disk untuk Docker tinggal ${FREE_GB} GB (butuh ≥ ${NEED} GB untuk build). Kosongkan disk dulu."; exit 3
+  fi
+  echo "▶ build image di VPS"
+  $C build --pull api worker web platform-admin
 fi
-echo "▶ build image"
-$C build --pull api worker web platform-admin
-if [ "$SEED" = "--seed" ]; then $C --profile ops build seed; fi
 
 echo "▶ cadangan database sebelum migrasi (7 terakhir disimpan)"
 $C up -d --wait postgres
@@ -60,9 +66,12 @@ if [ "$SEED" = "--seed" ]; then $C --profile ops run --rm seed; fi
 echo "▶ jalankan layanan"
 # shellcheck disable=SC2086 # FRONT kosong pada mode nginx
 $C up -d --wait --remove-orphans api worker web platform-admin mailpit $FRONT
-# Disk VPS terbatas: buang image & cache build lama (image rilis berjalan tidak tersentuh)
-docker image prune -f --filter "until=168h" >/dev/null
-docker builder prune -f --filter "until=72h" >/dev/null || true
+# Disk VPS terbatas: simpan image rilis aktif + satu sebelumnya (rollback), buang sisanya & cache build lama
+for i in $IMAGES; do
+  docker image ls "$i" --format '{{.Tag}}' | { grep -vx "$SHA" || true; } | tail -n +2 | while read -r t; do docker rmi "$i:$t" >/dev/null 2>&1 || true; done
+done
+docker image prune -f >/dev/null
+docker builder prune -f --filter "until=72h" >/dev/null 2>&1 || true
 
 echo "▶ cek dari luar (lewat Caddy)"
 for h in "admin.$BASE_DOMAIN" "demo.$BASE_DOMAIN"; do
