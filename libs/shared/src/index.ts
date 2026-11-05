@@ -3,6 +3,7 @@ export * from './lib/context';
 export * from './lib/crypto';
 export * from './lib/logging';
 export * from './lib/http/problem';
+export * from './lib/http/validation';
 export * from './lib/http/decorators';
 export * from './lib/http/body-validation.interceptor';
 export * from './lib/http/problem.filter';

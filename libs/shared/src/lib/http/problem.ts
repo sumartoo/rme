@@ -16,3 +16,7 @@ export class Problem extends HttpException {
 }
 
 export const problem = (status: number, code: string, title: string) => new Problem(status, code, title);
+
+/** Problem dengan field tambahan (mis. `candidates` pada PAT-409-DUPLICATE) — tidak boleh berisi data rahasia. */
+export const problemWith = (status: number, code: string, title: string, extra: Record<string, unknown>) =>
+  new HttpException({ type: 'about:blank', title, status, code, ...extra }, status);

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Uji mutasi kontrol keamanan (Stage 3 M1–M4 diulang di monorepo — RSK-020; M5 Stage 4; M6–M14 Stage 5; M15–M17 Stage 6; M18–M22 Stage 7).
+# Uji mutasi kontrol keamanan (Stage 3 M1–M4 diulang di monorepo — RSK-020; M5 Stage 4; M6–M14 Stage 5; M15–M17 Stage 6; M18–M22 Stage 7; M23–M26 Stage 8).
 # Setiap mutasi sengaja merusak satu kontrol, menjalankan suite integrasi API, dan LULUS hanya bila
 # uji yang menjaga kontrol itu GAGAL. Kode selalu dikembalikan (trap), juga bila skrip dihentikan.
 #
@@ -22,12 +22,15 @@ TOTP=libs/shared/src/lib/totp.ts
 IAMUSERS=libs/iam/src/lib/users.controller.ts
 ACCOUNT=libs/iam/src/lib/account.controller.ts
 EXPORT=libs/db/src/lib/tenant-export.ts
-MDCOMMON=libs/masterdata/src/lib/common.ts
+AUDITCHG=libs/db/src/lib/change.ts          # auditChange (dulu masterdata/common.ts; dipakai juga modul pasien)
 PRACT=libs/masterdata/src/lib/practitioners.controller.ts
 MIG12=db/migrations/0012_master_services_tariffs.sql
 TERM=libs/masterdata/src/lib/terminology.controller.ts
 IMPORTS=libs/masterdata/src/lib/imports.controller.ts
-FILES=("$AUTH" "$SESSION" "$MIG2" "$MIG3" "$GUARD" "$PGUARD" "$LAYOUT" "$EXPORT" "$MIG5" "$MIG6" "$TOTP" "$IAMUSERS" "$ACCOUNT" "$MDCOMMON" "$PRACT" "$MIG12" "$TERM" "$IMPORTS")
+PATIENT=libs/patient/src/lib/patient.controller.ts
+MIG15=db/migrations/0015_patient_registration.sql
+IDEM=libs/db/src/lib/idempotency.ts
+FILES=("$AUTH" "$SESSION" "$MIG2" "$MIG3" "$GUARD" "$PGUARD" "$LAYOUT" "$EXPORT" "$MIG5" "$MIG6" "$TOTP" "$IAMUSERS" "$ACCOUNT" "$AUDITCHG" "$PRACT" "$MIG12" "$TERM" "$IMPORTS" "$PATIENT" "$MIG15" "$IDEM")
 BACKUP=$(mktemp -d)
 cp "${FILES[@]}" "$BACKUP"/
 restore() { for f in "${FILES[@]}"; do cp "$BACKUP/$(basename "$f")" "$f"; done; }
@@ -87,7 +90,7 @@ mutate M16 "pencegahan eskalasi hak dimatikan (pemberi boleh memberi izin admin 
 mutate M17 "token reset password dapat dipakai ulang (used_at tidak diperiksa)" 'I06' \
   "sed -i 's/ and r.used_at is null and r.expires_at > now()/ and r.expires_at > now()/; s/ where id = \${r.id} and used_at is null returning id/ where id = \${r.id} returning id/' $ACCOUNT && ! grep -q 'r.used_at is null' $ACCOUNT" ""
 mutate M18 "audit master tidak menyamarkan kolom rahasia (NIK)" 'M06' \
-  "sed -i \"s/secret.includes(k) \&\& v !== null ? '\[rahasia\]' : v/v/\" $MDCOMMON && ! grep -q \"? '\[rahasia\]' : v\" $MDCOMMON" ""
+  "sed -i \"s/secret.includes(k) \&\& v !== null ? '\[rahasia\]' : v/v/\" $AUDITCHG && ! grep -q \"? '\[rahasia\]' : v\" $AUDITCHG" ""
 mutate M19 "NIK tenaga kesehatan dikembalikan utuh di respons (tanpa penyamaran)" 'M06' \
   "sed -i 's/(nik ? \`\${nik.slice(0, 4)}\*\*\*\*\*\*\*\*\${nik.slice(-4)}\` : null)/nik/' $PRACT && ! grep -q 'nik.slice(0, 4)' $PRACT" ""
 mutate M20 "tarif dapat ditimpa (trigger tariff_guard tidak dipasang)" 'M13' \
@@ -96,6 +99,14 @@ mutate M21 "favorit diagnosis dapat divalidasi siapa saja (pemeriksaan dokter/SI
   "sed -i 's/      if (b.validated) await this.assertValidator(tx);/      if (b.validated \&\& false) await this.assertValidator(tx);/' $TERM && grep -q 'b.validated && false' $TERM" ""
 mutate M22 "impor menyimpan sebagian walau ada baris error (bukan satu transaksi utuh)" 'M24' \
   "sed -i 's/        if (dryRun || errors.length) throw rollback;/        if (dryRun) throw rollback;/' $IMPORTS && grep -q '        if (dryRun) throw rollback;' $IMPORTS" ""
+mutate M23 "data pasien dapat dihapus role aplikasi (REVOKE DELETE migrasi 0015 dihapus)" 'P12' \
+  "sed -i '/^REVOKE DELETE ON patient FROM clinicrme_app;/d' $MIG15 && ! grep -q '^REVOKE DELETE ON patient FROM' $MIG15" ""
+mutate M24 "Idempotency-Key diabaikan (klik ganda membuat pasien ganda / gagal)" 'P02' \
+  "sed -i 's/^  if (prev) {/  if (prev \&\& false) {/' $IDEM && grep -q 'if (prev && false) {' $IDEM" ""
+mutate M25 "registrasi mengabaikan kandidat duplikat (alasan tidak lagi wajib)" 'P05' \
+  "sed -i 's/if (found.candidates.length > 0 \&\& !b.duplicateOverrideReason) {/if (false) {/' $PATIENT && grep -q 'if (false) {' $PATIENT" ""
+mutate M26 "NIK pasien tercatat apa adanya di audit registrasi" 'P01|P14' \
+  "sed -i 's/      after: this.auditView(d, dup.nikHash, dup.identityHash),/      after: { ...this.auditView(d, dup.nikHash, dup.identityHash), nik: b.nik },/' $PATIENT && grep -q 'nik: b.nik },' $PATIENT" ""
 
 # Mutasi UI: suite Playwright (U##) sebagai detektor
 if [ "${MUTATION_E2E:-0}" = "1" ]; then

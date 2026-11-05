@@ -2,8 +2,10 @@
 
 /** Error problem+json dari API (RFC 9457): `code` stabil, `title` aman ditampilkan. */
 export class ApiError extends Error {
-  constructor(readonly status: number, readonly code: string, title: string) { super(title); }
+  constructor(readonly status: number, readonly code: string, title: string, readonly problem: Problem = {}) { super(title); }
 }
+/** Isi problem+json: `errors` per field (400) dan field tambahan seperti `candidates` (PAT-409-DUPLICATE). */
+export interface Problem { errors?: { field: string; message: string }[]; candidates?: PatientSummary[] }
 
 function csrfToken(): string {
   return document.cookie.split('; ').find((c) => c.startsWith('crme_csrf='))?.slice('crme_csrf='.length) ?? '';
@@ -23,8 +25,8 @@ export async function apiRaw(path: string, opts: { method?: string; body?: unkno
     body: opts.body === undefined ? undefined : JSON.stringify(opts.body),
   });
   if (!res.ok) {
-    const p = (await res.json().catch(() => ({}))) as { code?: string; title?: string };
-    throw new ApiError(res.status, p.code ?? `GEN-${res.status}`, p.title ?? 'Permintaan gagal');
+    const p = (await res.json().catch(() => ({}))) as { code?: string; title?: string } & Problem;
+    throw new ApiError(res.status, p.code ?? `GEN-${res.status}`, p.title ?? 'Permintaan gagal', p);
   }
   return res;
 }
@@ -70,7 +72,7 @@ export interface Permission { code: string; module: string; description: string 
 export interface SessionItem { id: string; userAgent: string | null; ip: string | null; createdAt: string; lastSeenAt: string; current: boolean }
 export interface TenantProfile {
   displayName: string; letterhead: { name?: string; address?: string; phone?: string; license?: string } | null;
-  logoFileId: string | null; settings: { pharmacyBeforeCashier?: boolean; discountLimitPercent?: number; noShowMinutes?: number }; version: number;
+  logoFileId: string | null; settings: { pharmacyBeforeCashier?: boolean; discountLimitPercent?: number; noShowMinutes?: number; mrnPrefix?: string }; version: number;
 }
 export type ExportStatus = 'QUEUED' | 'RUNNING' | 'DONE' | 'FAILED' | 'EXPIRED';
 export interface ExportJob {
@@ -116,3 +118,27 @@ export interface ImportResult {
   entity: string; status: 'VALIDATED' | 'COMMITTED' | 'FAILED'; dryRun: boolean; rowCount: number; created: number; updated: number;
   errors: { row: number; field: string; message: string }[];
 }
+
+// ------------------------------------------------------------------ Pasien (Stage 8)
+export type Sex = 'L' | 'P' | 'TIDAK_DIKETAHUI';
+export type IdentityType = 'NIK' | 'PASPOR' | 'KITAS' | 'BAYI_IDENTITAS_IBU' | 'TANPA_IDENTITAS';
+export interface PatientSummary {
+  id: string; mrn: string; fullName: string; birthDate: string; sex: Sex; nikMasked: string | null; phone: string | null;
+  status: 'ACTIVE' | 'MERGED' | 'DECEASED' | 'INACTIVE'; identityType: IdentityType; identityMasked: string | null; score?: number;
+}
+export interface PatientContact { id?: string; relation: string; fullName: string; phone: string; isGuardian: boolean }
+export interface Coverage {
+  id: string; payerId: string; payerName: string; payerType: PayerType; memberNo: string | null; planName: string | null; employeeNo: string | null;
+  bpjsFaskesCode: string | null; validFrom: string | null; validTo: string | null; isActive: boolean; version: number;
+}
+export interface PatientConsent {
+  id: string; consentType: string; version: string; title: string | null; granted: boolean; signedByName: string | null;
+  signedByRelation: string | null; recordedAt: string; revokedAt: string | null;
+}
+export interface Patient extends PatientSummary {
+  email: string | null; address: string | null; regionCode: string | null; ihsStatus: string; mother: PatientSummary | null;
+  mergedInto: PatientSummary | null; mergedAt: string | null; mergeReason: string | null; processingRestricted: boolean;
+  restrictionReason: string | null; restrictedAt: string | null; createdAt: string; contacts: PatientContact[]; coverages: Coverage[];
+  consents: PatientConsent[]; hasConsent: boolean; hasActiveCoverage: boolean; version: number;
+}
+export interface ConsentDocument { id: string; consentType: 'UMUM' | 'DATA_SHARING' | 'PORTAL'; version: string; title: string | null; content: string; effectiveAt: string }

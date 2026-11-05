@@ -130,7 +130,7 @@ describe('Validasi body & format error (SC-WEB-05, API_CONTRACTS §4)', () => {
 });
 
 describe('Log (SC-LOG-01)', () => {
-  test('F13 log JSON memuat request_id & tenant_id, tanpa password, cookie, token, atau query OAuth', async () => {
+  test('F13 log JSON memuat request_id & tenant_id, tanpa password, cookie, token, query OAuth, atau NIK pencarian pasien', async () => {
     logLines.length = 0;
     const login = await http.post('/api/v1/auth/login').set('Host', HOST_A).set('X-Request-Id', 'req-f13')
       .send({ email: 'dokter@a.test', password: PASSWORD });
@@ -139,6 +139,9 @@ describe('Log (SC-LOG-01)', () => {
     const token = cookies.find((c) => c.startsWith('crme_session='))!.split('=')[1];
     await http.get(`/api/v1/patients/${ids.patientA}`).set('Host', HOST_A).set('Cookie', cookies.join('; '));
     await http.get('/api/v1/auth/google/callback?code=KODE-RAHASIA-OAUTH&state=s').set('Host', HOST_A);
+    // REG-FR-009: pencarian NIK (lewat query) tidak membuka NIK di log
+    const nikSearch = await http.get('/api/v1/patients?q=3201019999990009&nik=3201019999990009').set('Host', HOST_A).set('Cookie', cookies.join('; '));
+    expect(nikSearch.status).toBe(200);
     await new Promise((r) => setTimeout(r, 50));
 
     const all = logLines.join('\n');
@@ -147,6 +150,7 @@ describe('Log (SC-LOG-01)', () => {
     expect(all).not.toContain(PASSWORD);
     expect(all).not.toContain(token);
     expect(all).not.toContain('KODE-RAHASIA-OAUTH');
+    expect(all).not.toContain('3201019999990009');
     const loginLog = logLines.map((l) => JSON.parse(l)).find((l) => l.request_id === 'req-f13');
     expect(loginLog).toMatchObject({ tenant_id: ids.tenantA, req: { method: 'POST', path: '/api/v1/auth/login' } });
     const patientLog = logLines.map((l) => JSON.parse(l)).find((l) => l.req?.path === `/api/v1/patients/${ids.patientA}`);

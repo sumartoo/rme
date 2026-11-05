@@ -5,11 +5,12 @@ import { ApiError, TenantProfile, api, errorText } from '../../../../lib/api';
 import { can, useSession } from '../../../../lib/session';
 
 interface Form { displayName: string; name: string; address: string; phone: string; license: string;
-                 pharmacyBeforeCashier: boolean; discountLimitPercent: string; noShowMinutes: string }
+                 pharmacyBeforeCashier: boolean; discountLimitPercent: string; noShowMinutes: string; mrnPrefix: string }
 const toForm = (p: TenantProfile): Form => ({
   displayName: p.displayName, name: p.letterhead?.name ?? '', address: p.letterhead?.address ?? '', phone: p.letterhead?.phone ?? '',
   license: p.letterhead?.license ?? '', pharmacyBeforeCashier: p.settings.pharmacyBeforeCashier ?? false,
   discountLimitPercent: p.settings.discountLimitPercent?.toString() ?? '', noShowMinutes: p.settings.noShowMinutes?.toString() ?? '',
+  mrnPrefix: p.settings.mrnPrefix ?? '',
 });
 
 /** PLT-FR-007: profil & kop klinik (dipakai di cetakan dokumen). Simpan dengan If-Match agar perubahan orang lain tidak tertimpa. */
@@ -37,7 +38,8 @@ export default function ProfilePage() {
   const noShow = f ? num(f.noShowMinutes) : undefined;
   const invalid = !f || f.displayName.trim().length < 2
     || (discount !== undefined && !(discount >= 0 && discount <= 100))
-    || (noShow !== undefined && !(Number.isInteger(noShow) && noShow >= 5 && noShow <= 240));
+    || (noShow !== undefined && !(Number.isInteger(noShow) && noShow >= 5 && noShow <= 240))
+    || !/^[A-Za-z]{0,5}$/.test(f.mrnPrefix);
 
   async function save(e: React.FormEvent) {
     e.preventDefault();
@@ -51,7 +53,7 @@ export default function ProfilePage() {
           displayName: f.displayName.trim(),
           letterhead: Object.values(letterhead).some(Boolean) ? letterhead : null,
           settings: { ...p.settings, pharmacyBeforeCashier: f.pharmacyBeforeCashier,
-                      ...(discount !== undefined ? { discountLimitPercent: discount } : {}), ...(noShow !== undefined ? { noShowMinutes: noShow } : {}) },
+                      ...(discount !== undefined ? { discountLimitPercent: discount } : {}), ...(noShow !== undefined ? { noShowMinutes: noShow } : {}), mrnPrefix: f.mrnPrefix.toUpperCase() },
         },
       });
       setP(r); setF(toForm(r)); setNotice('Profil klinik disimpan.');
@@ -112,6 +114,10 @@ export default function ProfilePage() {
             <Field id="noShow" label="Batas tidak hadir (menit)" hint="5–240; antrean dianggap tidak hadir setelah ini."
                    error={noShow !== undefined && !(Number.isInteger(noShow) && noShow >= 5 && noShow <= 240) ? 'Bilangan bulat 5–240' : undefined}>
               <Input id="noShow" inputMode="numeric" value={f.noShowMinutes} onChange={(e) => set('noShowMinutes', e.target.value)} />
+            </Field>
+            <Field id="mrnPrefix" label="Awalan nomor rekam medis" hint="0–5 huruf, mis. RM → RM00000123. Berlaku untuk pasien baru (OD-081)."
+                   error={!/^[A-Za-z]{0,5}$/.test(f.mrnPrefix) ? 'Maksimal 5 huruf, tanpa angka/simbol' : undefined}>
+              <Input id="mrnPrefix" maxLength={5} value={f.mrnPrefix} onChange={(e) => set('mrnPrefix', e.target.value.toUpperCase())} />
             </Field>
           </CardContent>
         </Card>

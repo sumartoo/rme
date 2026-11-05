@@ -5,7 +5,7 @@ import { mkdtempSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { authenticator } from 'otplib';
-import { seedClinic, setLinkToken } from '../../../tools/e2e/seed-clinic';
+import { addClinicUser, seedClinic, setLinkToken } from '../../../tools/e2e/seed-clinic';
 import { CLINIC_URL, E2E_ENCRYPTION_KEY, STORAGE_DIR, USER_PASSWORD, dbUrl } from '../../../tools/e2e/config';
 
 /**
@@ -465,6 +465,104 @@ test('W16 impor & ekspor: unduh template, periksa berkas (error per baris), simp
   await expect(page.getByTestId('import-result')).toContainText('Tersimpan');
   await page.getByTestId('side-menu').getByRole('link', { name: 'Layanan & tarif' }).click();
   await expect(page.getByTestId('service-row').filter({ hasText: 'IMP-WEB' })).toContainText('Imunisasi Dasar');
+});
+
+test('W17 pendaftaran: daftar pasien NIK (No. RM otomatis, NIK tersamar), cari salah ketik, kandidat duplikat wajib alasan, tambah penjamin (Stage 8 batch 1)', async ({ page }) => {
+  watchCsp(page);
+  await addClinicUser('pendaftaran@klinik-web.test', 'Pendaftaran E2E', 'PENDAFTARAN');
+  await login(page, 'pendaftaran@klinik-web.test');
+  await expect(page).toHaveURL(/\/admin$/);
+  const menu = page.getByTestId('side-menu');
+  await menu.getByRole('link', { name: 'Pasien' }).click();
+  await page.getByRole('link', { name: 'Daftar pasien baru' }).click();
+  await expect(page).toHaveURL(/\/patients\/new$/);
+  await page.locator('#pf-nik').fill('3273014503850001');
+  await page.locator('#pf-name').fill('Siti Rahmawati');
+  await page.locator('#pf-dob').fill('1985-03-12');
+  await page.locator('#pf-sex').selectOption({ label: 'Perempuan' });
+  await page.locator('#pf-address').fill('Jl. Melati No. 1, Bandung');
+  await page.getByLabel('Provinsi').selectOption({ label: 'Jawa Barat' });
+  await page.locator('#pf-phone').fill('+62 812-3456-7001');
+  await page.getByRole('button', { name: 'Tambah kontak' }).click();
+  await page.locator('#pf-c-rel-0').fill('Suami');
+  await page.locator('#pf-c-name-0').fill('Andi Pratama');
+  await page.locator('#pf-c-phone-0').fill('081234567002');
+  await page.getByRole('button', { name: 'Daftarkan pasien' }).click();
+  await expect(page.getByText('Pasien berhasil didaftarkan.')).toBeVisible();
+  await expect(page.getByTestId('patient-mrn')).toHaveText('00000001');
+  await expect(page.getByText('3273********0001')).toBeVisible();
+  await expect(page.getByText('3273014503850001')).toHaveCount(0);
+  await expect(page.getByTestId('contact-list')).toContainText('Andi Pratama');
+
+  await page.getByRole('button', { name: 'Tambah penjamin' }).click();
+  const cv = page.getByRole('dialog', { name: 'Tambah penjamin' });
+  await cv.getByLabel('Penjamin *').selectOption({ label: 'Asuransi Web Sintetis (Asuransi)' });
+  await cv.getByLabel('No. peserta/polis').fill('POL-778');
+  await cv.getByRole('button', { name: 'Simpan' }).click();
+  await expect(page.getByTestId('coverage-row')).toContainText('POL-778');
+
+  await menu.getByRole('link', { name: 'Pasien' }).click();
+  await page.getByLabel('Cari pasien').fill('siti rahmawti');
+  await expect(page.getByTestId('patient-row').first()).toContainText('Siti Rahmawati');
+
+  await page.getByRole('link', { name: 'Daftar pasien baru' }).click();
+  await page.locator('#pf-idtype').selectOption({ label: 'Tanpa identitas' });
+  await page.locator('#pf-name').fill('Siti Rahmawaty');
+  await page.locator('#pf-dob').fill('1985-03-12');
+  await page.locator('#pf-sex').selectOption({ label: 'Perempuan' });
+  await page.locator('#pf-address').fill('Jl. Melati No. 1, Bandung');
+  await page.locator('#pf-phone').fill('081399999999');
+  await page.getByRole('button', { name: 'Daftarkan pasien' }).click();
+  const dup = page.getByTestId('duplicate-panel');
+  await expect(dup).toContainText('data mirip');
+  await expect(dup).toContainText('00000001');
+  await expect(dup.getByRole('button', { name: 'Tetap daftarkan baru' })).toBeDisabled();
+  await dup.getByLabel('Alasan tetap mendaftarkan sebagai pasien baru *').fill('Pasien berbeda, dicek dengan KK');
+  await dup.getByRole('button', { name: 'Tetap daftarkan baru' }).click();
+  await expect(page.getByTestId('patient-mrn')).toHaveText('00000002');
+});
+
+test('W18 consent berversi & gabung pasien: admin menerbitkan teks, petugas mencatat consent, admin menggabungkan data ganda (Stage 8 batch 1)', async ({ page }) => {
+  watchCsp(page);
+  await signInAdmin(page);
+  const menu = page.getByTestId('side-menu');
+  await menu.getByRole('link', { name: 'Dokumen consent' }).click();
+  await page.getByRole('button', { name: 'Terbitkan versi baru' }).click();
+  const cd = page.getByRole('dialog', { name: 'Terbitkan dokumen consent' });
+  await cd.getByLabel('Versi *').fill('1');
+  await cd.getByLabel('Judul *').fill('Persetujuan Umum (CONTOH)');
+  await cd.getByLabel('Isi *').fill('Teks contoh persetujuan umum pelayanan rawat jalan — wajib ditinjau klinik sebelum dipakai.');
+  await cd.getByRole('button', { name: 'Terbitkan' }).click();
+  await expect(page.getByText('Versi 1 diterbitkan.')).toBeVisible();
+  await expect(page.getByTestId('consent-doc-row')).toContainText('Persetujuan Umum (CONTOH)');
+
+  // Admin: gabungkan "Siti Rahmawaty" (data ganda) ke "Siti Rahmawati"
+  await menu.getByRole('link', { name: 'Pasien' }).click();
+  await page.getByLabel('Cari pasien').fill('Rahmawaty');
+  await page.getByTestId('patient-row').filter({ hasText: 'Siti Rahmawaty' }).getByRole('link', { name: 'Siti Rahmawaty', exact: true }).click();
+  await page.getByRole('button', { name: 'Gabungkan ke pasien lain' }).click();
+  const mg = page.getByRole('dialog', { name: 'Gabungkan pasien' });
+  await mg.getByLabel('Cari pasien tujuan').fill('00000001');
+  await mg.getByRole('button', { name: /Siti Rahmawati/ }).click();
+  await mg.getByLabel('Alasan *').fill('Orang yang sama, terdaftar dua kali');
+  await mg.getByRole('button', { name: 'Gabungkan' }).click();
+  await expect(page.getByTestId('patient-mrn')).toHaveText('00000001');
+  await page.getByRole('button', { name: 'Keluar' }).click();
+
+  // Petugas pendaftaran: catat consent
+  await login(page, 'pendaftaran@klinik-web.test');
+  await page.getByTestId('side-menu').getByRole('link', { name: 'Pasien' }).click();
+  await page.getByLabel('Cari pasien').fill('00000001');
+  await page.getByTestId('patient-row').first().getByRole('link', { name: 'Siti Rahmawati', exact: true }).click();
+  await expect(page.getByText('Belum ada persetujuan umum yang berlaku.')).toBeVisible();
+  await page.getByRole('button', { name: 'Catat consent' }).click();
+  const cs = page.getByRole('dialog', { name: 'Catat consent' });
+  await expect(cs.getByTestId('consent-text')).toContainText('wajib ditinjau klinik');
+  await cs.getByLabel('Nama penanda tangan').fill('Siti Rahmawati');
+  await cs.getByRole('button', { name: 'Simpan' }).click();
+  await expect(page.getByText('Consent dicatat.')).toBeVisible();
+  await expect(page.getByTestId('consent-row')).toContainText('Setuju');
+  await expect(page.getByText('Belum ada persetujuan umum yang berlaku.')).toHaveCount(0);
 });
 
 test('W06 keamanan: CSP bernonce, no-store; proxy hanya untuk klinik dari subdomain; tidak ada pelanggaran CSP', async ({ page }) => {

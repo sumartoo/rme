@@ -48,3 +48,20 @@ export const fmtRupiah = (s: string | null | undefined) => {
 };
 /** Tanggal hari ini (YYYY-MM-DD) di WIB. */
 export const todayWib = () => new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Jakarta' });
+
+// ------------------------------------------------------------------ Pasien (Stage 8)
+export const SEX_LABEL = { L: 'Laki-laki', P: 'Perempuan', TIDAK_DIKETAHUI: 'Tidak diketahui' } as const;
+export const IDENTITY_LABEL = {
+  NIK: 'NIK (KTP/KK)', PASPOR: 'Paspor', KITAS: 'KITAS/KITAP', BAYI_IDENTITAS_IBU: 'Bayi — identitas ibu', TANPA_IDENTITAS: 'Tanpa identitas',
+} as const;
+export const CONSENT_TYPE_LABEL = { UMUM: 'Persetujuan umum', DATA_SHARING: 'Berbagi data', PORTAL: 'Portal pasien' } as const;
+/** Umur dari tanggal lahir (YYYY-MM-DD): "34 th", bayi "5 bln" / "12 hr". */
+export function fmtAge(birth: string): string {
+  const [y, m, d] = birth.split('-').map(Number);
+  const now = new Date(todayWib() + 'T00:00:00Z');
+  let months = (now.getUTCFullYear() - y) * 12 + (now.getUTCMonth() + 1 - m);
+  if (now.getUTCDate() < d) months -= 1;
+  if (months >= 24) return `${Math.floor(months / 12)} th`;
+  if (months >= 1) return `${months} bln`;
+  return `${Math.max(0, Math.round((now.getTime() - Date.UTC(y, m - 1, d)) / 86_400_000))} hr`;
+}

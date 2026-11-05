@@ -42,3 +42,20 @@ export async function seedClinic(): Promise<void> {
     await c.end();
   }
 }
+
+/** User sintetis tambahan untuk uji tahap berikutnya (Stage 8+); ditambah saat uji itu mulai agar jumlah user uji lama tidak berubah. */
+export async function addClinicUser(email: string, name: string, role: string): Promise<void> {
+  const c = new Client({ connectionString: dbUrl() });
+  await c.connect();
+  try {
+    const pw = await hash(USER_PASSWORD, { memoryCost: 19456, timeCost: 2, parallelism: 1 });
+    const { rows: [t] } = await c.query(`SELECT id FROM app.tenant WHERE code = $1`, [CLINIC_CODE]);
+    const { rows: [u] } = await c.query(`INSERT INTO app.app_user(tenant_id, email, full_name) VALUES ($1, $2, $3)
+                                         ON CONFLICT DO NOTHING RETURNING id`, [t.id, email, name]);
+    if (!u) return;
+    await c.query(`INSERT INTO app.user_credential(tenant_id, user_id, password_hash) VALUES ($1, $2, $3)`, [t.id, u.id, pw]);
+    await c.query(`INSERT INTO app.user_role_assignment(tenant_id, user_id, role_id) SELECT $1, $2, id FROM app.role WHERE tenant_id = $1 AND code = $3`, [t.id, u.id, role]);
+  } finally {
+    await c.end();
+  }
+}

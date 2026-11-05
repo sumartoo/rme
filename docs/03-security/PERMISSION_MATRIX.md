@@ -102,8 +102,8 @@
 | **patient** | | | | | | | | | |
 | `patient.create` |  |  |  | ✓ |  |  |  |  | patientCreate; patientDuplicateCheck |
 | `patient.merge` | ✓ |  |  |  |  |  |  |  | patientMerge |
-| `patient.read` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |  |  | patientGet; patientSearch |
-| `patient.update` |  |  |  | ✓ |  |  |  |  | patientConsentRecord; patientUpdate |
+| `patient.read` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |  |  | consentDocumentList; patientGet; patientSearch |
+| `patient.update` |  |  |  | ✓ |  |  |  |  | patientConsentRecord; patientConsentRevoke; patientCoverageCreate; patientCoverageUpdate; patientRestrictionSet; patientUpdate |
 | **pharmacy** | | | | | | | | | |
 | `pharmacy.dispense` |  |  |  |  | ✓ |  |  |  | pharmacyWorklist; prescriptionDispense; prescriptionReview; substitutionRequest |
 | `pharmacy.drug.manage` |  |  |  |  | ✓ |  |  |  | drugCreate |
@@ -131,10 +131,10 @@
 | `schedule.read` | ✓ |  |  | ✓ |  |  |  |  | scheduleList |
 | **tenant** | | | | | | | | | |
 | `tenant.data.export` | ✓ |  |  |  |  |  |  |  | tenantExportCreate; tenantExportDownload; tenantExportGet; tenantExportKey; tenantExportList |
-| `tenant.profile.manage` | ✓ |  |  |  |  |  |  |  | tenantProfileUpdate |
+| `tenant.profile.manage` | ✓ |  |  |  |  |  |  |  | consentDocumentCreate; tenantProfileUpdate |
 | `tenant.profile.read` | ✓ |  |  |  |  |  |  |  | tenantProfileGet |
 | **terminology** | | | | | | | | | |
-| `terminology.favorite.manage` | ✓ | ✓ |  |  |  |  |  |  | conceptFavorite |
+| `terminology.favorite.manage` | ✓ | ✓ |  |  |  |  |  |  | conceptFavorite; conceptUnfavorite |
 
 ## Permission Platform
 

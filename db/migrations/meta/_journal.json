@@ -106,6 +106,13 @@
       "when": 1794297600000,
       "tag": "0014_master_transfer_menu",
       "breakpoints": false
+    },
+    {
+      "idx": 15,
+      "version": "7",
+      "when": 1794384000000,
+      "tag": "0015_patient_registration",
+      "breakpoints": false
     }
   ]
 }

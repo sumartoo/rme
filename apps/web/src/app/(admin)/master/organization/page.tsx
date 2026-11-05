@@ -3,9 +3,10 @@ import { useCallback, useEffect, useState } from 'react';
 import {
   Alert, Badge, Button, Card, CardContent, CardDescription, CardHeader, CardTitle, Dialog, Field, Input, Select, Switch, TBody, TD, TH, THead, TR, Table,
 } from '@clinicrme/ui';
-import { BranchItem, Facility, FacilityType, Region, ServiceUnit, Timezone, UnitType, api, errorText } from '../../../../lib/api';
+import { BranchItem, Facility, FacilityType, ServiceUnit, Timezone, UnitType, api, errorText } from '../../../../lib/api';
 import { FACILITY_TYPE_LABEL, TIMEZONE_LABEL, UNIT_TYPE_LABEL } from '../../../../lib/format';
 import { can, useSession } from '../../../../lib/session';
+import { RegionPicker } from '../../../../components/region-picker';
 
 type Kind = 'facility' | 'branch' | 'unit';
 type Editing = { kind: Kind; item?: Facility | BranchItem | ServiceUnit };
@@ -234,32 +235,3 @@ function EditDialog({ editing, facilities, branches, defaultBranch, onClose, onS
   );
 }
 
-const LEVELS = ['Provinsi', 'Kabupaten/kota', 'Kecamatan', 'Kelurahan/desa'];
-/** Wilayah berjenjang (MST-FR-011, Kepmendagri): nilai = kode terdalam yang dipilih (boleh berhenti di tingkat mana pun). */
-function RegionPicker({ value, onChange }: { value: string; onChange: (code: string) => void }) {
-  const parts = value ? value.split('.') : [];
-  const chosen = parts.map((_, i) => parts.slice(0, i + 1).join('.'));      // kode tiap tingkat yang sudah dipilih
-  const [lists, setLists] = useState<Region[][]>([]);
-  const key = chosen.join('|');
-  useEffect(() => {
-    let alive = true;
-    void (async () => {
-      const parents = [undefined, ...chosen].slice(0, 4);
-      const out = await Promise.all(parents.map((p) => api<Region[]>(p ? `/regions?parent=${p}` : '/regions').catch(() => [])));
-      if (alive) setLists(out);
-    })();
-    return () => { alive = false; };
-  }, [key]);
-  return (
-    <div className="grid gap-2 sm:grid-cols-2">
-      {LEVELS.map((label, i) => (i === 0 || chosen[i - 1]) && (lists[i]?.length ?? 0) > 0 ? (
-        <Field key={label} id={`md-region-${i}`} label={label}>
-          <Select id={`md-region-${i}`} value={chosen[i] ?? ''} onChange={(e) => onChange(e.target.value || (chosen[i - 1] ?? ''))}>
-            <option value="">— pilih —</option>
-            {lists[i].map((r) => <option key={r.code} value={r.code}>{r.name}</option>)}
-          </Select>
-        </Field>
-      ) : null)}
-    </div>
-  );
-}

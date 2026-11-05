@@ -22,6 +22,7 @@ export const EXPORT_FORMAT = 'clinicrme-export/1';
 export const EXCLUDED_TABLES: Readonly<Record<string, string>> = {
   user_credential: 'hash password', user_mfa: 'secret TOTP & recovery code', user_session: 'token sesi',
   user_invitation: 'token undangan', tenant_export_job: 'metadata ekspor', outbox_event: 'antrean teknis internal',
+  idempotency_record: 'salinan respons teknis 24 jam (Idempotency-Key)',
 };
 
 export interface ExportOptions { encryptionKeyHex: string; ttlHours: number; workDir?: string }

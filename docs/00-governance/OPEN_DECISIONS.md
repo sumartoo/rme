@@ -42,20 +42,6 @@ Semua keputusan penentu Stage 0 sudah diambil — lihat bagian D.
 | ID | Pertanyaan | Usulan |
 |---|---|---|
 
-## B5. Stage 8 (menunggu PO) — usulan di `docs/reports/stage-8/STAGE_PLAN.md` §4
-
-| ID | Pertanyaan | Usulan |
-|---|---|---|
-| OD-012 | Provider notifikasi pengingat janji temu | Ditunda (SCH-FR-012 LJT) |
-| OD-032 | Verifikasi eligibilitas asuransi | Manual di MVP, tercatat siapa & kapan |
-| OD-068 | Pembatasan pemrosesan atas permintaan pasien | Tanda `processing_restricted`; RM, tagihan, pelaporan wajib tetap |
-| OD-085 | Data wajib registrasi pasien `[REVIEW-MEDIS]` | Nama, tgl lahir, jenis kelamin, identitas, telepon/kontak darurat, alamat |
-| OD-086 | Format nomor antrean & kunjungan | `A-001` per cabang × poli × hari; `KJ{YYYY}{MM}{SEQ:6}` |
-| OD-087 | Aturan terlambat & no-show | Toleransi 15 menit; auto no-show saat sesi berakhir |
-| OD-088 | Akses & isi layar TV | Tautan token per cabang, tanpa nama pasien |
-| OD-089 | Realtime layar TV | SSE + PostgreSQL LISTEN/NOTIFY |
-| OD-090 | Model janji temu & kuota | Slot jam perkiraan; walk-in tidak memakai kuota |
-
 ## C. Ditetapkan di Stage Berikutnya
 
 Lihat `docs/APP_DESIGN.md` §13 dan masing-masing `docs/stages/STAGE_XX_*.md` (OD-003 s.d. OD-054).
@@ -114,3 +100,12 @@ Lihat `docs/APP_DESIGN.md` §13 dan masing-masing `docs/stages/STAGE_XX_*.md` (O
 | OD-082 | Tarif Rupiah final; pajak di Stage 11 | DEC-032 |
 | OD-083 | Impor/ekspor CSV + XLSX (`exceljs`), maks 5.000 baris / 5 MB | DEC-032 |
 | OD-084 | Favorit divalidasi user tertaut dokter dengan SIP berlaku | DEC-032 |
+| OD-012 | Pengingat janji temu ditunda (SCH-FR-012 LJT) | DEC-035 |
+| OD-032 | Verifikasi kepesertaan asuransi manual di MVP | DEC-035 |
+| OD-068 | Tanda `processing_restricted`; RM, tagihan, pelaporan wajib tetap | DEC-035 |
+| OD-085 | Data wajib registrasi pasien `[REVIEW-MEDIS]` | DEC-035 |
+| OD-086 | Antrean `A-001` per cabang × poli × hari; kunjungan `KJ{YYYY}{MM}{SEQ:6}` | DEC-035 |
+| OD-087 | Toleransi terlambat 15 menit; auto no-show saat sesi berakhir | DEC-035 |
+| OD-088 | Layar TV via tautan token per cabang, tanpa nama pasien | DEC-035 |
+| OD-089 | SSE + PostgreSQL LISTEN/NOTIFY | DEC-035 |
+| OD-090 | Janji temu slot jam perkiraan; walk-in tidak memakai kuota | DEC-035 |

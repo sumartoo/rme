@@ -27,7 +27,7 @@ export const ids = {
   patientA: 'aaaaaaaa-0000-0000-0000-000000000060', patientB: 'bbbbbbbb-0000-0000-0000-000000000060',
   dokterA: 'aaaaaaaa-0000-0000-0000-000000000021', kasirA: 'aaaaaaaa-0000-0000-0000-000000000022',
   manajerA: 'aaaaaaaa-0000-0000-0000-000000000023', adminA: 'aaaaaaaa-0000-0000-0000-000000000024',
-  gudangA: 'aaaaaaaa-0000-0000-0000-000000000025',
+  gudangA: 'aaaaaaaa-0000-0000-0000-000000000025', pendaftaranA: 'aaaaaaaa-0000-0000-0000-000000000026',
   dokterB: 'bbbbbbbb-0000-0000-0000-000000000021', adminB: 'bbbbbbbb-0000-0000-0000-000000000024',
   platformAdmin: 'ffffffff-0000-0000-0000-000000000001', platformSupport: 'ffffffff-0000-0000-0000-000000000002',
   platformSupport2: 'ffffffff-0000-0000-0000-000000000003',
@@ -83,6 +83,7 @@ export async function resetDatabase() {
   await d.query(`INSERT INTO app.app_user(id, tenant_id, email, full_name) VALUES ($1, $2, 'gudang@a.test', 'Petugas Gudang')`, [ids.gudangA, A]);
   await d.query(`WITH r AS (INSERT INTO app.role(tenant_id, code, name) VALUES ($1, 'GUDANG', 'Petugas Gudang') RETURNING id)
                  INSERT INTO app.role_permission(tenant_id, role_id, permission_code) SELECT $1, id, 'pharmacy.stock.read' FROM r`, [A]);
+  await d.query(`INSERT INTO app.app_user(id, tenant_id, email, full_name) VALUES ($1, $2, 'pendaftaran@a.test', 'Petugas Pendaftaran')`, [ids.pendaftaranA, A]);
   const assign = (tenant: string, user: string, role: string) =>
     d.query(`INSERT INTO app.user_role_assignment(tenant_id, user_id, role_id)
              SELECT $1, $2, id FROM app.role WHERE tenant_id = $1 AND code = $3`, [tenant, user, role]);
@@ -91,10 +92,11 @@ export async function resetDatabase() {
   await assign(A, ids.manajerA, 'MANAJER');
   await assign(A, ids.adminA, 'TENANT_ADMIN');
   await assign(A, ids.gudangA, 'GUDANG');
+  await assign(A, ids.pendaftaranA, 'PENDAFTARAN');
   await assign(ids.tenantB, ids.dokterB, 'DOKTER');
   await d.query(`INSERT INTO app.app_user(id, tenant_id, email, full_name) VALUES ($1, $2, 'admin@b.test', 'Admin B')`, [ids.adminB, ids.tenantB]);
   await assign(ids.tenantB, ids.adminB, 'TENANT_ADMIN');
-  for (const [t, u] of [[A, ids.dokterA], [A, ids.kasirA], [A, ids.manajerA], [A, ids.adminA], [A, ids.gudangA], [ids.tenantB, ids.dokterB], [ids.tenantB, ids.adminB]]) {
+  for (const [t, u] of [[A, ids.dokterA], [A, ids.kasirA], [A, ids.manajerA], [A, ids.adminA], [A, ids.gudangA], [A, ids.pendaftaranA], [ids.tenantB, ids.dokterB], [ids.tenantB, ids.adminB]]) {
     await d.query(`INSERT INTO app.user_credential(tenant_id, user_id, password_hash) VALUES ($1, $2, $3)`, [t, u, hash]);
   }
   // Pengguna konsol platform (sintetis); TOTP didaftarkan di uji

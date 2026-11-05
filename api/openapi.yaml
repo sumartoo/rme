@@ -2798,11 +2798,11 @@ paths:
       operationId: patientUpdate
       tags:
       - Patient
-      summary: Ubah data pasien
+      summary: Ubah data pasien (sebagian; contacts menggantikan daftar)
       x-requirements:
       - REG-FR-001
       - REG-FR-006
-      - REG-FR-007
+      - REG-FR-009
       x-permission: patient.update
       parameters:
       - $ref: '#/components/parameters/patientId'
@@ -2812,7 +2812,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/PatientInput'
+              $ref: '#/components/schemas/PatientUpdate'
       responses:
         '200':
           description: OK
@@ -2820,6 +2820,120 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Patient'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '412':
+          $ref: '#/components/responses/PreconditionFailed'
+  /api/v1/patients/{patientId}/restriction:
+    post:
+      operationId: patientRestrictionSet
+      tags:
+      - Patient
+      summary: Pembatasan pemrosesan atas permintaan pasien (OD-068)
+      x-requirements:
+      - REG-FR-001
+      x-permission: patient.update
+      parameters:
+      - $ref: '#/components/parameters/patientId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                restricted: *id001
+                reason:
+                  type: string
+                  minLength: 5
+              required:
+              - restricted
+              - reason
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Patient'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /api/v1/patients/{patientId}/coverages:
+    post:
+      operationId: patientCoverageCreate
+      tags:
+      - Patient
+      summary: Tambah penjamin pasien
+      x-requirements:
+      - REG-FR-007
+      x-permission: patient.update
+      parameters:
+      - $ref: '#/components/parameters/patientId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CoverageInput'
+      responses:
+        '201':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Coverage'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /api/v1/patients/{patientId}/coverages/{coverageId}:
+    put:
+      operationId: patientCoverageUpdate
+      tags:
+      - Patient
+      summary: Ubah / nonaktifkan penjamin pasien
+      x-requirements:
+      - REG-FR-007
+      x-permission: patient.update
+      parameters:
+      - $ref: '#/components/parameters/patientId'
+      - $ref: '#/components/parameters/coverageId'
+      - $ref: '#/components/parameters/IfMatch'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CoverageUpdate'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Coverage'
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -2851,7 +2965,11 @@ paths:
               $ref: '#/components/schemas/ConsentInput'
       responses:
         '201':
-          description: Dibuat
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PatientConsent'
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -2860,6 +2978,100 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /api/v1/patients/{patientId}/consents/{consentId}/revoke:
+    post:
+      operationId: patientConsentRevoke
+      tags:
+      - Patient
+      summary: Cabut consent (catatan tidak dihapus)
+      x-requirements:
+      - REG-FR-008
+      x-permission: patient.update
+      parameters:
+      - $ref: '#/components/parameters/patientId'
+      - $ref: '#/components/parameters/consentId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reason:
+                  type: string
+                  minLength: 5
+              required:
+              - reason
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Patient'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /api/v1/consent-documents:
+    get:
+      operationId: consentDocumentList
+      tags:
+      - Patient
+      summary: Daftar teks consent berversi
+      x-requirements:
+      - REG-FR-008
+      x-permission: patient.read
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ConsentDocument'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+    post:
+      operationId: consentDocumentCreate
+      tags:
+      - Patient
+      summary: Terbitkan versi teks consent (tidak dapat diubah)
+      x-requirements:
+      - REG-FR-008
+      x-permission: tenant.profile.manage
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConsentDocument'
+      responses:
+        '201':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConsentDocument'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
         '409':
           $ref: '#/components/responses/Conflict'
   /api/v1/patients/merge:
@@ -5558,6 +5770,18 @@ components:
       required: true
       description: conceptId
       schema: *id002
+    consentId:
+      name: consentId
+      in: path
+      required: true
+      description: consentId
+      schema: *id002
+    coverageId:
+      name: coverageId
+      in: path
+      required: true
+      description: coverageId
+      schema: *id002
     documentId:
       name: documentId
       in: path
@@ -5867,6 +6091,10 @@ components:
                 type: string
               message:
                 type: string
+        candidates:
+          type: array
+          items:
+            $ref: '#/components/schemas/PatientSummary'
       required:
       - type
       - title
@@ -6512,6 +6740,56 @@ components:
       - birthDate
       - sex
       - identityType
+    PatientUpdate:
+      type: object
+      properties:
+        fullName:
+          type: string
+          maxLength: 200
+        birthDate: *id006
+        sex:
+          type: string
+          enum:
+          - L
+          - P
+          - TIDAK_DIKETAHUI
+        identityType:
+          type: string
+          enum:
+          - NIK
+          - PASPOR
+          - KITAS
+          - BAYI_IDENTITAS_IBU
+          - TANPA_IDENTITAS
+        nik:
+          type:
+          - string
+          - 'null'
+          pattern: ^\d{16}$
+          writeOnly: true
+        identityValue:
+          type:
+          - string
+          - 'null'
+          writeOnly: true
+        motherPatientId:
+          type:
+          - string
+          - 'null'
+          format: uuid
+        phone:
+          type: string
+        email:
+          type: string
+          format: email
+        address:
+          type: string
+        regionCode:
+          type: string
+        contacts:
+          type: array
+          items:
+            $ref: '#/components/schemas/PatientContact'
     Patient:
       type: object
       properties:
@@ -6528,9 +6806,15 @@ components:
         nikMasked:
           type: string
           example: 3174********0001
+        identityMasked:
+          type: string
         phone:
           type: string
+        email:
+          type: string
         address:
+          type: string
+        regionCode:
           type: string
         ihsStatus:
           type: string
@@ -6542,15 +6826,42 @@ components:
           - ERROR
         status:
           type: string
-        allergies:
+          enum:
+          - ACTIVE
+          - MERGED
+          - DECEASED
+          - INACTIVE
+        mother:
+          $ref: '#/components/schemas/PatientSummary'
+        mergedInto:
+          $ref: '#/components/schemas/PatientSummary'
+        mergedAt: *id005
+        mergeReason:
+          type: string
+        processingRestricted: *id001
+        restrictionReason:
+          type: string
+        restrictedAt: *id005
+        registeredBranchId: *id002
+        createdAt: *id005
+        contacts:
           type: array
           items:
-            $ref: '#/components/schemas/Allergy'
+            $ref: '#/components/schemas/PatientContact'
         coverages:
           type: array
           items:
             $ref: '#/components/schemas/Coverage'
+        consents:
+          type: array
+          items:
+            $ref: '#/components/schemas/PatientConsent'
+        allergies:
+          type: array
+          items:
+            $ref: '#/components/schemas/Allergy'
         hasConsent: *id001
+        hasActiveCoverage: *id001
         version: *id004
       required:
       - id
@@ -6573,6 +6884,12 @@ components:
           type: string
         phone:
           type: string
+        status:
+          type: string
+        identityType:
+          type: string
+        identityMasked:
+          type: string
         score:
           type: number
       required:
@@ -6593,6 +6910,10 @@ components:
     PatientContact:
       type: object
       properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
         relation:
           type: string
         fullName:
@@ -6630,12 +6951,88 @@ components:
         payerType: *id008
         memberNo:
           type: string
+        planName:
+          type: string
+        employeeNo:
+          type: string
+        bpjsFaskesCode:
+          type: string
+        validFrom: *id006
         validTo: *id006
         isActive: *id001
+        version: *id004
       required:
       - id
       - payerId
       - payerType
+    CoverageUpdate:
+      type: object
+      properties:
+        memberNo:
+          type: string
+        planName:
+          type: string
+        employeeNo:
+          type: string
+        bpjsFaskesCode:
+          type: string
+        validFrom: *id006
+        validTo: *id006
+        isActive: *id001
+    PatientConsent:
+      type: object
+      properties:
+        id: *id002
+        consentType:
+          type: string
+        version:
+          type: string
+        title:
+          type: string
+        granted: *id001
+        signedByName:
+          type: string
+        signedByRelation:
+          type: string
+        recordedAt: *id005
+        revokedAt:
+          type:
+          - string
+          - 'null'
+          format: date-time
+      required:
+      - id
+      - consentType
+      - version
+      - granted
+    ConsentDocument:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        consentType:
+          type: string
+          enum:
+          - UMUM
+          - DATA_SHARING
+          - PORTAL
+        version:
+          type: string
+        title:
+          type: string
+        content:
+          type: string
+        effectiveAt:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - consentType
+      - version
+      - title
+      - content
     ConsentInput:
       type: object
       properties:
@@ -8322,7 +8719,7 @@ components:
           description: Sama dengan ETag; kirim di If-Match
         settings:
           type: object
-          description: Mis. pharmacyBeforeCashier, discountLimit, noShowMinutes
+          description: Mis. pharmacyBeforeCashier, discountLimit, noShowMinutes, mrnPrefix (0–5 huruf, OD-081)
       required:
       - displayName
     SupportAccessInput:
