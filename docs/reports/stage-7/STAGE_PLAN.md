@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | Stage | 7 — Master Data & Terminologi |
-| Status | **SELESAI — menunggu persetujuan PO** ([completion report](STAGE_COMPLETION_REPORT.md)) |
+| Status | **DISETUJUI** — DEC-034 ([completion report](STAGE_COMPLETION_REPORT.md)) |
 | Mulai | 5 November 2026 (DEC-031) |
 | Project Owner | Sumarto |
 | Requirement | **MVP saja** (DEC-010): MST-FR-001, 002, 004–011 · TRM-FR-001–004. LJT di luar stage ini: MST-FR-003 (peringatan STR/SIP kedaluwarsa). TRM-FR-005 (KFA) → hanya kolom rujukan, sinkronisasi menunggu OD-031/OD-058 |
@@ -50,7 +50,7 @@ Perkiraan: batch 1–2 ±1 hari kerja masing-masing, batch 3–4 ±1 hari masing
 - [x] Sumber & versi ICD terdokumentasi — `docs/04-interoperability/TERMINOLOGY.md`; **lisensi resmi = syarat terbuka S7-1 sebelum pilot**
 - [x] Subset diagnosis divalidasi tenaga medis (OD-084) — M22, W15
 - [x] Matriks permission X01 mencakup semua endpoint master baru
-- [ ] PO menyetujui Stage 7 — [completion report](STAGE_COMPLETION_REPORT.md)
+- [x] PO menyetujui Stage 7 — DEC-034 ([completion report](STAGE_COMPLETION_REPORT.md))
 
 ## 6. Progres
 

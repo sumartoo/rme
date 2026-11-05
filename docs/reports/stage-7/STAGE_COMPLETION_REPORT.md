@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | Stage | 7 — Master Data & Terminologi |
-| Status | **MENUNGGU PERSETUJUAN PO** |
+| Status | **DISETUJUI** — DEC-034 (6 Nov 2026) |
 | Disusun oleh | Sumarto (dibantu Claude) |
 | Rincian | [STAGE_PLAN.md](STAGE_PLAN.md) §6 · keputusan DEC-031, DEC-032, DEC-033 |
 | Lingkungan uji | `https://demo.medika.atoai.id` (VPS dev, deploy otomatis dari `main`) |
@@ -61,7 +61,7 @@ Semua data bisa diimpor dan diekspor lewat Excel/CSV, dengan pemeriksaan (dry-ru
 - [x] Subset diagnosis divalidasi tenaga medis. Mekanisme dan penegakan sudah ada. Validasi isi oleh dokter klinik pilot dilakukan saat data resmi dimuat.
 - [x] Matriks permission X01 mencakup semua endpoint master baru
 - [x] Uji mutasi lengkap M1–M22 hijau di GitHub Actions: 22/22 terdeteksi, 0 lolos ([run 42020323156](https://github.com/AtoAIs/atoai-rme-v2/actions/runs/42020323156/job/127221155254), 5 Nov 2026, ±74 menit)
-- [ ] PO menyetujui Stage 7
+- [x] PO menyetujui Stage 7 — DEC-034, dengan syarat terbuka S7-1
 
 ## 4. Keamanan & privasi
 
@@ -84,4 +84,4 @@ Semua data bisa diimpor dan diekspor lewat Excel/CSV, dengan pemeriksaan (dry-ru
 
 | Peran | Nama | Keputusan | Tanggal | Catatan |
 |---|---|---|---|---|
-| Project Owner | Sumarto | ☐ Menunggu | | |
+| Project Owner | Sumarto | ☑ Disetujui | 6 Nov 2026 | "setuju Stage 7" (DEC-034); syarat terbuka S7-1 (lisensi & data ICD resmi) sebelum pilot |

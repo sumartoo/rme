@@ -29,7 +29,6 @@ Semua keputusan penentu Stage 0 sudah diambil — lihat bagian D.
 | ID | Pertanyaan | Usulan |
 |---|---|---|
 | OD-067 | Peran para pihak untuk aplikasi pasien | Stage 13 |
-| OD-068 | Perilaku pembatasan pemrosesan atas permintaan pasien | Stage 8 |
 | OD-069 | Penunjukan PPDP ClinicRME | Sebelum pilot |
 | OD-070 | Model harga & teknis penyimpanan arsip setelah tenant berhenti | Stage 5 / 15 |
 
@@ -42,6 +41,20 @@ Semua keputusan penentu Stage 0 sudah diambil — lihat bagian D.
 
 | ID | Pertanyaan | Usulan |
 |---|---|---|
+
+## B5. Stage 8 (menunggu PO) — usulan di `docs/reports/stage-8/STAGE_PLAN.md` §4
+
+| ID | Pertanyaan | Usulan |
+|---|---|---|
+| OD-012 | Provider notifikasi pengingat janji temu | Ditunda (SCH-FR-012 LJT) |
+| OD-032 | Verifikasi eligibilitas asuransi | Manual di MVP, tercatat siapa & kapan |
+| OD-068 | Pembatasan pemrosesan atas permintaan pasien | Tanda `processing_restricted`; RM, tagihan, pelaporan wajib tetap |
+| OD-085 | Data wajib registrasi pasien `[REVIEW-MEDIS]` | Nama, tgl lahir, jenis kelamin, identitas, telepon/kontak darurat, alamat |
+| OD-086 | Format nomor antrean & kunjungan | `A-001` per cabang × poli × hari; `KJ{YYYY}{MM}{SEQ:6}` |
+| OD-087 | Aturan terlambat & no-show | Toleransi 15 menit; auto no-show saat sesi berakhir |
+| OD-088 | Akses & isi layar TV | Tautan token per cabang, tanpa nama pasien |
+| OD-089 | Realtime layar TV | SSE + PostgreSQL LISTEN/NOTIFY |
+| OD-090 | Model janji temu & kuota | Slot jam perkiraan; walk-in tidak memakai kuota |
 
 ## C. Ditetapkan di Stage Berikutnya
 

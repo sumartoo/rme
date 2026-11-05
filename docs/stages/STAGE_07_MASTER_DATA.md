@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | Phase | C — Platform SaaS |
-| Status | **Selesai — menunggu persetujuan PO** — `docs/reports/stage-7/` |
+| Status | **Disetujui** (DEC-034) — `docs/reports/stage-7/` |
 | Prasyarat | Stage 6 disetujui |
 | Modul | `masterdata`, `terminology` |
 
