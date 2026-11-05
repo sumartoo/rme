@@ -48,7 +48,7 @@ export default function PayersPage() {
         </CardContent>
       </Card>
       {editing ? <PayerDialog item={editing === 'new' ? undefined : editing} onClose={() => setEditing(undefined)}
-        onSaved={async (msg) => { setEditing(undefined); setNotice(msg); setError(undefined); await load(); }} /> : null}
+        onSaved={async (msg) => { setEditing(undefined); setError(undefined); await load(); setNotice(msg); }} /> : null}
     </div>
   );
 }

@@ -75,8 +75,9 @@ schemas = {
              conversions=arr(obj(toUomId=UUID, factor=S(pattern=r"^\d{1,12}(\.\d{1,6})?$")))),
   "Supplier": obj(["id", "name"], id=UUID, code=S(), name=S(), contactPerson=S(), phone=S(), email=S(format="email"), address=S(),
                   npwp=S(), isActive=BOOL, version=INT),
-  "ImportJob": obj(["id", "status"], id=UUID, entity=S(), status=enum("VALIDATED", "COMMITTED", "FAILED"), dryRun=BOOL,
-                   rowCount=INT, errors=arr(obj(row=INT, field=S(), message=S()))),
+  # Stage 7 batch 4: impor sinkron (tanpa job tersimpan); dryRun=true (bawaan) tidak menyimpan; commit hanya bila tanpa error
+  "ImportJob": obj(["entity", "status", "dryRun", "rowCount"], entity=S(), status=enum("VALIDATED", "COMMITTED", "FAILED"), dryRun=BOOL,
+                   rowCount=INT, created=INT, updated=INT, errors=arr(obj(row=INT, field=S(), message=S()))),
   "Concept": obj(["system", "code", "display"], id=UUID, system=enum("ICD10", "ICD9CM", "KFA"), code=S(), display=S(), displayEn=S(),
                  synonyms=arr(S()), isFavorite=BOOL,
                  favorite={"oneOf": [{"type": "null"}, obj(specialty=S(), validated=BOOL, validatedAt=DT, validatedBy=S())]}),
@@ -351,8 +352,8 @@ ops = [
  ("put",  f"{P}/uoms/{{uomId}}/conversions/{{toUomId}}", "uomConversionSet", "Master", "Tetapkan konversi (1 asal = factor × tujuan; tidak melingkar)", ["MST-FR-007"], "master.uom.manage", obj(["factor"], factor=S()), obj(fromUomId=UUID, toUomId=UUID, factor=S()), {}),
  ("delete", f"{P}/uoms/{{uomId}}/conversions/{{toUomId}}", "uomConversionDelete", "Master", "Hapus konversi", ["MST-FR-007"], "master.uom.manage", None, None, {"code": "204"}),
  ("get",  f"{P}/regions", "regionList", "Master", "Wilayah berjenjang (parent=kode)", ["MST-FR-011"], None, None, obj(code=S(), name=S(), level=INT), {"list": 1}),
- ("post", f"{P}/imports/{{entity}}", "masterImport", "Master", "Impor Excel/CSV (dryRun=true untuk validasi saja)", ["MST-FR-008"], "master.import", {"type": "string", "format": "binary"}, "ImportJob", {"multipart": 1}),
- ("get",  f"{P}/exports/{{entity}}", "masterExport", "Master", "Ekspor master data (format dapat diimpor ulang)", ["MST-FR-008"], "master.export", None, None, {"file": 1}),
+ ("post", f"{P}/imports/{{entity}}", "masterImport", "Master", "Impor CSV/XLSX sebagai body mentah (?dryRun=true bawaan = validasi saja; maks 5.000 baris / 5 MB; wajib juga izin kelola entitas)", ["MST-FR-008"], "master.import", {"type": "string", "format": "binary"}, "ImportJob", {"upload": 1}),
+ ("get",  f"{P}/exports/{{entity}}", "masterExport", "Master", "Ekspor / template (?format=csv|xlsx&template=true) — format dapat diimpor ulang; NIK tidak pernah diekspor", ["MST-FR-008"], "master.export", None, None, {"file": 1}),
  ("get",  f"{P}/terminology/concepts", "conceptSearch", "Terminology", "Cari ICD-10/ICD-9-CM/KFA (q, system, favorites=all|validated)", ["TRM-FR-001", "TRM-FR-002", "TRM-FR-004", "TRM-FR-005"], None, None, "Concept", {"list": 1}),
  ("get",  f"{P}/terminology/code-systems", "codeSystemList", "Terminology", "Sumber & versi code system (OD-030)", ["TRM-FR-001", "TRM-FR-002"], None, None, "CodeSystem", {"list": 1}),
  ("put",  f"{P}/terminology/favorites/{{conceptId}}", "conceptFavorite", "Terminology", "Tandai favorit & validasi (validator: dokter dengan SIP berlaku, OD-084)", ["TRM-FR-003"], "terminology.favorite.manage", obj(specialty=S(), validated=BOOL), None, {"code": "204"}),
@@ -473,12 +474,16 @@ for method, path, opid, tag, summary, reqs, perm, body, resp, o in ops:
         b = ref(body) if isinstance(body, str) else body
         if o.get("multipart"):
             op["requestBody"] = {"required": True, "content": {"multipart/form-data": {"schema": obj(["file"], file=b, dryRun=BOOL)}}}
+        elif o.get("upload"):
+            op["requestBody"] = {"required": True, "content": {"text/csv": {"schema": b},
+                                  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {"schema": b}}}
         else:
             op["requestBody"] = {"required": True, "content": {"application/json": {"schema": b}}}
     code = o.get("code", "200")
     if resp is None:
         if o.get("file"):
-            r = {"description": "Berkas", "content": {"text/csv": {"schema": {"type": "string", "format": "binary"}}}}
+            r = {"description": "Berkas", "content": {"text/csv": {"schema": {"type": "string", "format": "binary"}},
+                 "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {"schema": {"type": "string", "format": "binary"}}}}
         elif o.get("binary"):
             r = {"description": "Berkas", "content": {"application/octet-stream": {"schema": {"type": "string", "format": "binary"}}}}
         else:

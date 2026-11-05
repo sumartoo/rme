@@ -19,8 +19,15 @@ export interface ReferenceResult { id: string; status: 'loaded' | 'skipped'; row
 
 const CHUNK = 5000;
 
-/** CSV RFC 4180 sederhana (koma, kutip ganda, "" untuk kutip di dalam nilai). Baris pertama = header. */
-export function parseCsv(text: string): Record<string, string>[] {
+/** CSV RFC 4180 sederhana (pemisah koma/titik koma, kutip ganda, "" untuk kutip di dalam nilai). Baris pertama = header. */
+export function parseCsv(text: string, delimiter = ','): Record<string, string>[] {
+  return toRecords(parseCsvRows(text, delimiter));
+}
+export function toRecords(rows: string[][]): Record<string, string>[] {
+  const [header = [], ...body] = rows;
+  return body.map((r) => Object.fromEntries(header.map((h, i) => [h.trim(), r[i] ?? ''])));
+}
+export function parseCsvRows(text: string, delimiter = ','): string[][] {
   const rows: string[][] = [];
   let row: string[] = [], cell = '', quoted = false;
   for (let i = 0; i < text.length; i++) {
@@ -30,7 +37,7 @@ export function parseCsv(text: string): Record<string, string>[] {
       else if (ch === '"') quoted = false;
       else cell += ch;
     } else if (ch === '"') quoted = true;
-    else if (ch === ',') { row.push(cell); cell = ''; }
+    else if (ch === delimiter) { row.push(cell); cell = ''; }
     else if (ch === '\n' || ch === '\r') {
       if (ch === '\r' && text[i + 1] === '\n') i++;
       row.push(cell); cell = '';
@@ -39,8 +46,7 @@ export function parseCsv(text: string): Record<string, string>[] {
     } else cell += ch;
   }
   if (cell !== '' || row.length) { row.push(cell); rows.push(row); }
-  const [header, ...body] = rows;
-  return body.map((r) => Object.fromEntries(header.map((h, i) => [h, r[i] ?? ''])));
+  return rows;
 }
 
 function readDataset(dir: string, d: Dataset): Record<string, string>[] {

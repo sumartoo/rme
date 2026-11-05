@@ -29,7 +29,7 @@ export default function SuppliesPage() {
     } catch (e) { setError(errorText(e, 'Gagal memuat data')); }
   }, [readSupplier]);
   useEffect(() => { void load(); }, [load]);
-  const done = async (msg: string) => { setUomEdit(undefined); setConvFor(undefined); setSupEdit(undefined); setNotice(msg); setError(undefined); await load(); };
+  const done = async (msg: string) => { setUomEdit(undefined); setConvFor(undefined); setSupEdit(undefined); setError(undefined); await load(); setNotice(msg); };
   const code = (id: string) => uoms?.find((u) => u.id === id)?.code ?? '?';
 
   if (error && !uoms) return <Alert tone="error">{error}</Alert>;

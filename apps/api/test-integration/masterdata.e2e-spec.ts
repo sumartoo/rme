@@ -4,6 +4,7 @@ import request from 'supertest';
 import { createApp } from '../src/app/create-app';
 import { join } from 'node:path';
 import { loadReference } from '@clinicrme/db/reference';
+import ExcelJS from 'exceljs';
 import { PASSWORD, REPO, ids, ownerUrl, resetDatabase, su } from './support/db-setup';
 import { testConfig } from './support/test-config';
 import { freshTotp } from './support/totp';
@@ -299,7 +300,7 @@ describe('Penjamin, satuan, supplier (MST-FR-006, 007, 010)', () => {
   test('M18 menu master batch 2 tampil untuk admin', async () => {
     const m = await get('/api/v1/me/menu', admin);
     const master = m.body.find((n: { code: string }) => n.code === 'master');
-    expect(master.children.map((c: { code: string }) => c.code)).toEqual(['master.organization', 'master.practitioners', 'master.services', 'master.payers', 'master.supplies', 'master.terminology']);
+    expect(master.children.map((c: { code: string }) => c.code)).toEqual(['master.organization', 'master.practitioners', 'master.services', 'master.payers', 'master.supplies', 'master.terminology', 'master.transfer']);
   });
 });
 
@@ -379,5 +380,110 @@ describe('Data referensi, terminologi & wilayah (TRM-FR-001–004, MST-FR-011)',
     expect((await send('delete', `/api/v1/terminology/favorites/${i10}`, admin)).status).toBe(204);
     expect((await send('delete', `/api/v1/terminology/favorites/${i10}`, admin)).body.code).toBe('TRM-404-CONCEPT');
     expect((await lastAudit('TERMINOLOGY_FAVORITE_REMOVED', i10))?.before).toMatchObject({ specialty: 'Penyakit dalam' });   // resource_id = konsep
+  });
+});
+
+describe('Impor/ekspor master data (MST-FR-008, OD-083)', () => {
+  const XLSX = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+  const imp = (entity: string, body: string | Buffer, opts: { dryRun?: boolean; type?: string; j?: Jar } = {}) =>
+    send('post', `/api/v1/imports/${entity}?dryRun=${opts.dryRun ?? true}`, opts.j ?? admin).set('Content-Type', opts.type ?? 'text/csv').send(Buffer.from(body));
+  const csvText = (r: request.Response) => (r.body as Buffer).toString('utf8');
+  const download = (path: string, j: Jar = admin) => get(path, j).buffer(true).parse((res, cb) => {
+    const chunks: Buffer[] = []; res.on('data', (c: Buffer) => chunks.push(c)); res.on('end', () => cb(null, Buffer.concat(chunks)));
+  });
+
+  test('M23 template & ekspor CSV: BOM, kolom tetap, nilai berawalan = diberi petik (cegah formula injection), ekspor teraudit', async () => {
+    const t = await download('/api/v1/exports/service-items?template=true');
+    expect(t.status).toBe(200);
+    expect(t.headers['content-disposition']).toContain('service-items-template.csv');
+    expect(csvText(t)).toBe('\ufeffcode,name,serviceType,icd9cmCode,isActive\r\n');
+    await send('post', '/api/v1/suppliers', admin).send({ code: 'EVIL', name: '=HYPERLINK("http://x","klik")' });
+    const e = await download('/api/v1/exports/suppliers');
+    expect(csvText(e)).toContain(`EVIL,"'=HYPERLINK(""http://x"",""klik"")"`);
+    expect((await su(`select count(*)::int as n from app.audit_log where action = 'MASTER_EXPORTED'`))[0].n).toBeGreaterThan(0);
+    expect((await download('/api/v1/exports/practitioners')).status).toBe(200);
+    expect((await get('/api/v1/exports/rahasia', admin)).body.code).toBe('MST-404-ENTITY');
+    expect((await get('/api/v1/exports/suppliers', kasir)).status).toBe(403);
+  });
+
+  test('M24 impor layanan: dry-run melaporkan error per baris tanpa menyimpan; commit hanya bila semua valid (satu transaksi)', async () => {
+    const bad = 'code,name,serviceType,isActive\nIMP-1,Imunisasi,TINDAKAN,ya\nIMP-2,X,TINDAKAN,\nIMP-3,Rontgen,RADIOLOGI,\nIMP-1,Dobel,TINDAKAN,\nIMP-4,Lab darah,LAB,mungkin\n';
+    const r = await imp('service-items', bad, { dryRun: false });
+    expect(r.body).toMatchObject({ status: 'FAILED', dryRun: false, rowCount: 5 });
+    expect(r.body.errors.map((x: { row: number; field: string }) => [x.row, x.field])).toEqual([[3, 'name'], [4, 'serviceType'], [5, ''], [6, 'isActive']]);
+    expect((await su(`select count(*)::int as n from app.service_item where code like 'IMP-%'`))[0].n).toBe(0);         // tidak ada yang tersimpan
+    const good = 'code;name;serviceType;isActive\r\nimp-1;Imunisasi;tindakan;ya\r\nKONS;Konsultasi Dokter Umum;KONSULTASI;\r\n';   // titik koma (Excel lokal)
+    const dry = await imp('service-items', good);
+    expect(dry.body).toMatchObject({ status: 'VALIDATED', created: 1, updated: 1, errors: [] });
+    expect((await su(`select count(*)::int as n from app.service_item where code = 'IMP-1'`))[0].n).toBe(0);
+    const ok = await imp('service-items', good, { dryRun: false });
+    expect(ok.body).toMatchObject({ status: 'COMMITTED', created: 1, updated: 1 });
+    const [kons] = await su<{ id: string; name: string }>(`select id, name from app.service_item where tenant_id = $1 and code = 'KONS'`, [ids.tenantA]);
+    expect(kons.name).toBe('Konsultasi Dokter Umum');
+    expect(await lastAudit('SERVICE_ITEM_UPDATED', kons.id)).toMatchObject({ changed: ['name'], before: { name: 'Konsultasi Umum' } });
+    expect((await su(`select change_summary as s from app.audit_log where action = 'MASTER_IMPORTED' order by seq desc limit 1`))[0].s)
+      .toEqual({ entity: 'service-items', rows: 2, created: 1, updated: 1 });
+  });
+
+  test('M25 impor tarif: periode bertabrakan dilaporkan per baris (validasi berlanjut), closePrevious; tanpa error → tersimpan', async () => {
+    const csv = ['serviceCode,branchCode,payerType,payerCode,price,validFrom,validTo,closePrevious',
+      'IMP-1,,,,50000,2026-01-01,,',                    // baru
+      'IMP-1,,,,55000,2026-06-01,,',                    // tumpang tindih tanpa closePrevious → error
+      'TIDAKADA,,,,1000,2026-01-01,,',                 // layanan tak dikenal
+      `IMP-1,CBG1,,UMUM,45.000,2026-01-01,2026-12-31,`, // per cabang & penjamin, harga bertitik ribuan
+    ].join('\n');
+    const r = await imp('tariffs', csv, { dryRun: false });
+    expect(r.body.status).toBe('FAILED');
+    expect(r.body.errors.map((x: { row: number; field: string }) => [x.row, x.field])).toEqual([[3, 'validFrom'], [4, 'serviceCode']]);
+    const ok = await imp('tariffs', csv.replace('IMP-1,,,,55000,2026-06-01,,', 'IMP-1,,,,55000,2026-06-01,,ya').replace('TIDAKADA,,,,1000,2026-01-01,,\n', ''), { dryRun: false });
+    expect(ok.body).toMatchObject({ status: 'COMMITTED', created: 3 });
+    const t = await su<{ price: string; valid_to: string | null }>(`select t.price::text, to_char(t.valid_to, 'YYYY-MM-DD') as valid_to from app.tariff t
+      join app.service_item s on s.id = t.service_item_id where s.code = 'IMP-1' and t.branch_id is null order by t.valid_from`);
+    expect(t).toEqual([{ price: '50000.00', valid_to: '2026-05-31' }, { price: '55000.00', valid_to: null }]);
+  });
+
+  test('M26 impor tenaga kesehatan dari Excel (tanggal sel Excel, NIK); ekspor tanpa NIK; impor ulang hasil ekspor = ubah by id', async () => {
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet('Nakes');
+    ws.addRow(['fullName', 'practitionerType', 'nik', 'sipNumber', 'sipValidUntil', 'isActive']);
+    ws.addRow(['dr. Excel Sintetis', 'dokter', '3201011201900099', 'SIP-X1', new Date(Date.UTC(2029, 0, 31)), 'ya']);
+    ws.addRow(['Bidan Excel', 'BIDAN', '123', '', '', '']);
+    const buf = Buffer.from(await wb.xlsx.writeBuffer());
+    const bad = await imp('practitioners', buf, { type: XLSX });
+    expect(bad.body.errors).toEqual([{ row: 3, field: 'nik', message: 'NIK harus 16 digit angka' }]);
+    ws.getRow(3).getCell(3).value = '';
+    const ok = await imp('practitioners', Buffer.from(await wb.xlsx.writeBuffer()), { type: XLSX, dryRun: false });
+    expect(ok.body).toMatchObject({ status: 'COMMITTED', created: 2 });
+    const [p] = await su<{ id: string; sip: string; nik_hash: string }>(`select id, to_char(sip_valid_until, 'YYYY-MM-DD') as sip, nik_hash from app.practitioner
+      where full_name = 'dr. Excel Sintetis'`);
+    expect([p.sip, p.nik_hash]).toEqual(['2029-01-31', expect.stringMatching(/^[0-9a-f]{64}$/)]);
+    const ex = await download('/api/v1/exports/practitioners?format=xlsx');
+    expect(ex.headers['content-type']).toContain(XLSX);
+    const back = new ExcelJS.Workbook();
+    await back.xlsx.load(ex.body);
+    const sheet = back.worksheets[0];
+    const header = (sheet.getRow(1).values as string[]).slice(1);
+    const rowOf = (name: string) => { let n = 0; sheet.eachRow((r, i) => { if (r.getCell(header.indexOf('fullName') + 1).value === name) n = i; }); return sheet.getRow(n); };
+    expect(rowOf('dr. Excel Sintetis').getCell(header.indexOf('nik') + 1).value ?? '').toBe('');       // NIK tidak pernah diekspor
+    rowOf('dr. Excel Sintetis').getCell(header.indexOf('sipNumber') + 1).value = 'SIP-X2';
+    const again = await imp('practitioners', Buffer.from(await back.xlsx.writeBuffer()), { type: XLSX, dryRun: false });
+    expect(again.body.status).toBe('COMMITTED');
+    expect(again.body.created).toBe(0);
+    const [after] = await su<{ sip_number: string; nik_hash: string }>(`select sip_number, nik_hash from app.practitioner where id = $1`, [p.id]);
+    expect(after).toEqual({ sip_number: 'SIP-X2', nik_hash: p.nik_hash });                            // NIK kosong di berkas = tetap
+  });
+
+  test('M27 batas & izin: kolom asing 400, format lain 415, > 5.000 baris 400, kasir 403, tanpa izin kelola entitas 403', async () => {
+    expect((await imp('uoms', 'code,nama\nBTL,Botol\n')).body.code).toBe('MST-400-HEADER');
+    expect((await imp('uoms', '{"a":1}', { type: 'application/json' })).status).toBe(400);
+    expect((await send('post', '/api/v1/imports/uoms', admin).set('Content-Type', 'text/plain').send('code,name')).status).toBe(400);
+    const big = 'code,name\n' + Array.from({ length: 5001 }, (_, i) => `U${i},Satuan ${i}`).join('\n');
+    expect((await imp('uoms', big)).body.code).toBe('MST-400-ROWS');
+    expect((await imp('uoms', 'code,name\nBTL,Botol\n', { j: kasir })).status).toBe(403);
+    // Role custom: punya master.import tetapi tidak master.supplier.manage
+    await su(`insert into app.role_permission(tenant_id, role_id, permission_code) select tenant_id, id, 'master.import' from app.role
+               where tenant_id = $1 and code = 'GUDANG'`, [ids.tenantA]);
+    const gudang = await login('gudang@a.test');
+    expect((await imp('suppliers', 'name\nPBF\n', { j: gudang })).body.code).toBe('IAM-403-FORBIDDEN');
   });
 });

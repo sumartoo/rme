@@ -445,6 +445,28 @@ test('W15 diagnosis & tindakan: cari ICD-10 dengan sinonim, jadikan favorit; val
   await expect(page.getByRole('dialog', { name: 'Ubah cabang' }).getByLabel('Kabupaten/kota').locator('option:checked')).toHaveText('Kota Bandung');
 });
 
+test('W16 impor & ekspor: unduh template, periksa berkas (error per baris), simpan, data muncul di Layanan (Stage 7 batch 4)', async ({ page }) => {
+  watchCsp(page);
+  await signInAdmin(page);
+  await page.getByTestId('side-menu').getByRole('link', { name: 'Impor & ekspor' }).click();
+  const dl = page.waitForEvent('download');
+  await page.getByRole('link', { name: 'Template CSV' }).click();
+  expect((await dl).suggestedFilename()).toBe('service-items-template.csv');
+  const upload = (text: string) => page.getByLabel('Berkas impor').setInputFiles({ name: 'layanan.csv', mimeType: 'text/csv', buffer: Buffer.from(text) });
+  await upload('code,name,serviceType\nIMP-WEB,Imunisasi,TINDAKAN\nIMP-WEB2,X,TINDAKAN\n');
+  await page.getByRole('button', { name: 'Periksa' }).click();
+  await expect(page.getByTestId('import-result')).toContainText('Ada kesalahan');
+  await expect(page.getByTestId('import-error')).toContainText('3');
+  await expect(page.getByRole('button', { name: 'Simpan' })).toBeDisabled();
+  await upload('code;name;serviceType\nIMP-WEB;Imunisasi Dasar;TINDAKAN\n');
+  await page.getByRole('button', { name: 'Periksa' }).click();
+  await expect(page.getByTestId('import-result')).toContainText('Siap disimpan');
+  await page.getByRole('button', { name: 'Simpan' }).click();
+  await expect(page.getByTestId('import-result')).toContainText('Tersimpan');
+  await page.getByTestId('side-menu').getByRole('link', { name: 'Layanan & tarif' }).click();
+  await expect(page.getByTestId('service-row').filter({ hasText: 'IMP-WEB' })).toContainText('Imunisasi Dasar');
+});
+
 test('W06 keamanan: CSP bernonce, no-store; proxy hanya untuk klinik dari subdomain; tidak ada pelanggaran CSP', async ({ page }) => {
   const res = await page.goto('/login');
   const h = res!.headers();

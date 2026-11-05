@@ -2,7 +2,7 @@ import http from 'node:http';
 import https from 'node:https';
 import { Readable } from 'node:stream';
 import type { NextRequest } from 'next/server';
-import { MAX_BODY_BYTES, downstreamHeaders, tenantHost, upstreamHeaders, upstreamPath } from '../../../../lib/upstream';
+import { MAX_BODY_BYTES, MAX_IMPORT_BYTES, downstreamHeaders, tenantHost, upstreamHeaders, upstreamPath } from '../../../../lib/upstream';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -16,10 +16,11 @@ const problem = (status: number, code: string, title: string) =>
 async function forward(req: NextRequest, ctx: { params: Promise<{ path: string[] }> }) {
   const host = tenantHost(req.headers.get('host'), BASE_DOMAIN);
   if (!host) return problem(404, 'TEN-404-UNKNOWN', 'Klinik tidak ditemukan');
-  const target = upstreamPath((await ctx.params).path, req.nextUrl.search);
+  const segments = (await ctx.params).path;
+  const target = upstreamPath(segments, req.nextUrl.search);
   if (!target) return problem(404, 'GEN-404', 'Tidak ditemukan');
   const body = ['GET', 'HEAD'].includes(req.method) ? undefined : Buffer.from(await req.arrayBuffer());
-  if (body && body.length > MAX_BODY_BYTES) return problem(413, 'GEN-413', 'Body terlalu besar');
+  if (body && body.length > (segments[0] === 'imports' ? MAX_IMPORT_BYTES : MAX_BODY_BYTES)) return problem(413, 'GEN-413', 'Body terlalu besar');
 
   return new Promise<Response>((resolve) => {
     const r = (API.protocol === 'https:' ? https : http).request({

@@ -5,6 +5,7 @@
  */
 export const PATH_SEGMENT = /^[A-Za-z0-9._-]{1,100}$/;
 export const MAX_BODY_BYTES = 1_048_576; // sama dengan BODY_LIMIT API
+export const MAX_IMPORT_BYTES = 5 * 1_048_576; // impor master data CSV/XLSX (OD-083), sama dengan body parser raw API
 const TENANT_CODE = /^[a-z0-9-]{3,40}$/;   // sama dengan context.middleware API
 const PLATFORM_SUBDOMAIN = 'admin';
 const FORWARD_REQUEST_HEADERS = ['accept', 'content-type', 'cookie', 'if-match', 'user-agent', 'x-csrf-token', 'x-request-id', 'x-forwarded-for'];

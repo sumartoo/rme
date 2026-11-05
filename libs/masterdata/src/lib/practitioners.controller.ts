@@ -21,8 +21,8 @@ const Body_ = z.object({
   satusehatIhsId: optText(50),
   isActive: z.boolean().optional(),
 }).strict();
-const PractitionerBody = Body_;
-const PractitionerPatch = Body_.partial().strict();
+export const PractitionerBody = Body_;
+export const PractitionerPatch = Body_.partial().strict();
 const ListQuery = z.object({
   q: z.string().trim().max(100).optional(),
   type: z.enum(PRACTITIONER_TYPES).optional(),

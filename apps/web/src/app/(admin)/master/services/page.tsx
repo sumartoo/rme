@@ -142,9 +142,9 @@ function TariffPanel({ service, branches, payers, manage, onEdit }: {
         <p className="text-xs text-muted-foreground">Tarif tidak dapat diubah. Untuk mengganti harga, tambahkan tarif dengan tanggal mulai baru; tarif lama ditutup otomatis.</p>
       </CardContent>
       {adding ? <TariffDialog service={service} branches={branches} payers={payers} onClose={() => setAdding(false)}
-        onSaved={async (msg) => { setAdding(false); setNotice(msg); setError(undefined); await load(); }} /> : null}
+        onSaved={async (msg) => { setAdding(false); setError(undefined); await load(); setNotice(msg); }} /> : null}
       {ending ? <EndDialog tariff={ending} onClose={() => setEnding(undefined)}
-        onSaved={async (msg) => { setEnding(undefined); setNotice(msg); setError(undefined); await load(); }} /> : null}
+        onSaved={async (msg) => { setEnding(undefined); setError(undefined); await load(); setNotice(msg); }} /> : null}
     </Card>
   );
 }

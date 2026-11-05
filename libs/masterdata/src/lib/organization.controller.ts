@@ -37,7 +37,7 @@ const branchDto = (r: BranchRow) => ({ id: r.id, facilityId: r.facility_id, code
 const BRANCH = sql`select id, facility_id, code, name, address, region_code, phone, timezone, is_active, version from branch`;
 
 // ---------------------------------------------------------------------------------------------- Poli / unit
-const UnitBody = z.object({
+export const UnitBody = z.object({
   branchId: Uuid,
   code: Code,
   name: Name,

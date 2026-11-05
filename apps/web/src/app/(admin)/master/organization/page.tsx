@@ -127,7 +127,7 @@ export default function OrganizationPage() {
 
       {editing ? (
         <EditDialog editing={editing} facilities={facilities} branches={branches} defaultBranch={unitBranch} onClose={() => setEditing(undefined)}
-          onSaved={async (msg) => { setEditing(undefined); setNotice(msg); setError(undefined); await load(); }} />
+          onSaved={async (msg) => { setEditing(undefined); setError(undefined); await load(); setNotice(msg); }} />
       ) : null}
     </div>
   );

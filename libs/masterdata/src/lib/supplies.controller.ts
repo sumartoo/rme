@@ -7,7 +7,7 @@ import { Db, rows } from '@clinicrme/db';
 import { Code, Name, assertId, assertVersion, auditChange, ifMatchVersion, merge, optText } from './common';
 
 // ---------------------------------------------------------------------------------------------- Satuan
-const UomBody = z.object({ code: Code, name: Name.max(100), isActive: z.boolean().optional() }).strict();
+export const UomBody = z.object({ code: Code, name: Name.max(100), isActive: z.boolean().optional() }).strict();
 /** 1 satuan asal = factor × satuan tujuan (mis. 1 BOX = 10 STRIP). Maks 6 desimal. */
 const Factor = z.union([z.string(), z.number()]).transform(String)
   .pipe(z.string().regex(/^\d{1,12}(\.\d{1,6})?$/, 'Faktor konversi tidak valid'))
@@ -21,7 +21,7 @@ const UOM = sql`select u.id, u.code, u.name, u.is_active, u.version,
                   from uom u`;
 
 // ---------------------------------------------------------------------------------------------- Supplier
-const SupplierBody = z.object({
+export const SupplierBody = z.object({
   code: Code.nullable().optional(),
   name: Name,
   contactPerson: optText(200),

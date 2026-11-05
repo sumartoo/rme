@@ -13,7 +13,7 @@ export const Rupiah = z.union([z.string(), z.number()]).transform(String).pipe(z
   .transform((s) => s.replace(/\.0+$/, ''));
 
 // ---------------------------------------------------------------------------------------------- Layanan
-const ServiceBody = z.object({
+export const ServiceBody = z.object({
   code: Code,
   name: Name,
   serviceType: z.enum(SERVICE_TYPES),
@@ -33,7 +33,7 @@ const ServiceQuery = z.object({
 });
 
 // ---------------------------------------------------------------------------------------------- Tarif
-const TariffBody = z.object({
+export const TariffBody = z.object({
   serviceItemId: Uuid,
   branchId: Uuid.nullable().optional(),
   payerType: z.enum(PAYER_TYPES).nullable().optional(),

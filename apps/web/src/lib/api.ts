@@ -34,6 +34,19 @@ export async function api<T = unknown>(path: string, opts: { method?: string; bo
   return (res.status === 204 ? undefined : await res.json()) as T;
 }
 
+/** Unggah berkas mentah (impor master data): body = isi berkas, Content-Type sesuai jenis berkas. */
+export async function apiUpload<T>(path: string, file: Blob, contentType: string): Promise<T> {
+  const res = await fetch(`/api/v1${path}`, {
+    method: 'POST', credentials: 'same-origin', cache: 'no-store', body: file,
+    headers: { accept: 'application/json', 'content-type': contentType, 'x-csrf-token': csrfToken() },
+  });
+  if (!res.ok) {
+    const p = (await res.json().catch(() => ({}))) as { code?: string; title?: string };
+    throw new ApiError(res.status, p.code ?? `GEN-${res.status}`, p.title ?? 'Permintaan gagal');
+  }
+  return (await res.json()) as T;
+}
+
 export const errorText = (e: unknown, fallback: string) => (e instanceof ApiError ? e.message : fallback);
 
 export interface AuthSession {
@@ -99,3 +112,7 @@ export interface Concept {
 }
 export interface CodeSystem { code: string; version: string; source: string; effectiveDate: string | null; isCurrent: boolean; conceptCount: number; isSample: boolean }
 export interface Region { code: string; name: string; level: number }
+export interface ImportResult {
+  entity: string; status: 'VALIDATED' | 'COMMITTED' | 'FAILED'; dryRun: boolean; rowCount: number; created: number; updated: number;
+  errors: { row: number; field: string; message: string }[];
+}

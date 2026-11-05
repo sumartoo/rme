@@ -37,7 +37,7 @@ export default function TerminologyPage() {
 
   async function act(c: Concept, fn: () => Promise<unknown>, msg: string) {
     setBusy(c.id); setError(undefined); setNotice(undefined);
-    try { await fn(); setNotice(msg); await load(); } catch (e) { setError(errorText(e, 'Aksi gagal')); }
+    try { await fn(); await load(); setNotice(msg); } catch (e) { setError(errorText(e, 'Aksi gagal')); }
     finally { setBusy(undefined); }
   }
   const fav = (c: Concept, body: object) => api(`/terminology/favorites/${c.id}`, { method: 'PUT', body });

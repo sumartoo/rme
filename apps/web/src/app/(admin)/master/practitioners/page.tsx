@@ -99,7 +99,7 @@ export default function PractitionersPage() {
         </CardContent>
       </Card>
       {editing ? <PractitionerDialog item={editing === 'new' ? undefined : editing} onClose={() => setEditing(undefined)}
-        onSaved={async (msg) => { setEditing(undefined); setNotice(msg); await load(); }} /> : null}
+        onSaved={async (msg) => { setEditing(undefined); await load(); setNotice(msg); }} /> : null}
     </div>
   );
 }

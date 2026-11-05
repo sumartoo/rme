@@ -2102,7 +2102,7 @@ paths:
             schema:
               type: object
               properties:
-                validTo: &id005
+                validTo: &id006
                   type: string
                   format: date
               required:
@@ -2489,7 +2489,7 @@ paths:
                       type: string
                     name:
                       type: string
-                    level: &id003
+                    level: &id004
                       type: integer
         '400':
           $ref: '#/components/responses/BadRequest'
@@ -2500,7 +2500,7 @@ paths:
       operationId: masterImport
       tags:
       - Master
-      summary: Impor Excel/CSV (dryRun=true untuk validasi saja)
+      summary: Impor CSV/XLSX sebagai body mentah (?dryRun=true bawaan = validasi saja; maks 5.000 baris / 5 MB; wajib juga izin kelola entitas)
       x-requirements:
       - MST-FR-008
       x-permission: master.import
@@ -2509,16 +2509,12 @@ paths:
       requestBody:
         required: true
         content:
-          multipart/form-data:
-            schema:
-              type: object
-              properties:
-                file:
-                  type: string
-                  format: binary
-                dryRun: *id001
-              required:
-              - file
+          text/csv:
+            schema: &id003
+              type: string
+              format: binary
+          application/vnd.openxmlformats-officedocument.spreadsheetml.sheet:
+            schema: *id003
       responses:
         '200':
           description: OK
@@ -2541,7 +2537,7 @@ paths:
       operationId: masterExport
       tags:
       - Master
-      summary: Ekspor master data (format dapat diimpor ulang)
+      summary: Ekspor / template (?format=csv|xlsx&template=true) — format dapat diimpor ulang; NIK tidak pernah diekspor
       x-requirements:
       - MST-FR-008
       x-permission: master.export
@@ -2552,6 +2548,10 @@ paths:
           description: Berkas
           content:
             text/csv:
+              schema:
+                type: string
+                format: binary
+            application/vnd.openxmlformats-officedocument.spreadsheetml.sheet:
               schema:
                 type: string
                 format: binary
@@ -5065,7 +5065,7 @@ paths:
                     chargeId: *id002
                     issue:
                       type: string
-                    amount: &id006
+                    amount: &id007
                       type: string
                       pattern: ^-?\d{1,16}(\.\d{1,2})?$
                       description: Rupiah sebagai string desimal (jangan pakai float)
@@ -5850,7 +5850,7 @@ components:
           format: uri
         title:
           type: string
-        status: *id003
+        status: *id004
         detail:
           type: string
         instance:
@@ -6017,7 +6017,7 @@ components:
         id: *id002
         email:
           type: string
-        expiresAt: &id004
+        expiresAt: &id005
           type: string
           format: date-time
         acceptedAt:
@@ -6031,7 +6031,7 @@ components:
           type: array
           items:
             type: string
-        createdAt: *id004
+        createdAt: *id005
       required:
       - id
       - email
@@ -6133,8 +6133,8 @@ components:
           type: string
         ip:
           type: string
-        createdAt: *id004
-        lastSeenAt: *id004
+        createdAt: *id005
+        lastSeenAt: *id005
         current: *id001
       required:
       - id
@@ -6154,7 +6154,7 @@ components:
         licenseNumber:
           type: string
         isActive: *id001
-        version: *id003
+        version: *id004
       required:
       - id
       - name
@@ -6181,7 +6181,7 @@ components:
           - Asia/Makassar
           - Asia/Jayapura
         isActive: *id001
-        version: *id003
+        version: *id004
       required:
       - id
       - code
@@ -6207,7 +6207,7 @@ components:
         specialty:
           type: string
         isActive: *id001
-        version: *id003
+        version: *id004
       required:
       - id
       - code
@@ -6232,10 +6232,10 @@ components:
           readOnly: true
         strNumber:
           type: string
-        strValidUntil: *id005
+        strValidUntil: *id006
         sipNumber:
           type: string
-        sipValidUntil: *id005
+        sipValidUntil: *id006
         satusehatIhsId:
           type: string
         isActive: *id001
@@ -6245,7 +6245,7 @@ components:
           - 'null'
           format: uuid
           readOnly: true
-        version: *id003
+        version: *id004
       required:
       - id
       - fullName
@@ -6270,7 +6270,7 @@ components:
         icd9cmCode:
           type: string
         isActive: *id001
-        version: *id003
+        version: *id004
       required:
       - id
       - code
@@ -6282,7 +6282,7 @@ components:
         id: *id002
         serviceItemId: *id002
         branchId: *id002
-        payerType: &id007
+        payerType: &id008
           type: string
           enum:
           - UMUM
@@ -6290,9 +6290,9 @@ components:
           - PERUSAHAAN
           - BPJS
         payerId: *id002
-        price: *id006
-        validFrom: *id005
-        validTo: *id005
+        price: *id007
+        validFrom: *id006
+        validTo: *id006
         closePrevious:
           type: boolean
           writeOnly: true
@@ -6309,19 +6309,19 @@ components:
           type: string
         name:
           type: string
-        payerType: *id007
+        payerType: *id008
         isActive: *id001
-        version: *id003
+        version: *id004
         contract:
           type: object
           properties:
             contractNumber:
               type: string
-            validUntil: *id005
-            plafon: *id006
+            validUntil: *id006
+            plafon: *id007
             copayPercent:
               type: number
-            paymentTermDays: *id003
+            paymentTermDays: *id004
             notes:
               type: string
       required:
@@ -6338,7 +6338,7 @@ components:
         name:
           type: string
         isActive: *id001
-        version: *id003
+        version: *id004
         conversions:
           type: array
           items:
@@ -6372,14 +6372,13 @@ components:
         npwp:
           type: string
         isActive: *id001
-        version: *id003
+        version: *id004
       required:
       - id
       - name
     ImportJob:
       type: object
       properties:
-        id: *id002
         entity:
           type: string
         status:
@@ -6389,20 +6388,24 @@ components:
           - COMMITTED
           - FAILED
         dryRun: *id001
-        rowCount: *id003
+        rowCount: *id004
+        created: *id004
+        updated: *id004
         errors:
           type: array
           items:
             type: object
             properties:
-              row: *id003
+              row: *id004
               field:
                 type: string
               message:
                 type: string
       required:
-      - id
+      - entity
       - status
+      - dryRun
+      - rowCount
     Concept:
       type: object
       properties:
@@ -6432,7 +6435,7 @@ components:
               specialty:
                 type: string
               validated: *id001
-              validatedAt: *id004
+              validatedAt: *id005
               validatedBy:
                 type: string
       required:
@@ -6448,9 +6451,9 @@ components:
           type: string
         source:
           type: string
-        effectiveDate: *id005
+        effectiveDate: *id006
         isCurrent: *id001
-        conceptCount: *id003
+        conceptCount: *id004
         isSample: *id001
       required:
       - code
@@ -6461,7 +6464,7 @@ components:
         fullName:
           type: string
           maxLength: 200
-        birthDate: *id005
+        birthDate: *id006
         sex:
           type: string
           enum:
@@ -6517,7 +6520,7 @@ components:
           type: string
         fullName:
           type: string
-        birthDate: *id005
+        birthDate: *id006
         sex:
           type: string
         identityType:
@@ -6548,7 +6551,7 @@ components:
           items:
             $ref: '#/components/schemas/Coverage'
         hasConsent: *id001
-        version: *id003
+        version: *id004
       required:
       - id
       - mrn
@@ -6563,7 +6566,7 @@ components:
           type: string
         fullName:
           type: string
-        birthDate: *id005
+        birthDate: *id006
         sex:
           type: string
         nikMasked:
@@ -6613,8 +6616,8 @@ components:
           type: string
         bpjsFaskesCode:
           type: string
-        validFrom: *id005
-        validTo: *id005
+        validFrom: *id006
+        validTo: *id006
       required:
       - payerId
     Coverage:
@@ -6624,10 +6627,10 @@ components:
         payerId: *id002
         payerName:
           type: string
-        payerType: *id007
+        payerType: *id008
         memberNo:
           type: string
-        validTo: *id005
+        validTo: *id006
         isActive: *id001
       required:
       - id
@@ -6673,10 +6676,10 @@ components:
         endTime:
           type: string
           pattern: ^\d{2}:\d{2}$
-        slotMinutes: *id003
-        quota: *id003
-        validFrom: *id005
-        validTo: *id005
+        slotMinutes: *id004
+        quota: *id004
+        validFrom: *id006
+        validTo: *id006
       required:
       - practitionerId
       - unitId
@@ -6689,7 +6692,7 @@ components:
       properties:
         practitionerId: *id002
         branchId: *id002
-        exceptionDate: *id005
+        exceptionDate: *id006
         reason:
           type: string
       required:
@@ -6698,8 +6701,8 @@ components:
     Slot:
       type: object
       properties:
-        start: *id004
-        available: *id003
+        start: *id005
+        available: *id004
         scheduleId: *id002
       required:
       - start
@@ -6710,7 +6713,7 @@ components:
         patientId: *id002
         practitionerId: *id002
         unitId: *id002
-        slotStart: *id004
+        slotStart: *id005
       required:
       - patientId
       - practitionerId
@@ -6724,7 +6727,7 @@ components:
           $ref: '#/components/schemas/PatientSummary'
         practitionerId: *id002
         unitId: *id002
-        slotStart: *id004
+        slotStart: *id005
         status:
           type: string
           enum:
@@ -6750,7 +6753,7 @@ components:
     RescheduleInput:
       type: object
       properties:
-        slotStart: *id004
+        slotStart: *id005
         reason:
           type: string
           minLength: 3
@@ -6778,7 +6781,7 @@ components:
           $ref: '#/components/schemas/PatientSummary'
         unitId: *id002
         practitionerId: *id002
-        payerType: *id007
+        payerType: *id008
         status:
           type: string
           enum:
@@ -6793,8 +6796,8 @@ components:
           - CANCELLED
         queue:
           $ref: '#/components/schemas/QueueTicket'
-        arrivedAt: *id004
-        version: *id003
+        arrivedAt: *id005
+        version: *id004
       required:
       - id
       - encounterNo
@@ -6806,7 +6809,7 @@ components:
         displayCode:
           type: string
           example: A-012
-        queueNumber: *id003
+        queueNumber: *id004
         unitId: *id002
         status:
           type: string
@@ -6816,8 +6819,8 @@ components:
           - SKIPPED
           - SERVED
           - CANCELLED
-        calledAt: *id004
-        callCount: *id003
+        calledAt: *id005
+        callCount: *id004
       required:
       - id
       - displayCode
@@ -6830,7 +6833,7 @@ components:
           type: string
         nowServing:
           $ref: '#/components/schemas/QueueTicket'
-        waiting: *id003
+        waiting: *id004
         recentlyCalled:
           type: array
           items:
@@ -6873,7 +6876,7 @@ components:
             type: object
             properties:
               encounterId: *id002
-              date: *id004
+              date: *id005
               diagnoses:
                 type: array
                 items:
@@ -6907,12 +6910,12 @@ components:
           - DRAFT
           - SIGNED
         signedBy: *id002
-        signedAt: *id004
+        signedAt: *id005
         addenda:
           type: array
           items:
             $ref: '#/components/schemas/Addendum'
-        version: *id003
+        version: *id004
       required:
       - id
       - status
@@ -6931,7 +6934,7 @@ components:
           type: string
         structured:
           type: object
-        version: *id003
+        version: *id004
       required:
       - version
     Vital:
@@ -6956,7 +6959,7 @@ components:
           type: string
         unit:
           type: string
-        recordedAt: *id004
+        recordedAt: *id005
       required:
       - code
       - value
@@ -7047,7 +7050,7 @@ components:
         conceptId: *id002
         serviceItemId: *id002
         performedBy: *id002
-        qty: &id008
+        qty: &id009
           type: string
           pattern: ^\d{1,14}(\.\d{1,4})?$
           example: '10'
@@ -7057,7 +7060,7 @@ components:
       type: object
       properties:
         id: *id002
-        lineNo: *id003
+        lineNo: *id004
         isCompound: *id001
         drugItemId: *id002
         compoundName:
@@ -7070,7 +7073,7 @@ components:
             type: object
             properties:
               drugItemId: *id002
-              qty: *id008
+              qty: *id009
               uomId: *id002
             required:
             - drugItemId
@@ -7082,12 +7085,12 @@ components:
           type: string
         route:
           type: string
-        durationDays: *id003
-        qty: *id008
+        durationDays: *id004
+        qty: *id009
         uomId: *id002
         instructions:
           type: string
-        qtyDispensed: *id008
+        qtyDispensed: *id009
       required:
       - frequency
       - route
@@ -7150,7 +7153,7 @@ components:
           - DOSE_FORMAT
         message:
           type: string
-        itemLineNo: *id003
+        itemLineNo: *id004
       required:
       - code
       - message
@@ -7218,14 +7221,14 @@ components:
         flag:
           type: string
         fileId: *id002
-        resultedAt: *id004
+        resultedAt: *id005
       required:
       - source
     SignResult:
       type: object
       properties:
         noteId: *id002
-        signedAt: *id004
+        signedAt: *id005
         contentHash:
           type: string
       required:
@@ -7263,7 +7266,7 @@ components:
         content:
           type: string
         authorId: *id002
-        signedAt: *id004
+        signedAt: *id005
       required:
       - id
       - reason
@@ -7291,7 +7294,7 @@ components:
           type: string
         docType:
           type: string
-        issuedAt: *id004
+        issuedAt: *id005
         downloadUrl:
           type: string
           format: uri
@@ -7318,7 +7321,7 @@ components:
     FollowUpInput:
       type: object
       properties:
-        date: *id005
+        date: *id006
         practitionerId: *id002
         unitId: *id002
         note:
@@ -7332,7 +7335,7 @@ components:
         uploadUrl:
           type: string
           format: uri
-        expiresAt: *id004
+        expiresAt: *id005
       required:
       - fileId
       - uploadUrl
@@ -7390,7 +7393,7 @@ components:
           type: array
           items:
             type: string
-        minStock: *id008
+        minStock: *id009
       required:
       - id
       - code
@@ -7403,7 +7406,7 @@ components:
         drugName:
           type: string
         locationId: *id002
-        qtyOnHand: *id008
+        qtyOnHand: *id009
         batches:
           type: array
           items:
@@ -7418,8 +7421,8 @@ components:
         id: *id002
         batchNo:
           type: string
-        expiryDate: *id005
-        qtyOnHand: *id008
+        expiryDate: *id006
+        qtyOnHand: *id009
       required:
       - id
       - batchNo
@@ -7439,10 +7442,10 @@ components:
               drugItemId: *id002
               batchNo:
                 type: string
-              expiryDate: *id005
-              qty: *id008
+              expiryDate: *id006
+              qty: *id009
               uomId: *id002
-              unitPrice: *id006
+              unitPrice: *id007
             required:
             - drugItemId
             - batchNo
@@ -7461,7 +7464,7 @@ components:
         id: *id002
         receiptNo:
           type: string
-        receivedAt: *id004
+        receivedAt: *id005
       required:
       - id
       - receiptNo
@@ -7489,7 +7492,7 @@ components:
             type: object
             properties:
               prescriptionItemId: *id002
-              qty: *id008
+              qty: *id009
               batchId:
                 type: string
                 format: uuid
@@ -7513,7 +7516,7 @@ components:
             properties:
               prescriptionItemId: *id002
               batchId: *id002
-              qty: *id008
+              qty: *id009
         labelUrl:
           type: string
           format: uri
@@ -7556,7 +7559,7 @@ components:
             type: object
             properties:
               drugItemId: *id002
-              qty: *id008
+              qty: *id009
             required:
             - drugItemId
             - qty
@@ -7620,8 +7623,8 @@ components:
             type: object
             properties:
               batchId: *id002
-              systemQty: *id008
-              countedQty: *id008
+              systemQty: *id009
+              countedQty: *id009
               note:
                 type: string
       required:
@@ -7636,7 +7639,7 @@ components:
             type: object
             properties:
               batchId: *id002
-              countedQty: *id008
+              countedQty: *id009
               note:
                 type: string
             required:
@@ -7657,8 +7660,8 @@ components:
         drugName:
           type: string
         batchId: *id002
-        expiryDate: *id005
-        qtyOnHand: *id008
+        expiryDate: *id006
+        qtyOnHand: *id009
       required:
       - type
       - drugId
@@ -7676,13 +7679,13 @@ components:
           - PARTIALLY_PAID
           - PAID
           - VOID
-        grossAmount: *id006
-        discountAmount: *id006
-        netAmount: *id006
-        payerPortion: *id006
-        patientPortion: *id006
-        paidAmount: *id006
-        outstanding: *id006
+        grossAmount: *id007
+        discountAmount: *id007
+        netAmount: *id007
+        payerPortion: *id007
+        patientPortion: *id007
+        paidAmount: *id007
+        outstanding: *id007
         lines:
           type: array
           items:
@@ -7691,7 +7694,7 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/Payment'
-        version: *id003
+        version: *id004
       required:
       - id
       - status
@@ -7700,17 +7703,17 @@ components:
     InvoiceLine:
       type: object
       properties:
-        lineNo: *id003
+        lineNo: *id004
         sourceType:
           type: string
         description:
           type: string
-        qty: *id008
-        unitPrice: *id006
-        discountAmount: *id006
-        lineTotal: *id006
-        payerPortion: *id006
-        patientPortion: *id006
+        qty: *id009
+        unitPrice: *id007
+        discountAmount: *id007
+        lineTotal: *id007
+        payerPortion: *id007
+        patientPortion: *id007
       required:
       - lineNo
       - description
@@ -7720,8 +7723,8 @@ components:
     DiscountInput:
       type: object
       properties:
-        lineNo: *id003
-        amount: *id006
+        lineNo: *id004
+        amount: *id007
         reason:
           type: string
       required:
@@ -7737,8 +7740,8 @@ components:
           - DEBIT
           - KARTU_KREDIT
           - TRANSFER
-        amount: *id006
-        cashTendered: *id006
+        amount: *id007
+        cashTendered: *id007
         reference:
           type: string
       required:
@@ -7752,9 +7755,9 @@ components:
           type: string
         method:
           type: string
-        amount: *id006
-        change: *id006
-        receivedAt: *id004
+        amount: *id007
+        change: *id007
+        receivedAt: *id005
         receiptUrl:
           type: string
           format: uri
@@ -7766,7 +7769,7 @@ components:
     QrisChargeInput:
       type: object
       properties:
-        amount: *id006
+        amount: *id007
       required:
       - amount
     QrisCharge:
@@ -7775,8 +7778,8 @@ components:
         id: *id002
         qrPayload:
           type: string
-        amount: *id006
-        expiresAt: *id004
+        amount: *id007
+        expiresAt: *id005
         status:
           type: string
           enum:
@@ -7834,7 +7837,7 @@ components:
       type: object
       properties:
         paymentId: *id002
-        amount: *id006
+        amount: *id007
         reason:
           type: string
           minLength: 3
@@ -7852,7 +7855,7 @@ components:
         refundNo:
           type: string
         paymentId: *id002
-        amount: *id006
+        amount: *id007
         reason:
           type: string
         status:
@@ -7871,16 +7874,16 @@ components:
     ShiftOpenInput:
       type: object
       properties:
-        openingCash: *id006
+        openingCash: *id007
       required:
       - openingCash
     ShiftCloseInput:
       type: object
       properties:
-        countedCash: *id006
+        countedCash: *id007
         denominations:
           type: object
-          additionalProperties: *id003
+          additionalProperties: *id004
         varianceNote:
           type: string
       required:
@@ -7895,15 +7898,15 @@ components:
           - OPEN
           - CLOSED
           - VERIFIED
-        openedAt: *id004
-        closedAt: *id004
-        openingCash: *id006
-        expectedCash: *id006
-        countedCash: *id006
-        variance: *id006
+        openedAt: *id005
+        closedAt: *id005
+        openingCash: *id007
+        expectedCash: *id007
+        countedCash: *id007
+        variance: *id007
         totalsByMethod:
           type: object
-          additionalProperties: *id006
+          additionalProperties: *id007
       required:
       - id
       - status
@@ -7916,9 +7919,9 @@ components:
         payerId: *id002
         payerName:
           type: string
-        amount: *id006
-        paidAmount: *id006
-        dueDate: *id005
+        amount: *id007
+        paidAmount: *id007
+        dueDate: *id006
         status:
           type: string
       required:
@@ -7929,10 +7932,10 @@ components:
     ReceivablePaymentInput:
       type: object
       properties:
-        amount: *id006
+        amount: *id007
         reference:
           type: string
-        receivedAt: *id005
+        receivedAt: *id006
       required:
       - amount
       - reference
@@ -7965,7 +7968,7 @@ components:
         facilityId: *id002
         environment:
           type: string
-        lastTestAt: *id004
+        lastTestAt: *id005
         lastTestOk: *id001
       required:
       - id
@@ -7981,11 +7984,11 @@ components:
     SyncSummary:
       type: object
       properties:
-        date: *id005
-        sent: *id003
-        pending: *id003
-        error: *id003
-        dead: *id003
+        date: *id006
+        sent: *id004
+        pending: *id004
+        error: *id004
+        dead: *id004
       required:
       - date
       - sent
@@ -8010,10 +8013,10 @@ components:
           - ERROR
           - DEAD
           - SKIPPED
-        attempts: *id003
+        attempts: *id004
         lastError:
           type: string
-        lastSentAt: *id004
+        lastSentAt: *id005
       required:
       - id
       - resourceType
@@ -8024,7 +8027,7 @@ components:
         encounterId: *id002
         encounterNo:
           type: string
-        signedAt: *id004
+        signedAt: *id005
         issue:
           type: string
           enum:
@@ -8037,8 +8040,8 @@ components:
     AuditEntry:
       type: object
       properties:
-        seq: *id003
-        occurredAt: *id004
+        seq: *id004
+        occurredAt: *id005
         actorUserId: *id002
         actorName:
           type: string
@@ -8077,8 +8080,8 @@ components:
             type: object
         totals:
           type: object
-        generatedAt: *id004
-        dataAsOf: *id004
+        generatedAt: *id005
+        dataAsOf: *id005
       required:
       - columns
       - rows
@@ -8097,7 +8100,7 @@ components:
         downloadUrl:
           type: string
           format: uri
-        expiresAt: *id004
+        expiresAt: *id005
       required:
       - id
       - status
@@ -8117,13 +8120,13 @@ components:
     Dashboard:
       type: object
       properties:
-        date: *id005
-        visits: *id003
-        finished: *id003
-        waiting: *id003
-        revenue: *id006
-        satusehatPending: *id003
-        satusehatError: *id003
+        date: *id006
+        visits: *id004
+        finished: *id004
+        waiting: *id004
+        revenue: *id007
+        satusehatPending: *id004
+        satusehatError: *id004
       required:
       - date
     TenantCreate:
@@ -8183,14 +8186,14 @@ components:
             id: *id002
             code:
               type: string
-            maxUsers: *id003
-            maxBranches: *id003
+            maxUsers: *id004
+            maxBranches: *id004
         trialEndsAt:
           type:
           - string
           - 'null'
           format: date-time
-        createdAt: *id004
+        createdAt: *id005
         featureFlags:
           type: object
           additionalProperties: *id001
@@ -8234,7 +8237,7 @@ components:
           - DONE
           - FAILED
           - EXPIRED
-        requestedAt: *id004
+        requestedAt: *id005
         finishedAt:
           type:
           - string
@@ -8350,8 +8353,8 @@ components:
           type: string
         reason:
           type: string
-        startsAt: *id004
-        expiresAt: *id004
+        startsAt: *id005
+        expiresAt: *id005
         revokedAt:
           type:
           - string
@@ -8392,8 +8395,8 @@ components:
     SupportAuditEntry:
       type: object
       properties:
-        seq: *id003
-        occurredAt: *id004
+        seq: *id004
+        occurredAt: *id005
         actorKind:
           type: string
         actorUserId:
@@ -8450,8 +8453,8 @@ components:
           type: string
         name:
           type: string
-        maxUsers: *id003
-        maxBranches: *id003
+        maxUsers: *id004
+        maxBranches: *id004
         features:
           type: object
       required:

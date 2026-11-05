@@ -16,7 +16,7 @@ const Contract = z.object({
   paymentTermDays: z.number().int().min(0).max(365).optional(),
   notes: z.string().trim().max(1000).optional(),
 }).strict();
-const PayerBody = z.object({
+export const PayerBody = z.object({
   code: Code,
   name: Name,
   payerType: z.enum(PAYER_TYPES),

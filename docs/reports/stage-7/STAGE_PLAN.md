@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | Stage | 7 — Master Data & Terminologi |
-| Status | **IN_PROGRESS** — OD §4 diputuskan (DEC-032) |
+| Status | **SELESAI — menunggu persetujuan PO** ([completion report](STAGE_COMPLETION_REPORT.md)) |
 | Mulai | 5 November 2026 (DEC-031) |
 | Project Owner | Sumarto |
 | Requirement | **MVP saja** (DEC-010): MST-FR-001, 002, 004–011 · TRM-FR-001–004. LJT di luar stage ini: MST-FR-003 (peringatan STR/SIP kedaluwarsa). TRM-FR-005 (KFA) → hanya kolom rujukan, sinkronisasi menunggu OD-031/OD-058 |
@@ -45,12 +45,12 @@ Perkiraan: batch 1–2 ±1 hari kerja masing-masing, batch 3–4 ±1 hari masing
 
 ## 5. Gate Stage 7
 
-- [ ] Semua master MVP dapat dikelola, diimpor, diekspor (uji integrasi + E2E per entitas)
-- [ ] Perubahan master teraudit dengan before/after (uji: setiap endpoint ubah menghasilkan audit berisi diff)
-- [ ] Sumber & versi ICD terdokumentasi, lisensi penggunaan jelas (OD-030) — **atau** dicatat sebagai syarat terbuka sebelum pilot bila izin belum keluar
-- [ ] Subset diagnosis divalidasi tenaga medis (OD-084)
-- [ ] Matriks permission X01 mencakup semua endpoint master baru
-- [ ] PO menyetujui Stage 7
+- [x] Semua master MVP dapat dikelola, diimpor, diekspor (uji integrasi + E2E per entitas) — M01–M27, W13–W16
+- [x] Perubahan master teraudit dengan before/after (uji: setiap endpoint ubah menghasilkan audit berisi diff)
+- [x] Sumber & versi ICD terdokumentasi — `docs/04-interoperability/TERMINOLOGY.md`; **lisensi resmi = syarat terbuka S7-1 sebelum pilot**
+- [x] Subset diagnosis divalidasi tenaga medis (OD-084) — M22, W15
+- [x] Matriks permission X01 mencakup semua endpoint master baru
+- [ ] PO menyetujui Stage 7 — [completion report](STAGE_COMPLETION_REPORT.md)
 
 ## 6. Progres
 
@@ -60,3 +60,4 @@ Perkiraan: batch 1–2 ±1 hari kerja masing-masing, batch 3–4 ±1 hari masing
 | 5 Nov 2026 | **Batch 1 — organisasi & tenaga kesehatan:** modul baru `libs/masterdata`. API fasilitas (daftar, tambah, ubah), cabang & poli/unit (tambah ubah — sebelumnya hanya daftar/tambah di kontrak), tenaga kesehatan (daftar dengan cari/jenis/belum tertaut, detail, tambah, ubah sebagian). Semua ubah memakai If-Match (428/412); audit generik sebelum/sesudah hanya kolom berubah (MST-FR-009). NIK nakes: AES-256-GCM + indeks buta HMAC per tujuan (`blindIndex`), keunikan per klinik, respons hanya `nikMasked`, audit mencatat `[rahasia]`. Kuota cabang paket berlaku juga saat mengaktifkan ulang. Migrasi 0011: menu "Master data". UI: halaman Fasilitas & cabang (3 tabel + dialog), Tenaga kesehatan (cari, filter, tanda STR/SIP habis/≤ 60 hari, dialog NIK tersamar); dialog undang pengguna kini dapat menautkan tenaga kesehatan (menutup UI IAM-FR-016). Tambahan kontrak: `facilityList/Create/Update`, `branchUpdate`, `unitUpdate`, `practitionerGet` | M01–M10, W13, X01 (operasi baru otomatis ikut matriks permission), unit `crypto.spec.ts` (indeks buta) |
 | 5 Nov 2026 | **Batch 2 — layanan, tarif, penjamin, satuan, supplier:** API layanan (daftar cari/jenis, tambah, ubah), tarif (daftar dengan filter & berlaku-pada-tanggal, tambah, **tutup periode**; `closePrevious` menutup periode berjalan sehari sebelum harga baru), penjamin + kontrak (nomor, berlaku sampai, plafon, co-pay %, termin; kategori terkunci bila dipakai tarif), satuan (tambah, ubah) & konversi (tetapkan/hapus, **tolak konversi melingkar** lewat CTE rekursif + advisory lock), supplier (kode, kontak, NPWP, email). Migrasi 0012: izin `master.uom.manage` & `master.supplier.manage` (Admin Klinik & Farmasi — template tenant baru & role yang sudah ada), versi baris uom/supplier, trigger `tariff_guard` (harga/kunci/tanggal mulai tidak dapat diubah, tanggal akhir hanya dimajukan) + DELETE tarif dicabut dari role aplikasi, menu batch 2. Tumpang tindih periode (exclusion constraint) → 409 `MST-409-OVERLAP`. UI: Layanan & tarif, Penjamin, Satuan & supplier. Kontrak +9 operasi | M11–M18, W14 |
 | 5 Nov 2026 | **Batch 3 — terminologi & wilayah:** pemuat data referensi global `@clinicrme/db/reference` (MANIFEST.json berisi sumber, versi, lisensi, sha256; idempoten; berkas tak cocok sha256 ditolak), dijalankan `pnpm dev:db`, E2E, dan job `reference` saat deploy (image api: `reference.js`). **Wilayah** 91.599 baris (38 provinsi, 514 kab/kota, 7.285 kecamatan, 83.762 desa/kelurahan) dari `cahyadsn/wilayah` (MIT, commit a985ff7, Kepmendagri 300.2.2-2138/2025). **ICD-10 & ICD-9-CM contoh** (40 + 16 kode, berlabel "CONTOH — bukan data resmi", OD-030). Migrasi 0013: `reference_dataset`, indeks pencarian kode/sinonim/wilayah, kolom favorit, menu. API: cari konsep (kode, kata kunci, sinonim; urutan kode persis → awalan → favorit → kemiripan), daftar code system & versi, favorit (tambah/ubah/hapus; validasi hanya dokter tertaut dengan SIP berlaku — OD-084; ubah spesialisasi = validasi ulang), wilayah berjenjang. UI: halaman Diagnosis & tindakan; pilih wilayah berjenjang di form cabang | M19–M22, W15 |
+| 5 Nov 2026 | **Batch 4 — impor/ekspor & gate:** impor CSV (koma/titik koma, BOM) & XLSX (`exceljs`) untuk 7 jenis data (layanan, tarif, penjamin, tenaga kesehatan, poli/unit, satuan, supplier) dengan skema validasi yang sama dengan form; savepoint per baris sehingga error database (mis. periode tarif) dilaporkan per baris; `dryRun=true` bawaan, commit hanya bila tanpa error, satu transaksi; wajib izin kelola entitas selain `master.import`; maks 5.000 baris / 5 MB (body parser raw API & proxy web). Ekspor & template CSV/XLSX (CSV aman formula-injection, NIK tidak pernah diekspor), teraudit. Migrasi 0014 menu. UI: halaman Impor & ekspor. Completion report | M23–M27, W16, mutasi M22 |
