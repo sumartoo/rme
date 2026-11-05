@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | Stage | 6 — Identity, Role, Permission & Dynamic Menu |
-| Status | **MENUNGGU PERSETUJUAN PO** |
+| Status | **DISETUJUI** — DEC-031 (5 Nov 2026) |
 | Disusun oleh | Sumarto (dibantu Claude) |
 | Rincian | [STAGE_PLAN.md](STAGE_PLAN.md) §6 |
 
@@ -49,10 +49,10 @@ Lihat [STAGE_PLAN §5](STAGE_PLAN.md): semua butir terpenuhi kecuali persetujuan
 - Pemilihan tenaga kesehatan saat mengundang dokter muncul di UI setelah daftar nakes ada (Stage 7, master data).
 - Menu "Log audit" ditarik (migrasi 0009) sampai halaman pencarian audit dibangun.
 - Uji mutasi ±60 menit (menunggu periode TOTP) — jalan di main, mingguan, dan manual; tidak per PR.
-- Syarat terbuka dari Stage 4: **S4-2** deploy dev (project GCP) sebelum gate Stage 8.
+- Syarat terbuka dari Stage 4 **S4-2** (lingkungan dev): **selesai** lewat VPS (CR-0003, DEC-030) — `demo.medika.atoai.id`, deploy otomatis dari GitHub.
 
 ## 5. Persetujuan
 
 | Peran | Nama | Keputusan | Tanggal | Catatan |
 |---|---|---|---|---|
-| Project Owner | Sumarto | ☐ Menunggu | | |
+| Project Owner | Sumarto | ☑ Disetujui | 5 Nov 2026 | "kita lanjut ke stag berikut nya" setelah menguji di VPS dev (DEC-031) |

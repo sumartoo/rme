@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | Stage | 6 — Identity, Role, Permission & Dynamic Menu |
-| Status | IN_PROGRESS |
+| Status | **SELESAI** — disetujui PO (DEC-031) |
 | Mulai | 4 November 2026 (DEC-028) |
 | Project Owner | Sumarto |
 | Requirement | IAM-FR-001 s.d. 016 — **MVP saja** (DEC-010): 001–005, 007–011, 013, 014, 016. LJT di luar stage ini: 006 (batas domain Google), 012 (jadwal login), 015 (delegasi) |
@@ -41,7 +41,7 @@ Login password + lockout, Google OIDC dengan undangan, TOTP + recovery code, ses
 - [x] Status akun ditegakkan (nonaktif, terkunci) — E04, E19, I15, W12 · jadwal login: LJT, tidak termasuk (DEC-028)
 - [ ] ~~Delegasi kedaluwarsa otomatis~~ — LJT, tidak termasuk (DEC-028)
 - [x] S4-1: CI hijau di GitHub — `ci` (termasuk E2E & uji mutasi 17/17) dan `security` hijau di main ([run 41856592216](https://github.com/AtoAIs/atoai-rme-v2/actions/runs/41856592216))
-- [ ] PO menyetujui Stage 6 — [completion report](STAGE_COMPLETION_REPORT.md)
+- [x] PO menyetujui Stage 6 — [completion report](STAGE_COMPLETION_REPORT.md) (DEC-031)
 
 ## 6. Progres Batch 1
 

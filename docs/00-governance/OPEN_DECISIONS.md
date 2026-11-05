@@ -94,3 +94,10 @@ Lihat `docs/APP_DESIGN.md` §13 dan masing-masing `docs/stages/STAGE_XX_*.md` (O
 | OD-079 | Daftar password umum: SecLists NCSC 100k (MIT), entri ≥ 10 karakter, dibundel | DEC-029 |
 | OD-080 | MFA per role diatur tenant admin; TENANT_ADMIN & MANAJER selalu wajib | DEC-029 |
 | OD-029 | Sesi saat jam jaga berakhir — ditunda bersama IAM-FR-012 (LJT) | DEC-028 |
+| OD-030 | ICD-10/ICD-9-CM: muat berkas resmi ber-versi; dev subset contoh; izin resmi sebelum pilot | DEC-032 |
+| OD-031 | KFA: kolom rujukan dulu, sinkronisasi setelah sandbox SATUSEHAT | DEC-032 |
+| OD-062 | Wilayah: `cahyadsn/wilayah` (MIT), Kepmendagri 300.2.2-2430/2025 | DEC-032 |
+| OD-081 | Nomor RM per tenant, 8 digit, awalan opsional | DEC-032 |
+| OD-082 | Tarif Rupiah final; pajak di Stage 11 | DEC-032 |
+| OD-083 | Impor/ekspor CSV + XLSX (`exceljs`), maks 5.000 baris / 5 MB | DEC-032 |
+| OD-084 | Favorit divalidasi user tertaut dokter dengan SIP berlaku | DEC-032 |

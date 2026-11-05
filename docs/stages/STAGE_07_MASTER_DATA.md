@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | Phase | C — Platform SaaS |
-| Status | Belum dimulai |
+| Status | **Berjalan** sejak 5 Nov 2026 (DEC-031) — rencana: `docs/reports/stage-7/STAGE_PLAN.md` |
 | Prasyarat | Stage 6 disetujui |
 | Modul | `masterdata`, `terminology` |
 

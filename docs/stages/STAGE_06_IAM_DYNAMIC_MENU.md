@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | Phase | C — Platform SaaS |
-| Status | **Berjalan** sejak 4 Nov 2026 (DEC-028) — rencana: `docs/reports/stage-6/STAGE_PLAN.md` |
+| Status | **Selesai** — disetujui 5 Nov 2026 (DEC-031) — `docs/reports/stage-6/` |
 | Prasyarat | Stage 5 disetujui |
 | Modul | `iam` |
 
