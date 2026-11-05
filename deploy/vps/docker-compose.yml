@@ -38,6 +38,16 @@ services:
       MIGRATIONS_DIR: /app/db/migrations
     depends_on: { postgres: { condition: service_healthy } }
 
+  # Data referensi global (wilayah, ICD) — idempoten, dijalankan setiap deploy setelah migrasi
+  reference:
+    profiles: [ops]
+    image: clinicrme-api:${RELEASE:-latest}
+    command: ["reference.js"]
+    environment:
+      MIGRATION_DATABASE_URL: postgres://${POSTGRES_OWNER_USER}:${POSTGRES_OWNER_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      REFERENCE_DIR: /app/db/reference
+    depends_on: { postgres: { condition: service_healthy } }
+
   storage-init:
     profiles: [ops]
     image: busybox:1.37

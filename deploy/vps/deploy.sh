@@ -60,6 +60,7 @@ ls -1t "$ROOT"/backup/pre-*.dump | tail -n +8 | xargs -r rm --
 echo "▶ migrasi & role"
 $C --profile ops run --rm storage-init
 $C --profile ops run --rm migrate
+$C --profile ops run --rm reference
 $C exec -T -e POSTGRES_API_USER -e POSTGRES_API_PASSWORD -e POSTGRES_PLATFORM_USER -e POSTGRES_PLATFORM_PASSWORD postgres sh /opt/init-roles.sh
 if [ "$SEED" = "--seed" ]; then $C --profile ops run --rm seed; fi
 

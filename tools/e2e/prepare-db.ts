@@ -3,6 +3,7 @@ import { resolve } from 'node:path';
 import { Client } from 'pg';
 import { hash } from '@node-rs/argon2';
 import { runMigrations } from '../../libs/db/src/lib/migrate';
+import { loadReference } from '../../libs/db/src/lib/reference';
 import { rmSync } from 'node:fs';
 import { ADMIN_URL, DB_PASSWORD, E2E_DB, STORAGE_DIR, USER_PASSWORD, dbUrl } from './config';
 
@@ -19,6 +20,7 @@ async function main() {
   await admin.end();
 
   const { applied } = await runMigrations(dbUrl(), resolve(__dirname, '../../db/migrations'));
+  await loadReference(dbUrl(), resolve(__dirname, '../../db/reference'));   // wilayah & ICD contoh (Stage 7)
   const c = new Client({ connectionString: dbUrl() });
   await c.connect();
   try {

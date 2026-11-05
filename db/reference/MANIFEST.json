@@ -1,0 +1,36 @@
+{
+  "note": "Data referensi global (DEC-032). Dimuat oleh `pnpm db:reference` / job `reference` saat deploy; idempoten per dataset+versi+sha256.",
+  "datasets": [
+    {
+      "id": "region",
+      "kind": "region",
+      "file": "wilayah-kepmendagri-2025.csv.gz",
+      "sha256": "60c7cedf43321b23bf8764164b960a134fe8b669322288b389a24686398f8e17",
+      "version": "kepmendagri-300.2.2-2138-2025@a985ff7",
+      "source": "github.com/cahyadsn/wilayah db/wilayah.sql (commit a985ff702ac1d7741f5298efe9cff57398c03a44), mengikuti Kepmendagri No. 300.2.2-2138 Tahun 2025",
+      "license": "MIT (c) Cahya DSN"
+    },
+    {
+      "id": "ICD10",
+      "kind": "code_system",
+      "system": "ICD10",
+      "file": "icd10-contoh.csv",
+      "sha256": "41cc3de7eeffeb8b7403732fd958339e3d649be3ec960ca636de6c0404555efa",
+      "version": "CONTOH-2026.1",
+      "effectiveDate": "2026-11-05",
+      "source": "CONTOH — bukan data resmi. Subset kecil kode ICD-10 dengan deskripsi Bahasa Indonesia tulisan tim ClinicRME untuk pengembangan. Ganti dengan berkas resmi berlisensi sebelum pilot (OD-030).",
+      "license": "Kode ICD-10 © WHO; penggunaan produksi memerlukan izin (OD-030)"
+    },
+    {
+      "id": "ICD9CM",
+      "kind": "code_system",
+      "system": "ICD9CM",
+      "file": "icd9cm-contoh.csv",
+      "sha256": "cb7bc76adf572c7918ac0feab568c041d7cd6e9276067415ec54347387e12932",
+      "version": "CONTOH-2026.1",
+      "effectiveDate": "2026-11-05",
+      "source": "CONTOH — bukan data resmi. Subset kecil prosedur ICD-9-CM dengan deskripsi Bahasa Indonesia tulisan tim ClinicRME untuk pengembangan (OD-030).",
+      "license": "ICD-9-CM (NCHS/CMS); status lisensi dikonfirmasi bersama OD-030"
+    }
+  ]
+}

@@ -92,6 +92,13 @@
       "when": 1794124800000,
       "tag": "0012_master_services_tariffs",
       "breakpoints": false
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1794211200000,
+      "tag": "0013_terminology_region",
+      "breakpoints": false
     }
   ]
 }

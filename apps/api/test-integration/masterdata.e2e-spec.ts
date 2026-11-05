@@ -2,7 +2,9 @@ import 'reflect-metadata';
 import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import { createApp } from '../src/app/create-app';
-import { PASSWORD, ids, resetDatabase, su } from './support/db-setup';
+import { join } from 'node:path';
+import { loadReference } from '@clinicrme/db/reference';
+import { PASSWORD, REPO, ids, ownerUrl, resetDatabase, su } from './support/db-setup';
 import { testConfig } from './support/test-config';
 import { freshTotp } from './support/totp';
 
@@ -10,7 +12,8 @@ import { freshTotp } from './support/totp';
  * Master data Stage 7 batch 1: fasilitas, cabang, poli/unit (MST-FR-001), tenaga kesehatan (MST-FR-002), audit
  * sebelum/sesudah (MST-FR-009), optimistic locking (GEN-FR-007), kuota cabang (PLT-FR-004), isolasi tenant.
  * NIK tenaga kesehatan: terenkripsi, tidak pernah utuh di respons maupun audit. Batch 2: layanan (MST-FR-004), tarif
- * berperiode (MST-FR-005), penjamin (MST-FR-006), satuan & konversi (MST-FR-007), supplier (MST-FR-010). Data sintetis saja.
+ * berperiode (MST-FR-005), penjamin (MST-FR-006), satuan & konversi (MST-FR-007), supplier (MST-FR-010). Batch 3: wilayah
+ * (MST-FR-011), ICD-10/ICD-9-CM (TRM-FR-001/002/004) & favorit tervalidasi dokter (TRM-FR-003, OD-084). Data sintetis saja.
  */
 const HOST = 'klinik-a.clinicrme.test';
 const FACILITY_A = 'aaaaaaaa-0000-0000-0000-000000000001';
@@ -296,6 +299,85 @@ describe('Penjamin, satuan, supplier (MST-FR-006, 007, 010)', () => {
   test('M18 menu master batch 2 tampil untuk admin', async () => {
     const m = await get('/api/v1/me/menu', admin);
     const master = m.body.find((n: { code: string }) => n.code === 'master');
-    expect(master.children.map((c: { code: string }) => c.code)).toEqual(['master.organization', 'master.practitioners', 'master.services', 'master.payers', 'master.supplies']);
+    expect(master.children.map((c: { code: string }) => c.code)).toEqual(['master.organization', 'master.practitioners', 'master.services', 'master.payers', 'master.supplies', 'master.terminology']);
+  });
+});
+
+describe('Data referensi, terminologi & wilayah (TRM-FR-001–004, MST-FR-011)', () => {
+  let loaded: Awaited<ReturnType<typeof loadReference>>;
+  let dokter: Jar;
+  beforeAll(async () => {
+    loaded = await loadReference(ownerUrl(), join(REPO, 'db', 'reference'));
+    dokter = await login('dokter@a.test');                         // tertaut ke tenaga kesehatan "dr. Uji a" (DOKTER)
+  }, 120_000);
+  const concept = async (system: string, code: string) => (await su<{ id: string }>(`select c.id from app.concept c join app.code_system s
+    on s.id = c.system_id and s.is_current where s.code = $1 and c.code = $2`, [system, code]))[0].id;
+
+  test('M19 pemuat referensi: wilayah 91.599 baris & ICD contoh dimuat dengan sumber/versi/lisensi; dijalankan ulang = dilewati; sha256 salah ditolak', async () => {
+    expect(loaded.map((l) => [l.id, l.status])).toEqual([['region', 'loaded'], ['ICD10', 'loaded'], ['ICD9CM', 'loaded']]);
+    expect(loaded[0].rows).toBe(91599);
+    const again = await loadReference(ownerUrl(), join(REPO, 'db', 'reference'));
+    expect(again.map((l) => l.status)).toEqual(['skipped', 'skipped', 'skipped']);
+    const [ds] = await su(`select version, license from app.reference_dataset where id = 'region'`);
+    expect(ds).toMatchObject({ version: expect.stringContaining('300.2.2-2138'), license: expect.stringContaining('MIT') });
+    const levels = await su<{ level: number; n: number }>(`select level, count(*)::int as n from app.region group by level order by level`);
+    expect(levels).toEqual([{ level: 1, n: 38 }, { level: 2, n: 514 }, { level: 3, n: 7285 }, { level: 4, n: 83762 }]);
+    const cs = await get('/api/v1/terminology/code-systems', kasir);
+    expect(cs.body).toEqual(expect.arrayContaining([expect.objectContaining({ code: 'ICD10', isCurrent: true, isSample: true, conceptCount: 40 })]));
+  });
+
+  test('M20 wilayah berjenjang: provinsi → kab/kota → kecamatan → desa; cari nama; data global hanya-baca bagi aplikasi', async () => {
+    const prov = await get('/api/v1/regions', kasir);
+    expect(prov.body).toHaveLength(38);
+    expect(prov.body[0]).toEqual({ code: '11', name: 'Aceh', level: 1 });
+    const jabar = await get('/api/v1/regions?parent=32&q=bandung', kasir);
+    expect(jabar.body.map((r: { name: string }) => r.name)).toEqual(expect.arrayContaining(['Kabupaten Bandung', 'Kota Bandung']));
+    const kec = await get(`/api/v1/regions?parent=${jabar.body[0].code}`, kasir);
+    expect(kec.body.every((r: { level: number }) => r.level === 3)).toBe(true);
+    expect((await get('/api/v1/regions?parent=32.04.0', kasir)).status).toBe(400);
+    await expect(su(`set role clinicrme_app; update app.region set name = 'x' where code = '11'`)).rejects.toThrow(/permission denied/);
+    // Cabang kini dapat memakai kode wilayah (MST-FR-011)
+    const desa = (await get(`/api/v1/regions?parent=${kec.body[0].code}`, kasir)).body[0];
+    const b = await send('post', '/api/v1/branches', admin).send({ facilityId: FACILITY_A, code: 'CBG-WIL', name: 'Cabang Wilayah', regionCode: desa.code });
+    expect([b.status, b.body.regionCode]).toEqual([201, desa.code]);
+  });
+
+  test('M21 cari ICD-10 berdasarkan kode, kata kunci, dan sinonim; ICD-9-CM terpisah; kode asli tidak berubah', async () => {
+    const names = (r: request.Response) => r.body.map((c: { code: string }) => c.code);
+    expect(names(await get('/api/v1/terminology/concepts?q=J0', kasir))).toEqual(['J00', 'J02.9', 'J06.9']);
+    expect(names(await get('/api/v1/terminology/concepts?q=i10', kasir))[0]).toBe('I10');
+    expect(names(await get('/api/v1/terminology/concepts?q=darah%20tinggi', kasir))).toEqual(['I10']);        // sinonim
+    expect(names(await get('/api/v1/terminology/concepts?q=tifoid', kasir))).toEqual(['A01.0']);
+    expect(names(await get('/api/v1/terminology/concepts?system=ICD9CM&q=jahit', kasir))).toEqual(['86.59']);
+    expect((await get('/api/v1/terminology/concepts?q=jahit', kasir)).body).toEqual([]);                        // tidak tercampur
+    expect((await get('/api/v1/terminology/concepts?system=LOINC', kasir)).status).toBe(400);
+    await expect(su(`set role clinicrme_app; update app.concept set display_id = 'x'`)).rejects.toThrow(/permission denied/);
+  });
+
+  test('M22 favorit: admin menandai; validasi hanya dokter tertaut dengan SIP berlaku (OD-084); ubah spesialisasi = validasi ulang', async () => {
+    const i10 = await concept('ICD10', 'I10');
+    const fav = (j: Jar, body: object) => send('put', `/api/v1/terminology/favorites/${i10}`, j).send(body);
+    expect((await fav(admin, { specialty: 'Umum' })).status).toBe(204);
+    expect((await fav(admin, { validated: true })).body.code).toBe('TRM-403-VALIDATOR');              // admin bukan dokter
+    expect((await fav(dokter, { validated: true })).body.code).toBe('TRM-403-SIP');                    // SIP dr. Uji a belum diisi
+    await su(`update app.practitioner set sip_number = 'SIP-UJI', sip_valid_until = current_date + 30 where id = 'aaaaaaaa-0000-0000-0000-000000000020'`);
+    expect((await fav(dokter, { validated: true })).status).toBe(204);
+    let r = await get('/api/v1/terminology/concepts?favorites=validated', kasir);
+    expect(r.body).toEqual([expect.objectContaining({ code: 'I10', isFavorite: true, favorite: expect.objectContaining({ validated: true, validatedBy: 'dr. Uji', specialty: 'Umum' }) })]);
+    expect((await fav(admin, { specialty: 'Penyakit dalam' })).status).toBe(204);
+    expect((await get('/api/v1/terminology/concepts?favorites=validated', kasir)).body).toEqual([]);   // perlu validasi ulang
+    r = await get('/api/v1/terminology/concepts?favorites=all', kasir);
+    expect(r.body.map((c: { code: string; favorite: { validated: boolean } }) => [c.code, c.favorite.validated])).toEqual([['I10', false]]);
+    await su(`update app.practitioner set sip_valid_until = current_date - 1 where id = 'aaaaaaaa-0000-0000-0000-000000000020'`);
+    expect((await fav(dokter, { validated: true })).body.code).toBe('TRM-403-SIP');                    // SIP kedaluwarsa
+    expect((await send('put', `/api/v1/terminology/favorites/${i10}`, kasir).send({})).status).toBe(403);
+    // Favorit milik klinik: klinik lain tidak melihat
+    const lb = await http.post('/api/v1/auth/login').set('Host', 'klinik-b.clinicrme.test').send({ email: 'dokter@b.test', password: PASSWORD });
+    expect(lb.status).toBe(200);
+    const favB = await http.get('/api/v1/terminology/concepts?favorites=all').set('Host', 'klinik-b.clinicrme.test').set('Cookie', jar(lb).cookie);
+    expect([favB.status, favB.body]).toEqual([200, []]);
+    expect((await send('delete', `/api/v1/terminology/favorites/${i10}`, admin)).status).toBe(204);
+    expect((await send('delete', `/api/v1/terminology/favorites/${i10}`, admin)).body.code).toBe('TRM-404-CONCEPT');
+    expect((await lastAudit('TERMINOLOGY_FAVORITE_REMOVED', i10))?.before).toMatchObject({ specialty: 'Penyakit dalam' });   // resource_id = konsep
   });
 });

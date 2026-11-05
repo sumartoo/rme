@@ -92,3 +92,10 @@ export interface Supplier {
   id: string; code: string | null; name: string; contactPerson: string | null; phone: string | null; email: string | null;
   address: string | null; npwp: string | null; isActive: boolean; version: number;
 }
+export type CodeSystemCode = 'ICD10' | 'ICD9CM';
+export interface Concept {
+  id: string; system: CodeSystemCode; code: string; display: string; displayEn: string | null; synonyms: string[]; isFavorite: boolean;
+  favorite: { specialty: string | null; validated: boolean; validatedAt: string | null; validatedBy: string | null } | null;
+}
+export interface CodeSystem { code: string; version: string; source: string; effectiveDate: string | null; isCurrent: boolean; conceptCount: number; isSample: boolean }
+export interface Region { code: string; name: string; level: number }

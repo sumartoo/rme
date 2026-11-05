@@ -2,6 +2,7 @@
 import { resolve } from 'node:path';
 import { Client } from 'pg';
 import { runMigrations } from '../../libs/db/src/lib/migrate';
+import { loadReference } from '../../libs/db/src/lib/reference';
 import { loadDotEnv, need } from './load-env';
 
 async function main() {
@@ -9,6 +10,7 @@ async function main() {
   const ownerUrl = need('MIGRATION_DATABASE_URL');
   const { applied } = await runMigrations(ownerUrl, resolve('db/migrations'));
   console.log(applied.length ? `Migrasi diterapkan: ${applied.join(', ')}` : 'Database sudah terbaru');
+  await loadReference(ownerUrl, resolve('db/reference'), (m) => console.log(m));   // wilayah & ICD contoh (DEC-032)
 
   const c = new Client({ connectionString: ownerUrl });
   await c.connect();

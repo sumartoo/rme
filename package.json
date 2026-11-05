@@ -10,6 +10,7 @@
     "dev:down": "docker compose down",
     "dev:db": "tsx tools/dev/db.ts",
     "dev:seed": "tsx tools/dev/seed.ts",
+    "db:reference": "tsx libs/db/src/bin/load-reference.ts",
     "dev:reset-mfa": "tsx tools/dev/reset-platform-mfa.ts",
     "db:migrate": "tsx libs/db/src/bin/migrate.ts",
     "lint": "nx run-many -t lint",

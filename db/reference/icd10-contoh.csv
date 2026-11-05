@@ -1,0 +1,41 @@
+code,display_id,display_en,parent_code,synonyms
+A01.0,Demam tifoid,Typhoid fever,A01,tifus|tipes
+A09,Diare dan gastroenteritis yang diduga infeksi,Diarrhoea and gastroenteritis of presumed infectious origin,,diare|mencret|GEA
+A16.2,Tuberkulosis paru tanpa konfirmasi bakteriologis atau histologis,"Tuberculosis of lung, without mention of bacteriological or histological confirmation",A16,TB paru|TBC
+A90,Demam dengue,Dengue fever [classical dengue],,DD|dengue
+A91,Demam berdarah dengue,Dengue haemorrhagic fever,,DBD|DHF
+B01.9,Varisela tanpa komplikasi,Varicella without complication,B01,cacar air
+B05.9,Campak tanpa komplikasi,Measles without complication,B05,morbili
+B35.4,Tinea korporis,Tinea corporis,B35,kurap|jamur kulit
+D64.9,"Anemia, tidak spesifik","Anaemia, unspecified",D64,kurang darah
+E11.9,Diabetes melitus tipe 2 tanpa komplikasi,Type 2 diabetes mellitus without complications,E11,DM tipe 2|kencing manis
+E66.9,"Obesitas, tidak spesifik","Obesity, unspecified",E66,kegemukan
+E78.5,"Hiperlipidemia, tidak spesifik","Hyperlipidaemia, unspecified",E78,kolesterol tinggi|dislipidemia
+F41.9,"Gangguan cemas, tidak spesifik","Anxiety disorder, unspecified",F41,ansietas|cemas
+G43.9,"Migren, tidak spesifik","Migraine, unspecified",G43,migrain|sakit kepala sebelah
+H10.9,"Konjungtivitis, tidak spesifik","Conjunctivitis, unspecified",H10,mata merah|belekan
+H66.9,"Otitis media, tidak spesifik","Otitis media, unspecified",H66,congek|radang telinga tengah
+I10,Hipertensi esensial (primer),Essential (primary) hypertension,,darah tinggi|HT
+J00,Nasofaringitis akut (common cold),Acute nasopharyngitis [common cold],,pilek|flu|selesma
+J02.9,"Faringitis akut, tidak spesifik","Acute pharyngitis, unspecified",J02,radang tenggorokan
+J06.9,"Infeksi saluran pernapasan atas akut, tidak spesifik","Acute upper respiratory infection, unspecified",J06,ISPA
+J18.9,"Pneumonia, tidak spesifik","Pneumonia, unspecified",J18,radang paru
+J30.4,"Rinitis alergi, tidak spesifik","Allergic rhinitis, unspecified",J30,alergi hidung
+J45.9,"Asma, tidak spesifik","Asthma, unspecified",J45,sesak napas|bengek
+K02.9,"Karies gigi, tidak spesifik","Dental caries, unspecified",K02,gigi berlubang
+K04.0,Pulpitis,Pulpitis,K04,sakit gigi
+K05.1,Gingivitis kronis,Chronic gingivitis,K05,radang gusi
+K29.7,"Gastritis, tidak spesifik","Gastritis, unspecified",K29,maag|lambung
+K30,Dispepsia,Dyspepsia,,maag|sakit ulu hati
+K59.0,Konstipasi,Constipation,K59,sembelit|susah BAB
+L30.9,"Dermatitis, tidak spesifik","Dermatitis, unspecified",L30,eksim
+L50.9,"Urtikaria, tidak spesifik","Urticaria, unspecified",L50,biduran|kaligata
+M54.5,Nyeri punggung bawah,Low back pain,M54,LBP|sakit pinggang
+M79.1,Mialgia,Myalgia,M79,pegal|nyeri otot
+N39.0,"Infeksi saluran kemih, lokasi tidak spesifik","Urinary tract infection, site not specified",N39,ISK|anyang-anyangan
+R05,Batuk,Cough,,batuk
+R10.4,Nyeri perut lainnya dan yang tidak spesifik,Other and unspecified abdominal pain,R10,sakit perut
+R50.9,"Demam, tidak spesifik","Fever, unspecified",R50,panas|febris
+R51,Sakit kepala,Headache,,pusing|cephalgia
+T14.1,"Luka terbuka, bagian tubuh tidak spesifik","Open wound of unspecified body region",T14,vulnus|luka robek
+Z00.0,Pemeriksaan kesehatan umum,General medical examination,Z00,medical check up|MCU

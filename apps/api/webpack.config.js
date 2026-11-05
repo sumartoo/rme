@@ -28,7 +28,10 @@ module.exports = {
       compiler: 'tsc',
       main: './src/main.ts',
       // Runner migrasi ikut dibundel agar image produksi dapat menjalankannya tanpa tsx (job migrasi)
-      additionalEntryPoints: [{ entryName: 'migrate', entryPath: join(__dirname, '../../libs/db/src/bin/migrate.ts') }],
+      additionalEntryPoints: [
+        { entryName: 'migrate', entryPath: join(__dirname, '../../libs/db/src/bin/migrate.ts') },
+        { entryName: 'reference', entryPath: join(__dirname, '../../libs/db/src/bin/load-reference.ts') },   // data referensi (Stage 7)
+      ],
       tsConfig: './tsconfig.app.json',
       assets: ['./src/assets'],
       optimization: false,

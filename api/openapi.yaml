@@ -2568,7 +2568,7 @@ paths:
       operationId: conceptSearch
       tags:
       - Terminology
-      summary: Cari ICD-10/ICD-9-CM/KFA (q, system)
+      summary: Cari ICD-10/ICD-9-CM/KFA (q, system, favorites=all|validated)
       x-requirements:
       - TRM-FR-001
       - TRM-FR-002
@@ -2587,12 +2587,34 @@ paths:
           $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
+  /api/v1/terminology/code-systems:
+    get:
+      operationId: codeSystemList
+      tags:
+      - Terminology
+      summary: Sumber & versi code system (OD-030)
+      x-requirements:
+      - TRM-FR-001
+      - TRM-FR-002
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/CodeSystem'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
   /api/v1/terminology/favorites/{conceptId}:
     put:
       operationId: conceptFavorite
       tags:
       - Terminology
-      summary: Tandai favorit & validasi
+      summary: 'Tandai favorit & validasi (validator: dokter dengan SIP berlaku, OD-084)'
       x-requirements:
       - TRM-FR-003
       x-permission: terminology.favorite.manage
@@ -2621,6 +2643,27 @@ paths:
           $ref: '#/components/responses/NotFound'
         '409':
           $ref: '#/components/responses/Conflict'
+    delete:
+      operationId: conceptUnfavorite
+      tags:
+      - Terminology
+      summary: Hapus dari favorit
+      x-requirements:
+      - TRM-FR-003
+      x-permission: terminology.favorite.manage
+      parameters:
+      - $ref: '#/components/parameters/conceptId'
+      responses:
+        '204':
+          description: Berhasil
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
   /api/v1/patients:
     get:
       operationId: patientSearch
@@ -6374,11 +6417,44 @@ components:
           type: string
         display:
           type: string
+        displayEn:
+          type: string
+        synonyms:
+          type: array
+          items:
+            type: string
         isFavorite: *id001
+        favorite:
+          oneOf:
+          - type: 'null'
+          - type: object
+            properties:
+              specialty:
+                type: string
+              validated: *id001
+              validatedAt: *id004
+              validatedBy:
+                type: string
       required:
       - system
       - code
       - display
+    CodeSystem:
+      type: object
+      properties:
+        code:
+          type: string
+        version:
+          type: string
+        source:
+          type: string
+        effectiveDate: *id005
+        isCurrent: *id001
+        conceptCount: *id003
+        isSample: *id001
+      required:
+      - code
+      - version
     PatientInput:
       type: object
       properties:

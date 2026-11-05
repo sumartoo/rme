@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Uji mutasi kontrol keamanan (Stage 3 M1–M4 diulang di monorepo — RSK-020; M5 Stage 4; M6–M14 Stage 5; M15–M17 Stage 6; M18–M20 Stage 7).
+# Uji mutasi kontrol keamanan (Stage 3 M1–M4 diulang di monorepo — RSK-020; M5 Stage 4; M6–M14 Stage 5; M15–M17 Stage 6; M18–M21 Stage 7).
 # Setiap mutasi sengaja merusak satu kontrol, menjalankan suite integrasi API, dan LULUS hanya bila
 # uji yang menjaga kontrol itu GAGAL. Kode selalu dikembalikan (trap), juga bila skrip dihentikan.
 #
@@ -25,7 +25,8 @@ EXPORT=libs/db/src/lib/tenant-export.ts
 MDCOMMON=libs/masterdata/src/lib/common.ts
 PRACT=libs/masterdata/src/lib/practitioners.controller.ts
 MIG12=db/migrations/0012_master_services_tariffs.sql
-FILES=("$AUTH" "$SESSION" "$MIG2" "$MIG3" "$GUARD" "$PGUARD" "$LAYOUT" "$EXPORT" "$MIG5" "$MIG6" "$TOTP" "$IAMUSERS" "$ACCOUNT" "$MDCOMMON" "$PRACT" "$MIG12")
+TERM=libs/masterdata/src/lib/terminology.controller.ts
+FILES=("$AUTH" "$SESSION" "$MIG2" "$MIG3" "$GUARD" "$PGUARD" "$LAYOUT" "$EXPORT" "$MIG5" "$MIG6" "$TOTP" "$IAMUSERS" "$ACCOUNT" "$MDCOMMON" "$PRACT" "$MIG12" "$TERM")
 BACKUP=$(mktemp -d)
 cp "${FILES[@]}" "$BACKUP"/
 restore() { for f in "${FILES[@]}"; do cp "$BACKUP/$(basename "$f")" "$f"; done; }
@@ -90,6 +91,8 @@ mutate M19 "NIK tenaga kesehatan dikembalikan utuh di respons (tanpa penyamaran)
   "sed -i 's/(nik ? \`\${nik.slice(0, 4)}\*\*\*\*\*\*\*\*\${nik.slice(-4)}\` : null)/nik/' $PRACT && ! grep -q 'nik.slice(0, 4)' $PRACT" ""
 mutate M20 "tarif dapat ditimpa (trigger tariff_guard tidak dipasang)" 'M13' \
   "sed -i '/^CREATE TRIGGER trg_tariff_guard/d' $MIG12 && ! grep -q 'trg_tariff_guard BEFORE' $MIG12" ""
+mutate M21 "favorit diagnosis dapat divalidasi siapa saja (pemeriksaan dokter/SIP OD-084 dilewati)" 'M22' \
+  "sed -i 's/      if (b.validated) await this.assertValidator(tx);/      if (b.validated \&\& false) await this.assertValidator(tx);/' $TERM && grep -q 'b.validated && false' $TERM" ""
 
 # Mutasi UI: suite Playwright (U##) sebagai detektor
 if [ "${MUTATION_E2E:-0}" = "1" ]; then

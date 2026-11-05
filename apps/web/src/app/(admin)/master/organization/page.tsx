@@ -3,7 +3,7 @@ import { useCallback, useEffect, useState } from 'react';
 import {
   Alert, Badge, Button, Card, CardContent, CardDescription, CardHeader, CardTitle, Dialog, Field, Input, Select, Switch, TBody, TD, TH, THead, TR, Table,
 } from '@clinicrme/ui';
-import { BranchItem, Facility, FacilityType, ServiceUnit, Timezone, UnitType, api, errorText } from '../../../../lib/api';
+import { BranchItem, Facility, FacilityType, Region, ServiceUnit, Timezone, UnitType, api, errorText } from '../../../../lib/api';
 import { FACILITY_TYPE_LABEL, TIMEZONE_LABEL, UNIT_TYPE_LABEL } from '../../../../lib/format';
 import { can, useSession } from '../../../../lib/session';
 
@@ -138,7 +138,7 @@ function initial(e: Editing, facilities: Facility[], branches: BranchItem[], def
   const i = e.item as Partial<Facility & BranchItem & ServiceUnit> | undefined;
   if (e.kind === 'facility') return { name: i?.name ?? '', facilityType: i?.facilityType ?? 'KLINIK_PRATAMA', licenseNumber: i?.licenseNumber ?? '', isActive: i?.isActive ?? true };
   if (e.kind === 'branch') return { facilityId: i?.facilityId ?? facilities.find((f) => f.isActive)?.id ?? '', code: i?.code ?? '', name: i?.name ?? '',
-    address: i?.address ?? '', phone: i?.phone ?? '', timezone: i?.timezone ?? 'Asia/Jakarta', isActive: i?.isActive ?? true };
+    address: i?.address ?? '', regionCode: i?.regionCode ?? '', phone: i?.phone ?? '', timezone: i?.timezone ?? 'Asia/Jakarta', isActive: i?.isActive ?? true };
   return { branchId: i?.branchId ?? (defaultBranch || branches.find((b) => b.isActive)?.id || ''), code: i?.code ?? '', name: i?.name ?? '',
     unitType: i?.unitType ?? 'POLI', specialty: i?.specialty ?? '', isActive: i?.isActive ?? true };
 }
@@ -159,7 +159,8 @@ function EditDialog({ editing, facilities, branches, defaultBranch, onClose, onS
     e.preventDefault();
     if (!ok) return;
     setBusy(true); setError(undefined);
-    const body = Object.fromEntries(Object.entries(f).map(([k, v]) => [k, typeof v === 'string' ? v.trim() : v]));
+    const body: Record<string, string | boolean | null> = Object.fromEntries(Object.entries(f).map(([k, v]) => [k, typeof v === 'string' ? v.trim() : v]));
+    if (editing.kind === 'branch') body.regionCode = body.regionCode || null;
     try {
       const item = editing.item;
       await api(item ? `${PATH[editing.kind]}/${item.id}` : PATH[editing.kind], {
@@ -205,6 +206,7 @@ function EditDialog({ editing, facilities, branches, defaultBranch, onClose, onS
         </>) : null}
         {editing.kind === 'branch' ? (<>
           <Field id="md-address" label="Alamat"><Input id="md-address" value={str('address')} maxLength={500} onChange={(e) => set('address', e.target.value)} /></Field>
+          <RegionPicker value={str('regionCode')} onChange={(v) => set('regionCode', v)} />
           <Field id="md-phone" label="Telepon"><Input id="md-phone" value={str('phone')} maxLength={30} onChange={(e) => set('phone', e.target.value)} /></Field>
           <Field id="md-tz" label="Zona waktu">
             <Select id="md-tz" value={str('timezone')} onChange={(e) => set('timezone', e.target.value as Timezone)}>
@@ -229,5 +231,35 @@ function EditDialog({ editing, facilities, branches, defaultBranch, onClose, onS
         </div>
       </form>
     </Dialog>
+  );
+}
+
+const LEVELS = ['Provinsi', 'Kabupaten/kota', 'Kecamatan', 'Kelurahan/desa'];
+/** Wilayah berjenjang (MST-FR-011, Kepmendagri): nilai = kode terdalam yang dipilih (boleh berhenti di tingkat mana pun). */
+function RegionPicker({ value, onChange }: { value: string; onChange: (code: string) => void }) {
+  const parts = value ? value.split('.') : [];
+  const chosen = parts.map((_, i) => parts.slice(0, i + 1).join('.'));      // kode tiap tingkat yang sudah dipilih
+  const [lists, setLists] = useState<Region[][]>([]);
+  const key = chosen.join('|');
+  useEffect(() => {
+    let alive = true;
+    void (async () => {
+      const parents = [undefined, ...chosen].slice(0, 4);
+      const out = await Promise.all(parents.map((p) => api<Region[]>(p ? `/regions?parent=${p}` : '/regions').catch(() => [])));
+      if (alive) setLists(out);
+    })();
+    return () => { alive = false; };
+  }, [key]);
+  return (
+    <div className="grid gap-2 sm:grid-cols-2">
+      {LEVELS.map((label, i) => (i === 0 || chosen[i - 1]) && (lists[i]?.length ?? 0) > 0 ? (
+        <Field key={label} id={`md-region-${i}`} label={label}>
+          <Select id={`md-region-${i}`} value={chosen[i] ?? ''} onChange={(e) => onChange(e.target.value || (chosen[i - 1] ?? ''))}>
+            <option value="">— pilih —</option>
+            {lists[i].map((r) => <option key={r.code} value={r.code}>{r.name}</option>)}
+          </Select>
+        </Field>
+      ) : null)}
+    </div>
   );
 }

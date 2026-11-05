@@ -1,0 +1,17 @@
+code,display_id,display_en,parent_code,synonyms
+23.09,Pencabutan gigi lainnya,Extraction of other tooth,23.0,cabut gigi|ekstraksi
+23.2,Restorasi gigi dengan tambalan,Restoration of tooth by filling,,tambal gigi
+57.94,Pemasangan kateter urin menetap,Insertion of indwelling urinary catheter,57.9,kateter
+69.7,Pemasangan alat kontrasepsi dalam rahim,Insertion of contraceptive device,,IUD|spiral|AKDR
+86.04,Insisi dan drainase kulit dan jaringan subkutan lainnya,Other incision with drainage of skin and subcutaneous tissue,86.0,insisi abses
+86.22,Debridemen eksisional luka,"Excisional debridement of wound, infection, or burn",86.2,debridemen
+86.3,Eksisi lokal lesi kulit lainnya,Other local excision or destruction of lesion or tissue of skin and subcutaneous tissue,,eksisi
+86.59,Penutupan kulit dan jaringan subkutan di lokasi lain,Closure of skin and subcutaneous tissue of other sites,86.5,jahit luka|hecting
+89.52,Elektrokardiogram,Electrocardiogram,89.5,EKG|ECG
+93.94,Pemberian obat pernapasan dengan nebulizer,Respiratory medication administered by nebulizer,93.9,nebulizer|uap
+96.52,Irigasi telinga,Irrigation of ear,96.5,spooling telinga|bersihkan serumen
+96.59,Irigasi luka lainnya,Other irrigation of wound,96.5,cuci luka
+98.11,Pengeluaran benda asing dari telinga tanpa insisi,Removal of intraluminal foreign body from ear without incision,98.1,benda asing telinga
+99.21,Injeksi antibiotik,Injection of antibiotic,99.2,suntik antibiotik
+99.29,Injeksi atau infus zat terapeutik atau profilaksis lainnya,Injection or infusion of other therapeutic or prophylactic substance,99.2,suntik|infus
+99.55,Pemberian vaksin profilaksis terhadap penyakit lain,Prophylactic administration of vaccine against other diseases,99.5,vaksin|imunisasi

@@ -413,6 +413,38 @@ test('W14 layanan & tarif berperiode, penjamin dengan kontrak, satuan & konversi
   await expect(page.getByTestId('supplier-row').filter({ hasText: 'PBF Web Sintetis' })).toContainText('01.234.567.8-901.000');
 });
 
+test('W15 diagnosis & tindakan: cari ICD-10 dengan sinonim, jadikan favorit; validasi ditolak untuk non-dokter; wilayah cabang (Stage 7 batch 3)', async ({ page }) => {
+  watchCsp(page);
+  await signInAdmin(page);
+  const menu = page.getByTestId('side-menu');
+  await menu.getByRole('link', { name: 'Diagnosis & tindakan' }).click();
+  await expect(page.getByTestId('code-system-info')).toContainText('CONTOH');
+  await page.getByLabel('Cari kode atau kata kunci').fill('darah tinggi');
+  const row = page.getByTestId('concept-row').filter({ hasText: 'Hipertensi esensial' });
+  await expect(row).toContainText('I10');
+  await row.getByRole('button', { name: 'Jadikan favorit' }).click();
+  await expect(row).toContainText('belum divalidasi');
+  await row.getByRole('button', { name: 'Validasi' }).click();
+  await expect(alertBox(page)).toContainText('hanya oleh dokter');
+  await page.getByLabel('Tampilkan').selectOption({ label: 'Favorit klinik' });
+  await page.getByLabel('Cari kode atau kata kunci').fill('');
+  await expect(page.getByTestId('concept-row')).toHaveCount(1);
+  await page.getByLabel('Sistem kode').selectOption({ label: 'ICD-9-CM (tindakan)' });
+  await page.getByLabel('Tampilkan').selectOption({ label: 'Semua kode' });
+  await page.getByLabel('Cari kode atau kata kunci').fill('nebulizer');
+  await expect(page.getByTestId('concept-row')).toContainText('93.94');
+
+  await menu.getByRole('link', { name: 'Fasilitas & cabang' }).click();
+  await page.getByTestId('branch-row').filter({ hasText: 'Cabang Timur' }).getByRole('button', { name: 'Ubah' }).click();
+  const bd = page.getByRole('dialog', { name: 'Ubah cabang' });
+  await bd.getByLabel('Provinsi').selectOption({ label: 'Jawa Barat' });
+  await bd.getByLabel('Kabupaten/kota').selectOption({ label: 'Kota Bandung' });
+  await bd.getByRole('button', { name: 'Simpan' }).click();
+  await expect(page.getByText('Cabang "Cabang Timur" disimpan.')).toBeVisible();
+  await page.getByTestId('branch-row').filter({ hasText: 'Cabang Timur' }).getByRole('button', { name: 'Ubah' }).click();
+  await expect(page.getByRole('dialog', { name: 'Ubah cabang' }).getByLabel('Kabupaten/kota').locator('option:checked')).toHaveText('Kota Bandung');
+});
+
 test('W06 keamanan: CSP bernonce, no-store; proxy hanya untuk klinik dari subdomain; tidak ada pelanggaran CSP', async ({ page }) => {
   const res = await page.goto('/login');
   const h = res!.headers();

@@ -20,6 +20,11 @@
       "types": "./src/lib/notifications.ts",
       "import": "./src/lib/notifications.ts",
       "default": "./src/lib/notifications.ts"
+    },
+    "./reference": {
+      "types": "./src/lib/reference.ts",
+      "import": "./src/lib/reference.ts",
+      "default": "./src/lib/reference.ts"
     }
   },
   "nx": {
