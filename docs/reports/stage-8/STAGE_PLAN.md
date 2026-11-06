@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | Stage | 8 — Registrasi Pasien, Jadwal & Antrean |
-| Status | **MENUNGGU PERSETUJUAN PO** — batch 1–4 selesai; lihat [STAGE_COMPLETION_REPORT.md](STAGE_COMPLETION_REPORT.md) |
+| Status | **DISETUJUI** — DEC-037 (6 Nov 2026), syarat terbuka S8-1; lihat [STAGE_COMPLETION_REPORT.md](STAGE_COMPLETION_REPORT.md) |
 | Mulai | 6 November 2026 (DEC-034) |
 | Project Owner | Sumarto |
 | Requirement | **MVP saja** (DEC-010): REG-FR-001–009, 012 · SCH-FR-001–003, 005–008, 010, 011, 013 (tahap pendaftaran sampai Hadir). Di luar stage ini: REG-FR-010 cetak kartu (LJT), REG-FR-011 lookup IHS (Stage 12, kolom `ihs_status` tetap `PENDING`), SCH-FR-004 appointment via Android (Stage 13), SCH-FR-009 suara panggilan (LJT), SCH-FR-012 pengingat (LJT, OD-012) |
@@ -54,7 +54,7 @@ Perkiraan: ±1 hari kerja per batch, di luar waktu tunggu keputusan.
 - [x] NIK tersimpan terenkripsi; pencarian via hash; NIK tidak muncul di log/audit — P01, P06, P07, P14, mutasi M26
 - [x] Matriks permission X01 mencakup semua endpoint baru (198 operasi)
 - [ ] Uji mutasi untuk kontrol baru hijau di GitHub Actions — M23–M38 terdeteksi lokal (DEC-036); run lengkap M1–M38 di Actions setelah kuota aktif 1 Des
-- [ ] PO menyetujui Stage 8
+- [x] PO menyetujui Stage 8 — DEC-037
 
 ## 6. Progres
 

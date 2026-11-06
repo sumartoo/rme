@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | Phase | D — Operasional Klinik |
-| Status | **Berjalan** — rencana `docs/reports/stage-8/STAGE_PLAN.md` (DEC-034) |
+| Status | **Disetujui** — DEC-037 (6 Nov 2026), syarat terbuka S8-1 |
 | Prasyarat | Stage 7 disetujui |
 | Modul | `patient`, `scheduling`, `notification` |
 

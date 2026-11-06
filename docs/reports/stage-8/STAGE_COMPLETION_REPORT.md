@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | Stage | 8 — Registrasi Pasien, Jadwal & Antrean |
-| Status | **MENUNGGU PERSETUJUAN PO** |
+| Status | **DISETUJUI** — DEC-037 (6 Nov 2026), syarat terbuka S8-1 |
 | Disusun oleh | Sumarto (dibantu Claude) |
 | Rincian | [STAGE_PLAN.md](STAGE_PLAN.md) §6 · keputusan DEC-035, DEC-036 |
 | Mode verifikasi | **Lokal** (DEC-036): kuota GitHub Actions habis 6 Nov. Semua uji di bawah dijalankan di workspace; CI, SAST, audit dependensi, build image, dan deploy ke VPS menyusul saat Actions aktif lagi (1 Des 2026) |
@@ -58,7 +58,7 @@ Perawat/dokter memanggil antrean, dan layar TV ruang tunggu memperbaruinya secar
 - [x] NIK terenkripsi; pencarian via indeks buta; NIK tidak muncul di log/audit — P01, P06, P07, P14, mutasi M26; isolasi antarklinik P15
 - [x] Matriks permission X01 mencakup semua endpoint baru
 - [ ] Uji mutasi hijau di GitHub Actions. M23–M38 sudah terdeteksi lokal satu per satu (DEC-036). Run lengkap M1–M38 dijalankan manual di Actions setelah kuota aktif 1 Des; dicatat sebagai **syarat terbuka S8-1**
-- [ ] PO menyetujui Stage 8
+- [x] PO menyetujui Stage 8 — DEC-037, dengan syarat terbuka S8-1
 
 ## 4. Keamanan & privasi
 
@@ -83,4 +83,4 @@ Perawat/dokter memanggil antrean, dan layar TV ruang tunggu memperbaruinya secar
 
 | Peran | Nama | Keputusan | Tanggal | Catatan |
 |---|---|---|---|---|
-| Project Owner | Sumarto | ☐ Disetujui ☐ Revisi | | |
+| Project Owner | Sumarto | ☑ Disetujui | 6 Nov 2026 | "setuju Stage 8" (DEC-037); syarat terbuka S8-1 (uji mutasi lengkap di Actions setelah 1 Des) |

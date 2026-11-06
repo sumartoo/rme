@@ -1,0 +1,62 @@
+# Stage 9 — Stage Plan
+
+| | |
+|---|---|
+| Stage | 9 — Clinical Workflow & Rekam Medis |
+| Status | **MENUNGGU KEPUTUSAN OD** — rencana disusun setelah Stage 8 disetujui (DEC-037) |
+| Project Owner | Sumarto |
+| Requirement | **MVP saja** (DEC-010): CLN-FR-001, 002, 004–012, 014–023. Di luar stage ini (LJT): CLN-FR-003 peringatan nilai vital, CLN-FR-013 interaksi obat, CLN-FR-024 informed consent tindakan, CLN-FR-025 odontogram, CLN-FR-026 tanda tangan tersertifikasi |
+| Mode verifikasi | Lokal sampai GitHub Actions aktif 1 Des (DEC-036) |
+
+## 1. Tujuan
+
+Perawat mencatat tanda vital dan anamnesis awal. Dokter mengisi SOAP dengan template, diagnosis ICD-10, tindakan ICD-9-CM, resep (termasuk racikan), dan order lab. Dokter lalu mengesahkan rekam medis; catatan yang sudah disahkan terkunci dan hanya bisa dikoreksi lewat addendum. Dari kunjungan itu klinik bisa mencetak resume medis, surat keterangan sehat/sakit, dan surat rujukan, lalu meneruskan pasien ke farmasi/kasir.
+
+## 2. Yang Sudah Ada
+
+- **Skema baseline** (Stage 3): `clinical_note` (DRAFT/SIGNED, `content_hash`, `structured` jsonb), `clinical_addendum`, `observation`, `allergy_intolerance`, `condition_dx`, `procedure_act`, `prescription` + `prescription_item` + `prescription_compound_component`, `lab_order` + `lab_order_item` + `lab_result`, `medical_document`, `drug_item` (dengan `ingredients` untuk cek alergi/duplikasi). Semua ber-RLS.
+- **Izin** `clinical.record.read/write`, `clinical.vitals.write`, `clinical.note.write/sign/addendum`, `clinical.prescription.write`, `clinical.lab.order`, `clinical.lab.result.write`, `clinical.document.issue`, `document.upload` sudah ada di role template.
+- **Dari Stage 7–8:** ICD-10/ICD-9-CM (data contoh, S7-1), favorit diagnosis, layanan & tarif, tenaga kesehatan ber-SIP, satuan, kunjungan dengan status `ARRIVED` dan antrean yang dipanggil, riwayat kunjungan pasien, penyimpanan berkas (GCS emulator), pengaturan `pharmacyBeforeCashier`.
+- **Belum ada:** UI/API master obat. `drug_item` baru ada di skema; Stage 7 tidak membuat layarnya (lihat OD-091).
+
+## 3. Batch
+
+| Batch | Isi | Requirement |
+|---|---|---|
+| **1 — Worklist & pencatatan klinis** | Worklist perawat & dokter per cabang/poli (dari antrean yang dipanggil); status kunjungan `TRIAGED` → `IN_CONSULTATION`. Tanda vital (TD, nadi, napas, suhu, SpO₂, BB, TB, IMT otomatis) dengan batas input wajar. Alergi, riwayat penyakit, obat yang sedang dipakai di tingkat pasien; alergi tampil menonjol di header pasien. SOAP + template per spesialisasi (OD-035). Diagnosis ICD-10 (satu primer, sekunder opsional, baru/lama) dan tindakan ICD-9-CM dengan pelaksana. Layar encounter dokter dengan panel riwayat kunjungan | CLN-FR-001, 002, 004–009, 016 |
+| **2 — Pengesahan, addendum & audit baca** | Sahkan rekam medis (OD-034, OD-092): wajib diagnosis primer + SOAP; `content_hash` sha256; trigger DB menolak perubahan catatan SIGNED, juga lewat SQL role aplikasi. Addendum ber-alasan yang juga disahkan. Setiap pembukaan rekam medis tercatat di audit (siapa, pasien, kunjungan). Riwayat rekam medis pasien (catatan + addendum) | CLN-FR-017–019 |
+| **3 — Master obat & resep elektronik** | Master obat minimal (OD-091): kode, nama generik/dagang, bentuk, kekuatan, satuan, golongan, zat aktif, dosis maksimal opsional; impor/ekspor seperti master lain. Resep non-racikan & racikan. Peringatan alergi (zat aktif ↔ alergi pasien) dan duplikasi zat aktif dalam satu resep; dokter boleh melanjutkan dengan alasan yang tercatat; validasi format & batas dosis (OD-033). Resep yang disahkan masuk antrean farmasi (layarnya di Stage 10). Selesai konsultasi meneruskan kunjungan ke farmasi atau kasir (OD-094) | CLN-FR-010–012 |
+| **4 — Lab, dokumen & gate** | Order lab lewat antarmuka adapter + vendor tiruan (OD-059); input hasil manual atau unggah PDF; hasil tampil di kunjungan & riwayat. Dokumen PDF dengan kop klinik & nomor surat (OD-093): resume medis, surat keterangan sehat & sakit, surat rujukan keluar. Rencana kontrol membuat janji temu. `CLINICAL_SAFETY_REVIEW.md`, uji gate, mutasi baru, completion report | CLN-FR-014, 015, 020–023 |
+
+Perkiraan: ±1 hari kerja per batch, di luar waktu tunggu keputusan dan review medis.
+
+## 4. Open Decision Stage 9
+
+| OD | Pertanyaan | Usulan |
+|---|---|---|
+| **OD-033** | Cakupan clinical decision support di MVP | **Terbatas:** (1) peringatan alergi bila zat aktif obat cocok dengan alergi pasien; (2) peringatan duplikasi zat aktif dalam satu resep; (3) validasi format dosis dan batas dosis maksimal **bila** diisi di master obat. Peringatan dapat dilanjutkan dokter dengan alasan wajib yang teraudit. **Tidak** termasuk: interaksi obat, dosis berdasarkan berat badan/umur (CLN-FR-013 LJT). Layar menyatakan bahwa sistem bukan pengganti penilaian klinis |
+| **OD-034** | Mekanisme tanda tangan/pengesahan | **Tanda tangan elektronik tidak tersertifikasi** di MVP: pengesahan oleh user dokter yang login dengan MFA aktif, dikonfirmasi ulang dengan kata sandi atau kode TOTP saat menekan "Sahkan"; dicatat nama dokter, SIP, waktu server, dan `content_hash`. PDF memuat nama dokter, SIP, waktu pengesahan, dan kode verifikasi (bukan gambar tanda tangan). PSrE tersertifikasi tetap LJT (CLN-FR-026). Kekuatan hukumnya **belum diverifikasi** (REG-13) — bukan nasihat hukum |
+| **OD-035** | Template spesialisasi MVP `[REVIEW-MEDIS]` | Empat template: **Umum, Gigi, Anak, Kebidanan**. Semuanya memakai SOAP teks bebas ditambah beberapa isian terstruktur per template (mis. Gigi: elemen gigi & keluhan; Anak: BB/TB untuk umur, imunisasi; Kebidanan: HPHT, usia kehamilan, G-P-A). Template dipilih otomatis dari poli dan dapat diganti dokter. Isi final wajib ditinjau tenaga medis |
+| **OD-059** | Vendor aplikasi lab | Vendor klinik pilot belum diketahui. **Usulan:** antarmuka adapter umum + **vendor tiruan** untuk uji, ditambah input hasil manual dan unggah PDF hasil lab sebagai jalur utama di MVP. Adapter vendor nyata dibuat saat vendor klinik pilot diketahui (sebelum Stage 16). Gate "order & hasil lab teruji dengan sandbox/mock vendor" dipenuhi dengan vendor tiruan |
+| **OD-091** (baru) | Master obat: kapan dibuat | **Dimajukan ke Stage 9 dalam bentuk minimal** (tanpa stok, harga, batch, dan KFA), karena resep membutuhkannya. Stage 10 menambah stok, harga jual, batch/kedaluwarsa, konversi satuan khusus obat, dan sinkronisasi KFA |
+| **OD-092** (baru) | Siapa mengisi & mengesahkan | Perawat: tanda vital, alergi, anamnesis awal (S). Dokter: SOAP lengkap, diagnosis, tindakan, resep, order lab, dokumen. **Yang mengesahkan:** dokter yang ditugaskan di kunjungan; bila berhalangan, dokter lain yang bertugas di cabang yang sama (sejalan dengan OD-064), tercatat sebagai pengganti. Draft dapat disimpan kapan saja; kunjungan tidak bisa diselesaikan sebelum disahkan |
+| **OD-093** (baru) | Pembuatan PDF & nomor surat | PDF dibuat di server dengan library gratis **`pdfmake`** (MIT), disimpan di penyimpanan berkas, bisa diunduh ulang. Nomor surat per tenant per jenis: `{KODE}/{YYYY}/{MM}/{SEQ:4}`, mis. `SKS/2026/11/0001` (sakit), `SKH/...` (sehat), `RJK/...` (rujukan), `RES/...` (resume); pola dapat diubah tenant admin seperti MRN |
+| **OD-094** (baru) | Alur setelah dokter selesai | "Selesai konsultasi" (wajib sudah disahkan) → `CONSULT_DONE`, lalu otomatis ke `PHARMACY` bila ada resep, atau ke `BILLING` bila tidak; urutan farmasi/kasir mengikuti pengaturan `pharmacyBeforeCashier` (DEC-013). Layar farmasi dan kasir dibuat di Stage 10 dan 11; di Stage 9 statusnya sudah benar dan terlihat di papan kunjungan. Tindakan ICD-9-CM yang punya layanan bertarif dicatat sebagai item tagihan tertunda untuk Stage 11 |
+| **OD-095** (baru) | Review tenaga medis untuk gate (DEC-005, RSK-006) | Review medis **wajib** sebelum gate Stage 9. Usulan: di batch 4 saya siapkan paket review (`CLINICAL_SAFETY_REVIEW.md` + tangkapan layar alur + daftar isian template + teks dokumen). Bapak mencari dokter/perekam medis untuk meninjaunya. Pengembangan tidak menunggu reviewer; yang menunggu hanya persetujuan gate |
+
+## 5. Gate Stage 9
+
+- [ ] Workflow klinis divalidasi tenaga medis (DEC-005, OD-095)
+- [ ] Catatan SIGNED tidak dapat diubah lewat API maupun SQL role aplikasi
+- [ ] Addendum & hash integritas teruji
+- [ ] Audit akses baca rekam medis berfungsi
+- [ ] Order & hasil lab teruji dengan vendor tiruan
+- [ ] Matriks permission X01 mencakup semua endpoint baru
+- [ ] Uji mutasi untuk kontrol baru terdeteksi (lokal; di Actions setelah 1 Des)
+- [ ] PO menyetujui Stage 9
+
+## 6. Progres
+
+| Tanggal | Isi | Bukti |
+|---|---|---|
+| 6 Nov 2026 | Stage 8 disetujui (DEC-037); rencana Stage 9 disusun, menunggu keputusan OD | — |

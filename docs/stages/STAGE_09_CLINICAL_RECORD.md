@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | Phase | D — Operasional Klinik |
-| Status | Belum dimulai |
+| Status | **Perencanaan** — Stage 8 disetujui (DEC-037); rencana di `docs/reports/stage-9/STAGE_PLAN.md` |
 | Prasyarat | Stage 8 disetujui |
 | Modul | `clinical`, `document`, `integration` (lab order) |
 

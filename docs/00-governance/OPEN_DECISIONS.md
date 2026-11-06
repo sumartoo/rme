@@ -42,6 +42,22 @@ Semua keputusan penentu Stage 0 sudah diambil — lihat bagian D.
 | ID | Pertanyaan | Usulan |
 |---|---|---|
 
+## B5. Stage 9 (menunggu PO)
+
+Usulan lengkap di `docs/reports/stage-9/STAGE_PLAN.md` §4.
+
+| ID | Pertanyaan | Usulan singkat |
+|---|---|---|
+| OD-033 | Cakupan clinical decision support | Alergi, duplikasi zat aktif, format & batas dosis dari master; tanpa interaksi/dosis BB |
+| OD-034 | Mekanisme pengesahan | TTE tidak tersertifikasi: login MFA + konfirmasi ulang, hash; PSrE LJT |
+| OD-035 | Template spesialisasi MVP | Umum, Gigi, Anak, Kebidanan `[REVIEW-MEDIS]` |
+| OD-059 | Vendor aplikasi lab | Adapter umum + vendor tiruan; input manual / unggah PDF |
+| OD-091 | Master obat | Minimal di Stage 9; stok/harga/KFA di Stage 10 |
+| OD-092 | Siapa mengisi & mengesahkan | Perawat vital/alergi/S; dokter kunjungan atau pengganti di cabang sama mengesahkan |
+| OD-093 | PDF & nomor surat | `pdfmake` (MIT); `{KODE}/{YYYY}/{MM}/{SEQ:4}` |
+| OD-094 | Alur setelah dokter | CONSULT_DONE → PHARMACY/BILLING sesuai pengaturan |
+| OD-095 | Reviewer medis untuk gate | Paket review di batch 4; PO mencari reviewer |
+
 ## C. Ditetapkan di Stage Berikutnya
 
 Lihat `docs/APP_DESIGN.md` §13 dan masing-masing `docs/stages/STAGE_XX_*.md` (OD-003 s.d. OD-054).
