@@ -11,6 +11,7 @@ const USERS = [
   { email: 'perawat@demo.test', name: 'Perawat Demo', role: 'PERAWAT' },
   { email: 'pendaftaran@demo.test', name: 'Pendaftaran Demo', role: 'PENDAFTARAN' },
   { email: 'kasir@demo.test', name: 'Kasir Demo', role: 'KASIR' },
+  { email: 'farmasi@demo.test', name: 'Apoteker Demo', role: 'FARMASI' },
 ];
 
 async function main() {

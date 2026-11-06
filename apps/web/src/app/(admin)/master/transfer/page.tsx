@@ -12,6 +12,7 @@ const ENTITIES: { id: string; label: string; manage: string; hint: string }[] = 
   { id: 'practitioners', label: 'Tenaga kesehatan', manage: 'master.practitioner.manage', hint: 'Kunci: id (kosong = data baru). NIK tidak pernah diekspor; NIK kosong saat impor = tetap.' },
   { id: 'service-units', label: 'Poli/unit', manage: 'master.facility.manage', hint: 'Kunci: branchCode + code.' },
   { id: 'uoms', label: 'Satuan', manage: 'master.uom.manage', hint: 'Kunci: code. Konversi diatur di halaman Satuan & supplier.' },
+  { id: 'drugs', label: 'Obat', manage: 'pharmacy.drug.manage', hint: 'Kunci: code. Zat aktif dipisah | (mis. parasetamol|kafein). uomCode = kode satuan dasar.' },
   { id: 'suppliers', label: 'Supplier', manage: 'master.supplier.manage', hint: 'Kunci: code (kosong = supplier baru).' },
 ];
 

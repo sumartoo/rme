@@ -216,9 +216,21 @@ export interface EncounterChart {
     practitionerName: string; payerType: PayerType; payerName: string | null; version: number };
   patient: { id: string; mrn: string; fullName: string; birthDate: string; sex: string; age: string; processingRestricted: boolean;
     allergies: Allergy[]; history: HistoryEntry[] };
-  templateCode: TemplateCode; note: ClinicalNote | null; vitals: VitalSet[]; diagnoses: Diagnosis[]; procedures: Procedure[];
+  templateCode: TemplateCode; note: ClinicalNote | null; vitals: VitalSet[]; diagnoses: Diagnosis[]; procedures: Procedure[]; prescription: Prescription | null;
   previousVisits: { id: string; encounterNo: string; localDate: string; unitName: string; practitionerName: string; status: EncounterStatus;
     noteStatus: string | null; primaryDiagnosis: { code: string; display: string } | null; assessment: string | null }[];
   editable: boolean;
 }
+export type DrugClass = 'BEBAS' | 'BEBAS_TERBATAS' | 'KERAS' | 'NARKOTIKA' | 'PSIKOTROPIKA' | 'PREKURSOR' | 'ALKES' | 'LAINNYA';
+export interface Drug { id: string; code: string; genericName: string; brandName: string | null; dosageForm: string; strength: string | null;
+  baseUomId: string; uomCode: string; uomName: string; drugClass: DrugClass; ingredients: string[]; maxDoseQty: string | null; maxDailyQty: string | null;
+  isActive: boolean; version: number }
+export type RxRoute = 'ORAL' | 'SUBLINGUAL' | 'TOPIKAL' | 'TETES_MATA' | 'TETES_TELINGA' | 'INHALASI' | 'REKTAL' | 'INJEKSI' | 'LAINNYA';
+export interface RxAlert { key: string; type: 'ALLERGY' | 'DUPLICATE' | 'DOSE_MAX' | 'DAILY_MAX'; lineNo: number | null; message: string; reason: string | null }
+export interface PrescriptionItem { id: string; lineNo: number; kind: 'DRUG' | 'COMPOUND'; drugItemId: string | null; drugName: string | null;
+  strength: string | null; compoundName: string | null; compoundForm: string | null; doseQty: number | null; timesPerDay: number | null; frequency: string;
+  route: RxRoute; durationDays: number | null; qty: number; uomId: string; uomName: string; instructions: string | null;
+  components: { drugItemId: string; drugName: string; qty: number; uomName: string }[] }
+export interface Prescription { id: string; prescriptionNo: string; status: string; issuedAt: string | null; prescriberName: string; notes: string | null;
+  alerts: RxAlert[]; items: PrescriptionItem[]; version: number }
 

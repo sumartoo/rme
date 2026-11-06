@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Uji mutasi kontrol keamanan (Stage 3 M1–M4 diulang di monorepo — RSK-020; M5 Stage 4; M6–M14 Stage 5; M15–M17 Stage 6; M18–M22 Stage 7; M23–M38 Stage 8; M39–M49 Stage 9).
+# Uji mutasi kontrol keamanan (Stage 3 M1–M4 diulang di monorepo — RSK-020; M5 Stage 4; M6–M14 Stage 5; M15–M17 Stage 6; M18–M22 Stage 7; M23–M38 Stage 8; M39–M54 Stage 9).
 # Setiap mutasi sengaja merusak satu kontrol, menjalankan suite integrasi API, dan LULUS hanya bila
 # uji yang menjaga kontrol itu GAGAL. Kode selalu dikembalikan (trap), juga bila skrip dihentikan.
 #
@@ -43,7 +43,10 @@ MIG19=db/migrations/0019_clinical_record.sql
 SIGNCTL=libs/clinical/src/lib/sign.controller.ts
 REAUTH=libs/clinical/src/lib/reauth.ts
 MIG20=db/migrations/0020_clinical_signing.sql
-FILES=("$AUTH" "$SESSION" "$MIG2" "$MIG3" "$GUARD" "$PGUARD" "$LAYOUT" "$EXPORT" "$MIG5" "$MIG6" "$TOTP" "$IAMUSERS" "$ACCOUNT" "$AUDITCHG" "$PRACT" "$MIG12" "$TERM" "$IMPORTS" "$PATIENT" "$MIG15" "$IDEM" "$MIG16" "$BOOK" "$SCHED" "$NOSHOW" "$ENCREPO" "$ENCCTL" "$QDISP" "$CHART" "$CHARTREPO" "$MIG19" "$SIGNCTL" "$REAUTH" "$MIG20")
+RXREPO=libs/clinical/src/lib/prescription.repo.ts
+RXCTL=libs/clinical/src/lib/prescription.controller.ts
+MIG21=db/migrations/0021_prescription.sql
+FILES=("$AUTH" "$SESSION" "$MIG2" "$MIG3" "$GUARD" "$PGUARD" "$LAYOUT" "$EXPORT" "$MIG5" "$MIG6" "$TOTP" "$IAMUSERS" "$ACCOUNT" "$AUDITCHG" "$PRACT" "$MIG12" "$TERM" "$IMPORTS" "$PATIENT" "$MIG15" "$IDEM" "$MIG16" "$BOOK" "$SCHED" "$NOSHOW" "$ENCREPO" "$ENCCTL" "$QDISP" "$CHART" "$CHARTREPO" "$MIG19" "$SIGNCTL" "$REAUTH" "$MIG20" "$RXREPO" "$RXCTL" "$MIG21")
 BACKUP=$(mktemp -d)
 cp "${FILES[@]}" "$BACKUP"/
 restore() { for f in "${FILES[@]}"; do cp "$BACKUP/$(basename "$f")" "$f"; done; }
@@ -168,6 +171,17 @@ mutate M48 "verifikasi hash selalu menyatakan valid" 'C17' \
   "sed -i 's/valid: recomputed === n.content_hash,/valid: true,/' $SIGNCTL && grep -q 'valid: true,' $SIGNCTL" ""
 mutate M49 "kode TOTP yang sama dapat dipakai ulang untuk pengesahan" 'C15' \
   "sed -i '/      await tx.execute(sql\`update user_mfa set last_totp_step/d' $REAUTH && ! grep -q 'last_totp_step = ' $REAUTH" ""
+
+mutate M50 "resep obat yang pasiennya alergi tidak memicu peringatan" 'C23|C24' \
+  "sed -i 's/      const hit = allergies.find((a) => ing.includes(a) || a.includes(ing));/      const hit = undefined as string | undefined; void allergies;/' $RXREPO && grep -q 'const hit = undefined as string' $RXREPO" ""
+mutate M51 "resep diterbitkan walau peringatan belum diberi alasan" 'C24' \
+  "sed -i 's/        if (open.length) throw/        if (false \&\& open.length) throw/' $RXCTL && grep -q 'if (false && open.length) throw' $RXCTL" ""
+mutate M52 "konsultasi dapat diselesaikan sebelum rekam medis disahkan" 'C24' \
+  "sed -i \"s/      if (n?.status !== 'SIGNED') throw/      if (false) throw/\" $RXCTL && grep -q '      if (false) throw' $RXCTL" ""
+mutate M53 "komponen racikan dapat diubah setelah resep diterbitkan (database)" 'C24' \
+  "sed -i '/^CREATE TRIGGER trg_compound_component_guard/,+1d' $MIG21 && ! grep -q 'trg_compound_component_guard BEFORE' $MIG21" ""
+mutate M54 "peringatan tidak dihitung ulang saat resep diterbitkan" 'C25' \
+  "sed -i 's/await computeAlerts(tx, e.patient_id, lines), rx.alerts/rx.alerts, rx.alerts/' $RXCTL && grep -q 'this.withReasons(rx.alerts, rx.alerts' $RXCTL" ""
 
 # Mutasi UI: suite Playwright (U##) sebagai detektor
 if [ "${MUTATION_E2E:-0}" = "1" ]; then

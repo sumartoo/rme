@@ -4444,6 +4444,31 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
   /api/v1/encounters/{encounterId}/prescription:
+    get:
+      operationId: prescriptionGet
+      tags:
+      - Clinical
+      summary: Resep kunjungan (draft/terbit)
+      x-requirements:
+      - CLN-FR-010
+      x-permission: clinical.record.read
+      parameters:
+      - $ref: '#/components/parameters/encounterId'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PrescriptionEnvelope'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
     put:
       operationId: prescriptionSave
       tags:
@@ -4469,7 +4494,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Prescription'
+                $ref: '#/components/schemas/PrescriptionEnvelope'
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -4480,6 +4505,44 @@ paths:
           $ref: '#/components/responses/NotFound'
         '409':
           $ref: '#/components/responses/Conflict'
+  /api/v1/encounters/{encounterId}/finish-consultation:
+    post:
+      operationId: consultationFinish
+      tags:
+      - Clinical
+      summary: 'Selesai konsultasi: terbitkan resep (peringatan wajib beralasan) → Farmasi/Kasir (OD-094)'
+      x-requirements:
+      - CLN-FR-010
+      - CLN-FR-012
+      - SCH-FR-013
+      x-permission: clinical.note.write
+      parameters:
+      - $ref: '#/components/parameters/encounterId'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConsultationFinish'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          description: Validasi pengesahan gagal
+          content:
+            application/problem+json:
+              schema:
+                allOf:
+                - $ref: '#/components/schemas/Problem'
+                - $ref: '#/components/schemas/SignValidationError'
   /api/v1/encounters/{encounterId}/lab-orders:
     post:
       operationId: labOrderCreate
@@ -4892,6 +4955,43 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '409':
           $ref: '#/components/responses/Conflict'
+  /api/v1/drugs/{drugId}:
+    put:
+      operationId: drugUpdate
+      tags:
+      - Pharmacy
+      summary: Ubah / nonaktifkan obat
+      x-requirements:
+      - PHM-FR-001
+      x-permission: pharmacy.drug.manage
+      parameters:
+      - $ref: '#/components/parameters/drugId'
+      - $ref: '#/components/parameters/IfMatch'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Drug'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Drug'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '412':
+          $ref: '#/components/responses/PreconditionFailed'
   /api/v1/goods-receipts:
     post:
       operationId: goodsReceiptCreate
@@ -6449,6 +6549,12 @@ components:
       in: path
       required: true
       description: documentId
+      schema: *id002
+    drugId:
+      name: drugId
+      in: path
+      required: true
+      description: drugId
       schema: *id002
     encounterId:
       name: encounterId
@@ -8271,6 +8377,8 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/Procedure'
+        prescription:
+          $ref: '#/components/schemas/Prescription'
         previousVisits:
           type: array
           items:
@@ -8727,8 +8835,16 @@ components:
       properties:
         id: *id002
         lineNo: *id004
-        isCompound: *id001
+        kind:
+          type: string
+          enum:
+          - DRUG
+          - COMPOUND
         drugItemId: *id002
+        drugName:
+          type: string
+        strength:
+          type: string
         compoundName:
           type: string
         compoundForm:
@@ -8739,48 +8855,140 @@ components:
             type: object
             properties:
               drugItemId: *id002
-              qty: &id009
+              drugName:
                 type: string
-                pattern: ^\d{1,14}(\.\d{1,4})?$
-                example: '10'
-              uomId: *id002
+              qty:
+                type: number
+              uomName:
+                type: string
             required:
             - drugItemId
             - qty
-            - uomId
-        dose:
-          type: string
+        doseQty:
+          type: number
+        timesPerDay: *id004
         frequency:
           type: string
         route:
           type: string
+          enum:
+          - ORAL
+          - SUBLINGUAL
+          - TOPIKAL
+          - TETES_MATA
+          - TETES_TELINGA
+          - INHALASI
+          - REKTAL
+          - INJEKSI
+          - LAINNYA
         durationDays: *id004
-        qty: *id009
+        qty:
+          type: number
         uomId: *id002
+        uomName:
+          type: string
         instructions:
           type: string
-        qtyDispensed: *id009
       required:
+      - lineNo
+      - kind
       - frequency
       - route
       - qty
       - uomId
+    PrescriptionLineInput:
+      type: object
+      properties:
+        kind:
+          type: string
+          enum:
+          - DRUG
+          - COMPOUND
+        drugItemId:
+          type: string
+          format: uuid
+          description: Wajib untuk DRUG
+        compoundName:
+          type: string
+          description: Wajib untuk COMPOUND
+        compoundForm:
+          type: string
+        uomId:
+          type: string
+          format: uuid
+          description: Satuan racikan (mis. bungkus); DRUG memakai satuan dasar obat
+        components:
+          type: array
+          items:
+            type: object
+            properties:
+              drugItemId: *id002
+              qty:
+                type: number
+                exclusiveMinimum: 0
+            required:
+            - drugItemId
+            - qty
+        doseQty:
+          type: number
+          exclusiveMinimum: 0
+        timesPerDay:
+          type: integer
+          minimum: 1
+          maximum: 24
+        route:
+          type: string
+          enum:
+          - ORAL
+          - SUBLINGUAL
+          - TOPIKAL
+          - TETES_MATA
+          - TETES_TELINGA
+          - INHALASI
+          - REKTAL
+          - INJEKSI
+          - LAINNYA
+        durationDays:
+          type: integer
+          minimum: 1
+          maximum: 365
+        qty:
+          type: number
+          exclusiveMinimum: 0
+        instructions:
+          type: string
+          maxLength: 500
+      required:
+      - kind
+      - doseQty
+      - timesPerDay
+      - route
+      - qty
     PrescriptionInput:
       type: object
       properties:
         items:
           type: array
+          maxItems: 30
           items:
-            $ref: '#/components/schemas/PrescriptionItem'
-        acknowledgedWarnings:
+            $ref: '#/components/schemas/PrescriptionLineInput'
+        overrides:
           type: array
           items:
             type: object
             properties:
-              code:
+              key:
                 type: string
               reason:
                 type: string
+                minLength: 5
+                maxLength: 500
+            required:
+            - key
+            - reason
+        notes:
+          type: string
+          maxLength: 1000
       required:
       - items
     Prescription:
@@ -8798,34 +9006,70 @@ components:
           - PARTIALLY_DISPENSED
           - DISPENSED
           - CANCELLED
+        issuedAt: *id005
+        prescriberName:
+          type: string
+        notes:
+          type: string
         items:
           type: array
           items:
             $ref: '#/components/schemas/PrescriptionItem'
-        warnings:
+        alerts:
           type: array
           items:
             $ref: '#/components/schemas/ClinicalWarning'
+        version: *id004
       required:
       - id
       - prescriptionNo
       - status
       - items
+    PrescriptionEnvelope:
+      type: object
+      properties:
+        prescription:
+          oneOf:
+          - $ref: '#/components/schemas/Prescription'
+          - type: 'null'
+      required:
+      - prescription
     ClinicalWarning:
       type: object
       properties:
-        code:
+        key:
+          type: string
+        type:
           type: string
           enum:
           - ALLERGY
-          - DUPLICATE_DRUG
-          - DOSE_FORMAT
+          - DUPLICATE
+          - DOSE_MAX
+          - DAILY_MAX
+        lineNo: *id004
         message:
           type: string
-        itemLineNo: *id004
+        reason:
+          type: string
+          description: Alasan dokter melanjutkan (wajib sebelum resep diterbitkan)
       required:
-      - code
+      - key
+      - type
       - message
+    ConsultationFinish:
+      type: object
+      properties:
+        id: *id002
+        status:
+          type: string
+          enum:
+          - PHARMACY
+          - BILLING
+        prescriptionNo:
+          type: string
+      required:
+      - id
+      - status
     LabOrderInput:
       type: object
       properties:
@@ -9125,18 +9369,31 @@ components:
     Drug:
       type: object
       properties:
-        id: *id002
+        id:
+          type: string
+          format: uuid
+          readOnly: true
         code:
           type: string
         genericName:
           type: string
+          minLength: 2
+          maxLength: 200
         brandName:
           type: string
         dosageForm:
           type: string
+          minLength: 2
+          maxLength: 50
         strength:
           type: string
         baseUomId: *id002
+        uomCode:
+          type: string
+          readOnly: true
+        uomName:
+          type: string
+          readOnly: true
         drugClass:
           type: string
           enum:
@@ -9148,18 +9405,34 @@ components:
           - PREKURSOR
           - ALKES
           - LAINNYA
-        kfaCode:
-          type: string
         ingredients:
           type: array
+          minItems: 1
+          maxItems: 10
           items:
             type: string
-        minStock: *id009
+          description: Zat aktif (huruf kecil) untuk cek alergi & duplikasi
+        maxDoseQty:
+          type:
+          - string
+          - 'null'
+          description: Batas per pemberian (satuan dasar) — [REVIEW-MEDIS]
+        maxDailyQty:
+          type:
+          - string
+          - 'null'
+          description: Batas per hari (satuan dasar) — [REVIEW-MEDIS]
+        isActive: *id001
+        version:
+          type: integer
+          readOnly: true
       required:
-      - id
       - code
       - genericName
+      - dosageForm
+      - baseUomId
       - drugClass
+      - ingredients
     StockLevel:
       type: object
       properties:
@@ -9167,7 +9440,10 @@ components:
         drugName:
           type: string
         locationId: *id002
-        qtyOnHand: *id009
+        qtyOnHand: &id009
+          type: string
+          pattern: ^\d{1,14}(\.\d{1,4})?$
+          example: '10'
         batches:
           type: array
           items:

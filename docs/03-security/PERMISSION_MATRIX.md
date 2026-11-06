@@ -62,10 +62,10 @@
 | `clinical.lab.result.write` |  | ✓ | ✓ |  |  |  |  |  | labResultManual |
 | `clinical.note.addendum` |  | ✓ |  |  |  |  |  |  | addendumCreate |
 | `clinical.note.sign` |  | ✓ |  |  |  |  |  |  | encounterSign |
-| `clinical.note.write` |  | ✓ |  |  |  |  |  |  | consultationStart; diagnosesSet; noteSave; procedureAdd; procedureRemove |
+| `clinical.note.write` |  | ✓ |  |  |  |  |  |  | consultationFinish; consultationStart; diagnosesSet; noteSave; procedureAdd; procedureRemove |
 | `clinical.prescription.approve_substitution` |  | ✓ |  |  |  |  |  |  | substitutionDecide |
 | `clinical.prescription.write` |  | ✓ |  |  |  |  |  |  | prescriptionSave |
-| `clinical.record.read` |  | ✓ | ✓ |  | ✓ |  |  |  | allergyList; clinicalNoteVerify; clinicalTemplates; clinicalWorklist; encounterChart; historyList; medicalDocumentGet; patientEncounterHistory; patientMedicalRecords |
+| `clinical.record.read` |  | ✓ | ✓ |  | ✓ |  |  |  | allergyList; clinicalNoteVerify; clinicalTemplates; clinicalWorklist; encounterChart; historyList; medicalDocumentGet; patientEncounterHistory; patientMedicalRecords; prescriptionGet |
 | `clinical.record.write` |  | ✓ | ✓ |  |  |  |  |  | allergyCreate; allergyStatus; historyCreate; historyStatus |
 | `clinical.vitals.write` |  | ✓ | ✓ |  |  |  |  |  | noteAnamnesis; vitalsRecord |
 | **document** | | | | | | | | | |
@@ -106,7 +106,7 @@
 | `patient.update` |  |  |  | ✓ |  |  |  |  | patientConsentRecord; patientConsentRevoke; patientCoverageCreate; patientCoverageUpdate; patientRestrictionSet; patientUpdate |
 | **pharmacy** | | | | | | | | | |
 | `pharmacy.dispense` |  |  |  |  | ✓ |  |  |  | pharmacyWorklist; prescriptionDispense; prescriptionReview; substitutionRequest |
-| `pharmacy.drug.manage` |  |  |  |  | ✓ |  |  |  | drugCreate |
+| `pharmacy.drug.manage` |  |  |  |  | ✓ |  |  |  | drugCreate; drugUpdate |
 | `pharmacy.drug.read` |  | ✓ |  |  | ✓ |  |  |  | drugList |
 | `pharmacy.otc.sell` |  |  |  |  | ✓ | ✓ |  |  | otcSaleCreate |
 | `pharmacy.stock.adjust` |  |  |  |  | ✓ |  |  |  | stockAdjustmentRequest |

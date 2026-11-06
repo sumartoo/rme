@@ -6,6 +6,7 @@ import { Db, type Tx, audit, rows } from '@clinicrme/db';
 import {
   ENC_NOT_FOUND, ageText, allergiesOf, diagnosesOf, historyOf, lockEditable, noteOf, proceduresOf, templateOf, vitalsOf,
 } from './chart.repo';
+import { prescriptionOf } from './prescription.repo';
 import { AnamnesisBody, DiagnosesBody, NoteBody, ProcedureBody, VITAL_LIMITS, type VitalKey, VitalsBody } from './clinical.schemas';
 import { TEMPLATES, type TemplateCode, structuredSchema } from './templates';
 
@@ -236,6 +237,7 @@ export class ChartController {
       vitals: await vitalsOf(tx, id),
       diagnoses: await diagnosesOf(tx, id),
       procedures: await proceduresOf(tx, id),
+      prescription: await prescriptionOf(tx, id),
       previousVisits: previous.map((v) => ({ id: v.id, encounterNo: v.encounter_no, localDate: v.local_date, unitName: v.unit_name,
         practitionerName: v.practitioner_name, status: v.status, noteStatus: v.note_status,
         primaryDiagnosis: v.dx_code ? { code: v.dx_code, display: v.dx_display } : null, assessment: v.assessment })),
