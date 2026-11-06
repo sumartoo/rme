@@ -11,6 +11,7 @@ const Settings = z.object({
   pharmacyBeforeCashier: z.boolean().optional(),     // DEC-013
   discountLimitPercent: z.number().min(0).max(100).optional(),
   noShowMinutes: z.number().int().min(5).max(240).optional(),
+  queueDisplayInitials: z.boolean().optional(),   // OD-088: layar TV menampilkan inisial pasien
   lateToleranceMinutes: z.number().int().min(0).max(120).optional(),   // OD-087: toleransi terlambat janji temu
   mrnPrefix: z.string().trim().toUpperCase().regex(/^[A-Z]{0,5}$/, 'Awalan nomor RM 0–5 huruf').optional(),   // OD-081
 }).strict();

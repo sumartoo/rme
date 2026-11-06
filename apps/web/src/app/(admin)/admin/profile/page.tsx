@@ -5,13 +5,14 @@ import { ApiError, TenantProfile, api, errorText } from '../../../../lib/api';
 import { can, useSession } from '../../../../lib/session';
 
 interface Form { displayName: string; name: string; address: string; phone: string; license: string;
-                 pharmacyBeforeCashier: boolean; discountLimitPercent: string; noShowMinutes: string; lateToleranceMinutes: string; mrnPrefix: string }
+                 pharmacyBeforeCashier: boolean; discountLimitPercent: string; noShowMinutes: string; lateToleranceMinutes: string; mrnPrefix: string; queueDisplayInitials: boolean }
 const toForm = (p: TenantProfile): Form => ({
   displayName: p.displayName, name: p.letterhead?.name ?? '', address: p.letterhead?.address ?? '', phone: p.letterhead?.phone ?? '',
   license: p.letterhead?.license ?? '', pharmacyBeforeCashier: p.settings.pharmacyBeforeCashier ?? false,
   discountLimitPercent: p.settings.discountLimitPercent?.toString() ?? '', noShowMinutes: p.settings.noShowMinutes?.toString() ?? '',
   lateToleranceMinutes: p.settings.lateToleranceMinutes?.toString() ?? '',
   mrnPrefix: p.settings.mrnPrefix ?? '',
+  queueDisplayInitials: p.settings.queueDisplayInitials ?? false,
 });
 
 /** PLT-FR-007: profil & kop klinik (dipakai di cetakan dokumen). Simpan dengan If-Match agar perubahan orang lain tidak tertimpa. */
@@ -56,7 +57,7 @@ export default function ProfilePage() {
           displayName: f.displayName.trim(),
           letterhead: Object.values(letterhead).some(Boolean) ? letterhead : null,
           settings: { ...p.settings, pharmacyBeforeCashier: f.pharmacyBeforeCashier,
-                      ...(discount !== undefined ? { discountLimitPercent: discount } : {}), ...(noShow !== undefined ? { noShowMinutes: noShow } : {}), ...(late !== undefined ? { lateToleranceMinutes: late } : {}), mrnPrefix: f.mrnPrefix.toUpperCase() },
+                      ...(discount !== undefined ? { discountLimitPercent: discount } : {}), ...(noShow !== undefined ? { noShowMinutes: noShow } : {}), ...(late !== undefined ? { lateToleranceMinutes: late } : {}), mrnPrefix: f.mrnPrefix.toUpperCase(), queueDisplayInitials: f.queueDisplayInitials },
         },
       });
       setP(r); setF(toForm(r)); setNotice('Profil klinik disimpan.');
@@ -126,6 +127,10 @@ export default function ProfilePage() {
                    error={!/^[A-Za-z]{0,5}$/.test(f.mrnPrefix) ? 'Maksimal 5 huruf, tanpa angka/simbol' : undefined}>
               <Input id="mrnPrefix" maxLength={5} value={f.mrnPrefix} onChange={(e) => set('mrnPrefix', e.target.value.toUpperCase())} />
             </Field>
+            <label htmlFor="queueDisplayInitials" className="flex items-center justify-between gap-3 text-sm md:col-span-2">
+              Tampilkan inisial pasien di layar TV antrean (bawaan: hanya nomor antrean)
+              <Switch id="queueDisplayInitials" checked={f.queueDisplayInitials} onChange={(e) => set('queueDisplayInitials', e.target.checked)} />
+            </label>
           </CardContent>
         </Card>
       </fieldset>

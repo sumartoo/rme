@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { BodySchema, IsoDate, NoBody, RequirePermission, Uuid, assertId, ctx, problem } from '@clinicrme/shared';
 import { Db, type Tx, audit, rows } from '@clinicrme/db';
 import { notifyQueue } from './encounter.repo';
+import { buildBoard } from './queue-display.controller';
 
 interface TicketRow {
   id: string; display_code: string; queue_number: number; status: string; called_at: string | null; call_count: number; skipped_at: string | null;
@@ -50,6 +51,14 @@ export class QueueController {
         and (${practitionerId ?? null}::uuid is null or q.practitioner_id = ${practitionerId ?? null}::uuid)
       order by ${ORDER}`));
     return r.map(ticketDto);
+  }
+
+  /** Pratinjau layar antrean cabang untuk petugas (data sama dengan layar TV, OD-088). */
+  @RequirePermission('queue.display') @Get('board')
+  async board(@Query() q: Record<string, string | undefined>) {
+    const P = z.object({ branchId: Uuid }).safeParse(q);
+    if (!P.success) throw problem(400, 'GEN-400-QUERY', 'Parameter tidak valid (branchId wajib)');
+    return this.db.withTenantTx((tx) => buildBoard(tx, P.data.branchId));
   }
 
   /** Ambil antrean menunggu teratas (urutan layanan); dua petugas menekan bersamaan → tiket berbeda (SKIP LOCKED). */

@@ -72,7 +72,7 @@ export interface Permission { code: string; module: string; description: string 
 export interface SessionItem { id: string; userAgent: string | null; ip: string | null; createdAt: string; lastSeenAt: string; current: boolean }
 export interface TenantProfile {
   displayName: string; letterhead: { name?: string; address?: string; phone?: string; license?: string } | null;
-  logoFileId: string | null; settings: { pharmacyBeforeCashier?: boolean; discountLimitPercent?: number; noShowMinutes?: number; lateToleranceMinutes?: number; mrnPrefix?: string }; version: number;
+  logoFileId: string | null; settings: { pharmacyBeforeCashier?: boolean; discountLimitPercent?: number; noShowMinutes?: number; lateToleranceMinutes?: number; mrnPrefix?: string; queueDisplayInitials?: boolean }; version: number;
 }
 export type ExportStatus = 'QUEUED' | 'RUNNING' | 'DONE' | 'FAILED' | 'EXPIRED';
 export interface ExportJob {

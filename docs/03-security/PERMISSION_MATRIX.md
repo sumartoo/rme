@@ -131,7 +131,7 @@
 | `schedule.read` | ✓ |  |  | ✓ |  |  |  |  | scheduleExceptionList; scheduleList |
 | **tenant** | | | | | | | | | |
 | `tenant.data.export` | ✓ |  |  |  |  |  |  |  | tenantExportCreate; tenantExportDownload; tenantExportGet; tenantExportKey; tenantExportList |
-| `tenant.profile.manage` | ✓ |  |  |  |  |  |  |  | consentDocumentCreate; tenantProfileUpdate |
+| `tenant.profile.manage` | ✓ |  |  |  |  |  |  |  | consentDocumentCreate; queueDisplayCreate; queueDisplayList; queueDisplayRevoke; tenantProfileUpdate |
 | `tenant.profile.read` | ✓ |  |  |  |  |  |  |  | tenantProfileGet |
 | **terminology** | | | | | | | | | |
 | `terminology.favorite.manage` | ✓ | ✓ |  |  |  |  |  |  | conceptFavorite; conceptUnfavorite |

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Uji mutasi kontrol keamanan (Stage 3 M1–M4 diulang di monorepo — RSK-020; M5 Stage 4; M6–M14 Stage 5; M15–M17 Stage 6; M18–M22 Stage 7; M23–M35 Stage 8).
+# Uji mutasi kontrol keamanan (Stage 3 M1–M4 diulang di monorepo — RSK-020; M5 Stage 4; M6–M14 Stage 5; M15–M17 Stage 6; M18–M22 Stage 7; M23–M38 Stage 8).
 # Setiap mutasi sengaja merusak satu kontrol, menjalankan suite integrasi API, dan LULUS hanya bila
 # uji yang menjaga kontrol itu GAGAL. Kode selalu dikembalikan (trap), juga bila skrip dihentikan.
 #
@@ -36,7 +36,8 @@ SCHED=libs/scheduling/src/lib/schedules.controller.ts
 NOSHOW=libs/db/src/lib/no-show.ts
 ENCREPO=libs/scheduling/src/lib/encounter.repo.ts
 ENCCTL=libs/scheduling/src/lib/encounters.controller.ts
-FILES=("$AUTH" "$SESSION" "$MIG2" "$MIG3" "$GUARD" "$PGUARD" "$LAYOUT" "$EXPORT" "$MIG5" "$MIG6" "$TOTP" "$IAMUSERS" "$ACCOUNT" "$AUDITCHG" "$PRACT" "$MIG12" "$TERM" "$IMPORTS" "$PATIENT" "$MIG15" "$IDEM" "$MIG16" "$BOOK" "$SCHED" "$NOSHOW" "$ENCREPO" "$ENCCTL")
+QDISP=libs/scheduling/src/lib/queue-display.controller.ts
+FILES=("$AUTH" "$SESSION" "$MIG2" "$MIG3" "$GUARD" "$PGUARD" "$LAYOUT" "$EXPORT" "$MIG5" "$MIG6" "$TOTP" "$IAMUSERS" "$ACCOUNT" "$AUDITCHG" "$PRACT" "$MIG12" "$TERM" "$IMPORTS" "$PATIENT" "$MIG15" "$IDEM" "$MIG16" "$BOOK" "$SCHED" "$NOSHOW" "$ENCREPO" "$ENCCTL" "$QDISP")
 BACKUP=$(mktemp -d)
 cp "${FILES[@]}" "$BACKUP"/
 restore() { for f in "${FILES[@]}"; do cp "$BACKUP/$(basename "$f")" "$f"; done; }
@@ -131,6 +132,12 @@ mutate M34 "batal kunjungan tidak membatalkan tiket antrean" 'Q07' \
   "sed -i '/update queue_ticket set status = .CANCELLED./,+1d' $ENCCTL && ! grep -q 'update queue_ticket set status' $ENCCTL" ""
 mutate M35 "pasien dapat didaftarkan dua kali di poli yang sama pada hari yang sama" 'Q01' \
   "sed -i 's/  if (active) throw/  if (false) throw/' $ENCREPO && grep -q 'if (false) throw' $ENCREPO" ""
+mutate M36 "tautan layar antrean yang sudah dicabut tetap dapat dibuka" 'D04' \
+  "sed -i 's/ where token_hash = \${sha256(token)} and revoked_at is null\$/ where token_hash = \${sha256(token)}/' $QDISP && grep -qxF '       where token_hash = \${sha256(token)}' $QDISP" ""
+mutate M37 "layar antrean menampilkan inisial pasien walau pengaturan klinik mati" 'D02' \
+  "sed -i 's/\${b.initials ? sql.p.full_name. : sql.null::text.} as patient_name/p.full_name as patient_name/' $QDISP && grep -q '           p.full_name as patient_name' $QDISP" ""
+mutate M38 "perubahan antrean tidak memberi sinyal ke layar TV" 'D03' \
+  "sed -i \"s/  await tx.execute(sql.select pg_notify('clinicrme_queue'.*/  void tx;/\" $ENCREPO && grep -q '^  void tx;\$' $ENCREPO" ""
 
 # Mutasi UI: suite Playwright (U##) sebagai detektor
 if [ "${MUTATION_E2E:-0}" = "1" ]; then

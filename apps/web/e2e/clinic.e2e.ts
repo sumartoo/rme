@@ -691,6 +691,63 @@ test('W20 kunjungan & antrean: walk-in dengan verifikasi asuransi, panggil/lewat
   await expect(page.getByTestId('history-row').first()).toContainText('Dibatalkan');
 });
 
+test('W21 layar TV antrean: admin membuat tautan, TV tanpa login menerima panggilan secara langsung (SSE) tanpa nama pasien, tautan dicabut (Stage 8 batch 4)', async ({ page, browser }) => {
+  watchCsp(page);
+  await signInAdmin(page);
+  await page.getByTestId('side-menu').getByRole('link', { name: 'Layar antrean' }).click();
+  await page.getByRole('button', { name: 'Buat tautan layar' }).click();
+  const cd = page.getByRole('dialog', { name: 'Buat tautan layar' });
+  await cd.getByLabel('Label').fill('TV lobi');
+  await cd.getByRole('button', { name: 'Buat tautan' }).click();
+  const shown = page.getByTestId('display-url');
+  await expect(shown).toContainText('/display/');
+  const url = (await shown.locator('code').textContent())!.trim();
+  await expect(page.getByTestId('display-row').filter({ hasText: 'TV lobi' })).toContainText('Aktif');
+
+  // TV: konteks peramban terpisah tanpa cookie sesi
+  const tvCtx = await browser.newContext();
+  const tv = await tvCtx.newPage();
+  await tv.goto(url);
+  await expect(tv.getByTestId('queue-display')).toBeVisible();
+  const gigi = tv.getByTestId('display-unit').filter({ hasText: 'Poli Gigi' });
+  await expect(gigi).toBeVisible();
+
+  // Petugas mendaftarkan walk-in & memanggil → layar TV berubah tanpa dimuat ulang
+  const staffCtx = await browser.newContext();
+  const staff = await staffCtx.newPage();
+  await login(staff, 'pendaftaran@klinik-web.test');
+  const menu = staff.getByTestId('side-menu');
+  await menu.getByRole('link', { name: 'Kunjungan' }).click();
+  await staff.getByRole('button', { name: 'Daftar walk-in' }).click();
+  const wi = staff.getByRole('dialog', { name: 'Daftar kunjungan walk-in' });
+  await wi.getByLabel('Cari pasien').fill('Siti');
+  await wi.getByRole('button', { name: /Siti Rahmawati/ }).click();
+  await wi.getByLabel('Poli *').selectOption({ label: 'Poli Gigi' });
+  await wi.getByLabel('Dokter *').selectOption({ label: 'drg. Web Sintetis' });
+  await wi.getByRole('button', { name: 'Daftarkan & ambil nomor antrean' }).click();
+  const notice = staff.getByTestId('visit-notice');
+  await expect(notice).toContainText(/Nomor antrean G-\d{3}/);
+  const code = /G-\d{3}/.exec((await notice.textContent()) ?? '')![0];
+  await expect(gigi).toContainText(`Berikutnya: ${code}`);
+  await menu.getByRole('link', { name: 'Antrean' }).click();
+  await staff.getByLabel('Poli').selectOption({ label: 'Poli Gigi' });
+  await staff.getByRole('button', { name: 'Panggil berikutnya' }).click();
+  await expect(staff.getByTestId('now-calling')).toContainText(code);
+  await expect(gigi.getByTestId('display-calling')).toHaveText(code);
+  await expect(tv.getByTestId('queue-display')).not.toContainText('Siti');
+  await expect(tv.getByTestId('queue-display')).not.toContainText('Rahmawati');
+  await staffCtx.close();
+
+  // Admin mencabut → TV berhenti menerima data; tautan tidak dapat dibuka lagi
+  await page.getByTestId('display-row').filter({ hasText: 'TV lobi' }).getByRole('button', { name: 'Cabut' }).click();
+  await expect(page.getByTestId('display-row').filter({ hasText: 'TV lobi' })).toContainText('Dicabut');
+  const again = await tvCtx.newPage();
+  await again.goto(url);
+  await expect(again.getByText('Tautan layar antrean tidak berlaku')).toBeVisible();
+  await tvCtx.close();
+  expect(cspViolations).toEqual([]);
+});
+
 test('W06 keamanan: CSP bernonce, no-store; proxy hanya untuk klinik dari subdomain; tidak ada pelanggaran CSP', async ({ page }) => {
   const res = await page.goto('/login');
   const h = res!.headers();

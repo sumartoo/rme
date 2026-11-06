@@ -33,6 +33,7 @@ async function forward(req: NextRequest, ctx: { params: Promise<{ path: string[]
       resolve(new Response(empty ? null : (Readable.toWeb(res) as ReadableStream), { status, headers: downstreamHeaders(res.headers) }));
     });
     r.on('timeout', () => r.destroy(new Error('timeout')));
+    req.signal.addEventListener('abort', () => r.destroy());   // klien menutup (mis. layar TV/SSE) → koneksi ke API ikut ditutup
     r.on('error', () => resolve(problem(502, 'GEN-502', 'Layanan API tidak dapat dihubungi')));
     if (body) r.write(body);
     r.end();

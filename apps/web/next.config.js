@@ -14,6 +14,8 @@ const securityHeaders = [
 const nextConfig = {
   output: 'standalone',
   poweredByHeader: false,
+  // Kompresi diserahkan ke reverse proxy: kompresi Next.js menahan stream SSE layar antrean (OD-089)
+  compress: false,
   transpilePackages: ['@clinicrme/ui'],
   async headers() {
     return [{ source: '/:path*', headers: securityHeaders }];

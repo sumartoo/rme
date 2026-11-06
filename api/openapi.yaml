@@ -3872,7 +3872,7 @@ paths:
       operationId: queueBoard
       tags:
       - Scheduling
-      summary: Data layar TV (SSE tersedia di /queue/board/stream)
+      summary: Pratinjau layar antrean cabang untuk petugas (branchId wajib)
       x-requirements:
       - SCH-FR-008
       x-permission: queue.display
@@ -3882,15 +3882,134 @@ paths:
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/QueueBoard'
+                $ref: '#/components/schemas/QueueBoard'
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
+  /api/v1/queue-displays:
+    get:
+      operationId: queueDisplayList
+      tags:
+      - Scheduling
+      summary: Daftar tautan layar TV
+      x-requirements:
+      - SCH-FR-008
+      x-permission: tenant.profile.manage
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/QueueDisplay'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+    post:
+      operationId: queueDisplayCreate
+      tags:
+      - Scheduling
+      summary: Buat tautan layar TV (token sekali tampil)
+      x-requirements:
+      - SCH-FR-008
+      x-permission: tenant.profile.manage
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/QueueDisplay'
+      responses:
+        '201':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QueueDisplay'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /api/v1/queue-displays/{displayId}/revoke:
+    post:
+      operationId: queueDisplayRevoke
+      tags:
+      - Scheduling
+      summary: Cabut tautan layar TV
+      x-requirements:
+      - SCH-FR-008
+      x-permission: tenant.profile.manage
+      parameters:
+      - $ref: '#/components/parameters/displayId'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QueueDisplay'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /api/v1/public/queue-display/{token}:
+    get:
+      operationId: publicQueueDisplay
+      tags:
+      - Scheduling
+      summary: Data layar TV dengan token (tanpa login)
+      x-requirements:
+      - SCH-FR-008
+      parameters:
+      - $ref: '#/components/parameters/token'
+      security: []
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QueueBoard'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /api/v1/public/queue-display/{token}/stream:
+    get:
+      operationId: publicQueueDisplayStream
+      tags:
+      - Scheduling
+      summary: Stream SSE layar TV (event `board`, heartbeat 20 dtk, event `revoked`)
+      x-requirements:
+      - SCH-FR-008
+      parameters:
+      - $ref: '#/components/parameters/token'
+      security: []
+      responses:
+        '200':
+          description: Diterima
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
   /api/v1/encounters/{encounterId}/chart:
     get:
       operationId: encounterChart
@@ -5983,6 +6102,12 @@ components:
       required: true
       description: coverageId
       schema: *id002
+    displayId:
+      name: displayId
+      in: path
+      required: true
+      description: displayId
+      schema: *id002
     documentId:
       name: documentId
       in: path
@@ -7632,19 +7757,82 @@ components:
     QueueBoard:
       type: object
       properties:
-        unitId: *id002
-        unitName:
-          type: string
-        nowServing:
-          $ref: '#/components/schemas/QueueTicket'
-        waiting: *id004
+        branch:
+          type: object
+          properties:
+            id: *id002
+            name:
+              type: string
+        generatedAt: *id005
+        units:
+          type: array
+          items:
+            type: object
+            properties:
+              unitId: *id002
+              unitName:
+                type: string
+              waiting: *id004
+              next:
+                type: array
+                items:
+                  type: string
+              calling:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    displayCode:
+                      type: string
+                    practitionerName:
+                      type: string
+                    calledAt: *id005
+                    callCount: *id004
+                    initials:
+                      type: string
+                      example: S. R.
         recentlyCalled:
           type: array
           items:
-            $ref: '#/components/schemas/QueueTicket'
+            type: object
+            properties:
+              displayCode:
+                type: string
+              unitName:
+                type: string
+              calledAt: *id005
       required:
-      - unitId
-      - nowServing
+      - branch
+      - units
+    QueueDisplay:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        branchId: *id002
+        branchName:
+          type: string
+          readOnly: true
+        label:
+          type: string
+          minLength: 2
+          maxLength: 100
+        createdAt: *id005
+        revokedAt: *id005
+        lastSeenAt: *id005
+        token:
+          type: string
+          readOnly: true
+          description: Hanya dikembalikan sekali saat dibuat
+        path:
+          type: string
+          readOnly: true
+          example: /display/<token>
+      required:
+      - branchId
+      - label
     EncounterChart:
       type: object
       properties:

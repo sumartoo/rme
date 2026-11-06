@@ -9,7 +9,8 @@ export const MAX_IMPORT_BYTES = 5 * 1_048_576; // impor master data CSV/XLSX (OD
 const TENANT_CODE = /^[a-z0-9-]{3,40}$/;   // sama dengan context.middleware API
 const PLATFORM_SUBDOMAIN = 'admin';
 const FORWARD_REQUEST_HEADERS = ['accept', 'content-type', 'cookie', 'idempotency-key', 'if-match', 'user-agent', 'x-csrf-token', 'x-request-id', 'x-forwarded-for'];
-const FORWARD_RESPONSE_HEADERS = ['content-type', 'content-length', 'content-disposition', 'etag', 'location', 'x-request-id'];
+const FORWARD_RESPONSE_HEADERS = ['content-type', 'content-length', 'content-disposition', 'etag', 'location', 'x-request-id',
+  'x-accel-buffering'];   // SSE layar antrean: nginx tidak menahan (buffer) stream
 
 export function upstreamPath(segments: string[], search: string): string | null {
   if (!segments.length || !segments.every((s) => PATH_SEGMENT.test(s) && s !== '.' && s !== '..')) return null;
