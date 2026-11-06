@@ -141,7 +141,7 @@ function initial(e: Editing, facilities: Facility[], branches: BranchItem[], def
   if (e.kind === 'branch') return { facilityId: i?.facilityId ?? facilities.find((f) => f.isActive)?.id ?? '', code: i?.code ?? '', name: i?.name ?? '',
     address: i?.address ?? '', regionCode: i?.regionCode ?? '', phone: i?.phone ?? '', timezone: i?.timezone ?? 'Asia/Jakarta', isActive: i?.isActive ?? true };
   return { branchId: i?.branchId ?? (defaultBranch || branches.find((b) => b.isActive)?.id || ''), code: i?.code ?? '', name: i?.name ?? '',
-    unitType: i?.unitType ?? 'POLI', specialty: i?.specialty ?? '', queuePrefix: i?.queuePrefix ?? '', isActive: i?.isActive ?? true };
+    unitType: i?.unitType ?? 'POLI', specialty: i?.specialty ?? '', queuePrefix: i?.queuePrefix ?? '', defaultTemplate: i?.defaultTemplate ?? '', isActive: i?.isActive ?? true };
 }
 
 function EditDialog({ editing, facilities, branches, defaultBranch, onClose, onSaved }: {
@@ -163,6 +163,7 @@ function EditDialog({ editing, facilities, branches, defaultBranch, onClose, onS
     const body: Record<string, string | boolean | null> = Object.fromEntries(Object.entries(f).map(([k, v]) => [k, typeof v === 'string' ? v.trim() : v]));
     if (editing.kind === 'branch') body.regionCode = body.regionCode || null;
     if (editing.kind === 'unit') body.queuePrefix = typeof body.queuePrefix === 'string' && body.queuePrefix ? body.queuePrefix.toUpperCase() : null;
+    if (editing.kind === 'unit') body.defaultTemplate = body.defaultTemplate || null;
     try {
       const item = editing.item;
       await api(item ? `${PATH[editing.kind]}/${item.id}` : PATH[editing.kind], {
@@ -226,6 +227,14 @@ function EditDialog({ editing, facilities, branches, defaultBranch, onClose, onS
           <Field id="md-qprefix" label="Awalan nomor antrean" hint="1–3 huruf, mis. A → A-001. Kosong = huruf pertama kode."
                  error={str('queuePrefix') && !/^[A-Za-z]{1,3}$/.test(str('queuePrefix')) ? 'Hanya 1–3 huruf' : undefined}>
             <Input id="md-qprefix" value={str('queuePrefix')} maxLength={3} onChange={(e) => set('queuePrefix', e.target.value.toUpperCase())} />
+          </Field>
+          <Field id="md-template" label="Template rekam medis" hint="Template SOAP bawaan untuk kunjungan di unit ini; dokter tetap dapat menggantinya.">
+            <Select id="md-template" value={str('defaultTemplate')} onChange={(e) => set('defaultTemplate', e.target.value)}>
+              <option value="">Umum (bawaan)</option>
+              <option value="GIGI">Gigi</option>
+              <option value="ANAK">Anak</option>
+              <option value="KEBIDANAN">Kebidanan</option>
+            </Select>
           </Field>
         </>) : null}
         <label className="flex items-center gap-2 text-sm">

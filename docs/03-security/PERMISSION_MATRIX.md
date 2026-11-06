@@ -62,12 +62,12 @@
 | `clinical.lab.result.write` |  | ✓ | ✓ |  |  |  |  |  | labResultManual |
 | `clinical.note.addendum` |  | ✓ |  |  |  |  |  |  | addendumCreate |
 | `clinical.note.sign` |  | ✓ |  |  |  |  |  |  | encounterSign |
-| `clinical.note.write` |  | ✓ |  |  |  |  |  |  | diagnosesSet; noteSave; procedureAdd |
+| `clinical.note.write` |  | ✓ |  |  |  |  |  |  | consultationStart; diagnosesSet; noteSave; procedureAdd; procedureRemove |
 | `clinical.prescription.approve_substitution` |  | ✓ |  |  |  |  |  |  | substitutionDecide |
 | `clinical.prescription.write` |  | ✓ |  |  |  |  |  |  | prescriptionSave |
-| `clinical.record.read` |  | ✓ | ✓ |  | ✓ |  |  |  | encounterChart; medicalDocumentGet; patientEncounterHistory |
-| `clinical.record.write` |  | ✓ | ✓ |  |  |  |  |  | allergyCreate; historyCreate |
-| `clinical.vitals.write` |  | ✓ | ✓ |  |  |  |  |  | vitalsRecord |
+| `clinical.record.read` |  | ✓ | ✓ |  | ✓ |  |  |  | allergyList; clinicalTemplates; clinicalWorklist; encounterChart; historyList; medicalDocumentGet; patientEncounterHistory |
+| `clinical.record.write` |  | ✓ | ✓ |  |  |  |  |  | allergyCreate; allergyStatus; historyCreate; historyStatus |
+| `clinical.vitals.write` |  | ✓ | ✓ |  |  |  |  |  | noteAnamnesis; vitalsRecord |
 | **document** | | | | | | | | | |
 | `document.upload` |  | ✓ | ✓ | ✓ |  |  |  |  | fileUploadRequest |
 | **encounter** | | | | | | | | | |

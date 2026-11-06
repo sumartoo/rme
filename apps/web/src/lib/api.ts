@@ -89,7 +89,7 @@ export interface BranchItem {
   timezone: Timezone; isActive: boolean; version: number;
 }
 export type UnitType = 'POLI' | 'RUANG' | 'FARMASI' | 'KASIR' | 'LAB' | 'LAINNYA';
-export interface ServiceUnit { id: string; branchId: string; code: string; name: string; unitType: UnitType; specialty: string | null; queuePrefix: string | null; isActive: boolean; version: number }
+export interface ServiceUnit { id: string; branchId: string; code: string; name: string; unitType: UnitType; specialty: string | null; queuePrefix: string | null; defaultTemplate: TemplateCode | null; isActive: boolean; version: number }
 export type PractitionerType = 'DOKTER' | 'DOKTER_GIGI' | 'DOKTER_SPESIALIS' | 'PERAWAT' | 'BIDAN' | 'APOTEKER' | 'TTK' | 'ANALIS' | 'LAINNYA';
 export interface Practitioner {
   id: string; fullName: string; nikMasked: string | null; practitionerType: PractitionerType; specialty: string | null;
@@ -181,3 +181,39 @@ export interface QueueTicket {
   practitionerId: string | null; practitionerName: string | null; encounterId: string; encounterNo: string; arrivalType: string; arrivedLate: boolean;
   patient: { id: string; mrn: string; fullName: string };
 }
+
+// Stage 9 — rekam medis rawat jalan
+export type TemplateCode = 'UMUM' | 'GIGI' | 'ANAK' | 'KEBIDANAN';
+export interface TemplateField { key: string; label: string; type: 'text' | 'number' | 'date' | 'select'; section: 'S' | 'O' | 'A' | 'P';
+  unit?: string; options?: string[]; min?: number; max?: number; maxLength?: number; hint?: string }
+export interface ClinicalTemplate { code: TemplateCode; name: string; fields: TemplateField[] }
+export interface WorklistItem {
+  id: string; encounterNo: string; status: EncounterStatus; arrivedAt: string; localTime: string; triagedAt: string | null; consultStartedAt: string | null;
+  unitId: string; unitName: string; practitionerId: string; practitionerName: string; payerType: PayerType;
+  patient: { id: string; mrn: string; fullName: string; birthDate: string; sex: string; age: string };
+  queue: { displayCode: string; status: string } | null; noteStatus: 'DRAFT' | 'SIGNED' | null; allergyCount: number;
+}
+export type ClinicalStatus = 'ACTIVE' | 'INACTIVE' | 'ENTERED_IN_ERROR';
+export interface Allergy { id: string; substance: string; category: 'OBAT' | 'MAKANAN' | 'LINGKUNGAN' | 'LAINNYA'; reaction: string | null;
+  severity: 'RINGAN' | 'SEDANG' | 'BERAT' | null; status: ClinicalStatus; statusReason: string | null; recordedAt: string; recordedByName: string | null }
+export interface HistoryEntry { id: string; historyType: 'PENYAKIT' | 'OBAT_RUTIN' | 'KELUARGA' | 'SOSIAL' | 'OPERASI'; description: string;
+  status: ClinicalStatus; statusReason: string | null; recordedAt: string; recordedByName: string | null }
+export interface ClinicalNote { id: string; templateCode: TemplateCode; subjective: string | null; objective: string | null; assessment: string | null;
+  plan: string | null; structured: Record<string, unknown>; status: 'DRAFT' | 'SIGNED'; signedAt: string | null; signedByName: string | null;
+  updatedAt: string; updatedByName: string | null; version: number }
+export interface VitalSet { recordedAt: string; recordedByName: string | null; values: Record<string, number> }
+export interface Diagnosis { id: string; conceptId: string; code: string; display: string; rank: 'PRIMER' | 'SEKUNDER'; caseStatus: 'BARU' | 'LAMA'; note: string | null }
+export interface Procedure { id: string; serviceItemId: string; serviceName: string; conceptId: string | null; code: string | null; display: string | null;
+  performedBy: string; performedByName: string; qty: number; performedAt: string }
+export interface EncounterChart {
+  encounter: { id: string; encounterNo: string; status: EncounterStatus; arrivedAt: string; localDate: string; triagedAt: string | null;
+    consultStartedAt: string | null; branchId: string; branchName: string; unitId: string; unitName: string; practitionerId: string;
+    practitionerName: string; payerType: PayerType; payerName: string | null; version: number };
+  patient: { id: string; mrn: string; fullName: string; birthDate: string; sex: string; age: string; processingRestricted: boolean;
+    allergies: Allergy[]; history: HistoryEntry[] };
+  templateCode: TemplateCode; note: ClinicalNote | null; vitals: VitalSet[]; diagnoses: Diagnosis[]; procedures: Procedure[];
+  previousVisits: { id: string; encounterNo: string; localDate: string; unitName: string; practitionerName: string; status: EncounterStatus;
+    noteStatus: string | null; primaryDiagnosis: { code: string; display: string } | null; assessment: string | null }[];
+  editable: boolean;
+}
+

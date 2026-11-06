@@ -3143,6 +3143,33 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
   /api/v1/patients/{patientId}/allergies:
+    get:
+      operationId: allergyList
+      tags:
+      - Clinical
+      summary: Alergi pasien (aktif lebih dulu)
+      x-requirements:
+      - CLN-FR-006
+      x-permission: clinical.record.read
+      parameters:
+      - $ref: '#/components/parameters/patientId'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Allergy'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
     post:
       operationId: allergyCreate
       tags:
@@ -3176,7 +3203,69 @@ paths:
           $ref: '#/components/responses/NotFound'
         '409':
           $ref: '#/components/responses/Conflict'
+  /api/v1/patients/{patientId}/allergies/{allergyId}/status:
+    post:
+      operationId: allergyStatus
+      tags:
+      - Clinical
+      summary: Nonaktifkan / tandai salah input (alasan wajib)
+      x-requirements:
+      - CLN-FR-006
+      x-permission: clinical.record.write
+      parameters:
+      - $ref: '#/components/parameters/patientId'
+      - $ref: '#/components/parameters/allergyId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ClinicalStatusInput'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Allergy'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
   /api/v1/patients/{patientId}/history:
+    get:
+      operationId: historyList
+      tags:
+      - Clinical
+      summary: Riwayat penyakit/obat rutin pasien
+      x-requirements:
+      - CLN-FR-007
+      x-permission: clinical.record.read
+      parameters:
+      - $ref: '#/components/parameters/patientId'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/HistoryEntry'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
     post:
       operationId: historyCreate
       tags:
@@ -3195,6 +3284,41 @@ paths:
               $ref: '#/components/schemas/HistoryEntry'
       responses:
         '201':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HistoryEntry'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /api/v1/patients/{patientId}/history/{historyId}/status:
+    post:
+      operationId: historyStatus
+      tags:
+      - Clinical
+      summary: Nonaktifkan / tandai salah input (alasan wajib)
+      x-requirements:
+      - CLN-FR-007
+      x-permission: clinical.record.write
+      parameters:
+      - $ref: '#/components/parameters/patientId'
+      - $ref: '#/components/parameters/historyId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ClinicalStatusInput'
+      responses:
+        '200':
           description: OK
           content:
             application/json:
@@ -4038,12 +4162,88 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
+  /api/v1/clinical/worklist:
+    get:
+      operationId: clinicalWorklist
+      tags:
+      - Clinical
+      summary: Worklist perawat/dokter hari ini (view, branchId, unitId, mine, includeDone)
+      x-requirements:
+      - CLN-FR-001
+      x-permission: clinical.record.read
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/WorklistItem'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /api/v1/clinical/templates:
+    get:
+      operationId: clinicalTemplates
+      tags:
+      - Clinical
+      summary: Template klinis & isian terstruktur (OD-035)
+      x-requirements:
+      - CLN-FR-005
+      x-permission: clinical.record.read
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ClinicalTemplate'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /api/v1/encounters/{encounterId}/start-consultation:
+    post:
+      operationId: consultationStart
+      tags:
+      - Clinical
+      summary: Mulai pemeriksaan dokter (tiket antrean selesai)
+      x-requirements:
+      - CLN-FR-001
+      x-permission: clinical.note.write
+      parameters:
+      - $ref: '#/components/parameters/encounterId'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConsultationStatus'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
   /api/v1/encounters/{encounterId}/vitals:
     post:
       operationId: vitalsRecord
       tags:
       - Clinical
-      summary: Rekam tanda vital (IMT otomatis)
+      summary: Rekam satu set tanda vital (IMT otomatis)
       x-requirements:
       - CLN-FR-002
       x-permission: clinical.vitals.write
@@ -4061,9 +4261,7 @@ paths:
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/Vital'
+                $ref: '#/components/schemas/VitalSet'
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -4074,12 +4272,49 @@ paths:
           $ref: '#/components/responses/NotFound'
         '409':
           $ref: '#/components/responses/Conflict'
+  /api/v1/encounters/{encounterId}/anamnesis:
+    put:
+      operationId: noteAnamnesis
+      tags:
+      - Clinical
+      summary: Anamnesis awal oleh perawat (If-Match versi catatan; 0 bila belum ada)
+      x-requirements:
+      - CLN-FR-004
+      x-permission: clinical.vitals.write
+      parameters:
+      - $ref: '#/components/parameters/encounterId'
+      - $ref: '#/components/parameters/IfMatch'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AnamnesisInput'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClinicalNote'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '412':
+          $ref: '#/components/responses/PreconditionFailed'
   /api/v1/encounters/{encounterId}/note:
     put:
       operationId: noteSave
       tags:
       - Clinical
-      summary: Simpan draft SOAP (autosave)
+      summary: Simpan draft SOAP (If-Match versi catatan; 0 bila belum ada)
       x-requirements:
       - CLN-FR-004
       - CLN-FR-005
@@ -4117,7 +4352,7 @@ paths:
       operationId: diagnosesSet
       tags:
       - Clinical
-      summary: Set diagnosis ICD-10 (satu primer)
+      summary: Set diagnosis ICD-10 (maks. satu primer; menggantikan daftar)
       x-requirements:
       - CLN-FR-008
       x-permission: clinical.note.write
@@ -4131,6 +4366,7 @@ paths:
               type: array
               items:
                 $ref: '#/components/schemas/Diagnosis'
+              maxItems: 20
       responses:
         '200':
           description: OK
@@ -4184,6 +4420,29 @@ paths:
           $ref: '#/components/responses/NotFound'
         '409':
           $ref: '#/components/responses/Conflict'
+  /api/v1/encounters/{encounterId}/procedures/{procedureId}:
+    delete:
+      operationId: procedureRemove
+      tags:
+      - Clinical
+      summary: Hapus tindakan (selama belum disahkan)
+      x-requirements:
+      - CLN-FR-009
+      x-permission: clinical.note.write
+      parameters:
+      - $ref: '#/components/parameters/encounterId'
+      - $ref: '#/components/parameters/procedureId'
+      responses:
+        '204':
+          description: Berhasil
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
   /api/v1/encounters/{encounterId}/prescription:
     put:
       operationId: prescriptionSave
@@ -6066,6 +6325,12 @@ components:
       required: true
       description: adjustmentId
       schema: *id002
+    allergyId:
+      name: allergyId
+      in: path
+      required: true
+      description: allergyId
+      schema: *id002
     appointmentId:
       name: appointmentId
       in: path
@@ -6152,6 +6417,12 @@ components:
       required: true
       description: grantId
       schema: *id002
+    historyId:
+      name: historyId
+      in: path
+      required: true
+      description: historyId
+      schema: *id002
     invoiceId:
       name: invoiceId
       in: path
@@ -6205,6 +6476,12 @@ components:
       in: path
       required: true
       description: prescriptionId
+      schema: *id002
+    procedureId:
+      name: procedureId
+      in: path
+      required: true
+      description: procedureId
       schema: *id002
     receivableId:
       name: receivableId
@@ -7837,15 +8114,73 @@ components:
       type: object
       properties:
         encounter:
-          $ref: '#/components/schemas/Encounter'
+          type: object
+          properties:
+            id: *id002
+            encounterNo:
+              type: string
+            status:
+              type: string
+            arrivedAt: *id005
+            localDate: *id006
+            triagedAt: *id005
+            consultStartedAt: *id005
+            branchId: *id002
+            branchName:
+              type: string
+            unitId: *id002
+            unitName:
+              type: string
+            practitionerId: *id002
+            practitionerName:
+              type: string
+            payerType: *id008
+            payerName:
+              type: string
+            version: *id004
+          required:
+          - id
+          - encounterNo
+          - status
         patient:
-          $ref: '#/components/schemas/Patient'
+          type: object
+          properties:
+            id: *id002
+            mrn:
+              type: string
+            fullName:
+              type: string
+            birthDate: *id006
+            sex:
+              type: string
+            age:
+              type: string
+            processingRestricted: *id001
+            allergies:
+              type: array
+              items:
+                $ref: '#/components/schemas/Allergy'
+            history:
+              type: array
+              items:
+                $ref: '#/components/schemas/HistoryEntry'
+          required:
+          - id
+          - mrn
+          - fullName
+        templateCode:
+          type: string
+          enum:
+          - UMUM
+          - GIGI
+          - ANAK
+          - KEBIDANAN
         note:
           $ref: '#/components/schemas/ClinicalNote'
         vitals:
           type: array
           items:
-            $ref: '#/components/schemas/Vital'
+            $ref: '#/components/schemas/VitalSet'
         diagnoses:
           type: array
           items:
@@ -7854,38 +8189,53 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/Procedure'
-        prescriptions:
-          type: array
-          items:
-            $ref: '#/components/schemas/Prescription'
-        labOrders:
-          type: array
-          items:
-            $ref: '#/components/schemas/LabOrder'
-        history:
+        previousVisits:
           type: array
           items:
             type: object
             properties:
-              encounterId: *id002
-              date: *id005
-              diagnoses:
-                type: array
-                items:
-                  type: string
-              medications:
-                type: array
-                items:
-                  type: string
+              id: *id002
+              encounterNo:
+                type: string
+              localDate: *id006
+              unitName:
+                type: string
+              practitionerName:
+                type: string
+              status:
+                type: string
+              noteStatus:
+                type: string
+              primaryDiagnosis:
+                type: object
+                properties:
+                  code:
+                    type: string
+                  display:
+                    type: string
+              assessment:
+                type: string
+        editable: *id001
       required:
       - encounter
       - patient
+      - templateCode
+      - vitals
+      - diagnoses
+      - procedures
+      - previousVisits
+      - editable
     ClinicalNote:
       type: object
       properties:
         id: *id002
         templateCode:
           type: string
+          enum:
+          - UMUM
+          - GIGI
+          - ANAK
+          - KEBIDANAN
         subjective:
           type: string
         objective:
@@ -7901,8 +8251,12 @@ components:
           enum:
           - DRAFT
           - SIGNED
-        signedBy: *id002
         signedAt: *id005
+        signedByName:
+          type: string
+        updatedAt: *id005
+        updatedByName:
+          type: string
         addenda:
           type: array
           items:
@@ -7911,65 +8265,104 @@ components:
       required:
       - id
       - status
+      - version
     ClinicalNoteUpdate:
       type: object
       properties:
         templateCode:
           type: string
+          enum:
+          - UMUM
+          - GIGI
+          - ANAK
+          - KEBIDANAN
         subjective:
           type: string
+          maxLength: 10000
         objective:
           type: string
+          maxLength: 10000
         assessment:
           type: string
+          maxLength: 10000
         plan:
           type: string
+          maxLength: 10000
         structured:
           type: object
-        version: *id004
-      required:
-      - version
-    Vital:
+          description: Isian terstruktur sesuai template (GET /clinical/templates)
+    AnamnesisInput:
       type: object
       properties:
-        id: *id002
-        code:
+        subjective:
           type: string
-          enum:
-          - SYSTOLIC
-          - DIASTOLIC
-          - HEART_RATE
-          - RESP_RATE
-          - TEMPERATURE
-          - SPO2
-          - WEIGHT
-          - HEIGHT
-          - BMI
-          - PAIN_SCALE
-          - OTHER
-        value:
-          type: string
-        unit:
-          type: string
-        recordedAt: *id005
+          maxLength: 10000
       required:
-      - code
-      - value
+      - subjective
+    VitalSet:
+      type: object
+      properties:
+        recordedAt: *id005
+        recordedByName:
+          type: string
+        values:
+          type: object
+          additionalProperties:
+            type: number
+          description: 'Kode → nilai: SYSTOLIC, DIASTOLIC, HEART_RATE, RESP_RATE, TEMPERATURE, SPO2, WEIGHT, HEIGHT, BMI, PAIN_SCALE'
+      required:
+      - recordedAt
+      - values
     VitalsInput:
       type: object
       properties:
-        items:
-          type: array
-          items:
-            $ref: '#/components/schemas/Vital'
-      required:
-      - items
+        systolic:
+          type: number
+          minimum: 40
+          maximum: 300
+        diastolic:
+          type: number
+          minimum: 20
+          maximum: 200
+        heartRate:
+          type: number
+          minimum: 20
+          maximum: 300
+        respRate:
+          type: number
+          minimum: 4
+          maximum: 80
+        temperature:
+          type: number
+          minimum: 30
+          maximum: 45
+        spo2:
+          type: number
+          minimum: 50
+          maximum: 100
+        weight:
+          type: number
+          minimum: 0.3
+          maximum: 400
+        height:
+          type: number
+          minimum: 20
+          maximum: 250
+        painScale:
+          type: number
+          minimum: 0
+          maximum: 10
     Allergy:
       type: object
       properties:
-        id: *id002
+        id:
+          type: string
+          format: uuid
+          readOnly: true
         substance:
           type: string
+          minLength: 2
+          maxLength: 200
         category:
           type: string
           enum:
@@ -7991,13 +8384,27 @@ components:
           - ACTIVE
           - INACTIVE
           - ENTERED_IN_ERROR
+          readOnly: true
+        statusReason:
+          type: string
+          readOnly: true
+        recordedAt:
+          type: string
+          format: date-time
+          readOnly: true
+        recordedByName:
+          type: string
+          readOnly: true
       required:
       - substance
       - category
     HistoryEntry:
       type: object
       properties:
-        id: *id002
+        id:
+          type: string
+          format: uuid
+          readOnly: true
         historyType:
           type: string
           enum:
@@ -8008,18 +8415,57 @@ components:
           - OPERASI
         description:
           type: string
+          minLength: 2
+          maxLength: 1000
+        status:
+          type: string
+          enum:
+          - ACTIVE
+          - INACTIVE
+          - ENTERED_IN_ERROR
+          readOnly: true
+        statusReason:
+          type: string
+          readOnly: true
+        recordedAt:
+          type: string
+          format: date-time
+          readOnly: true
+        recordedByName:
+          type: string
+          readOnly: true
       required:
       - historyType
       - description
+    ClinicalStatusInput:
+      type: object
+      properties:
+        status:
+          type: string
+          enum:
+          - INACTIVE
+          - ENTERED_IN_ERROR
+        reason:
+          type: string
+          minLength: 3
+          maxLength: 500
+      required:
+      - status
+      - reason
     Diagnosis:
       type: object
       properties:
-        id: *id002
+        id:
+          type: string
+          format: uuid
+          readOnly: true
         conceptId: *id002
         code:
           type: string
+          readOnly: true
         display:
           type: string
+          readOnly: true
         rank:
           type: string
           enum:
@@ -8032,22 +8478,157 @@ components:
           - LAMA
         note:
           type: string
+          maxLength: 500
       required:
       - conceptId
       - rank
     Procedure:
       type: object
       properties:
-        id: *id002
-        conceptId: *id002
-        serviceItemId: *id002
-        performedBy: *id002
-        qty: &id009
+        id:
           type: string
-          pattern: ^\d{1,14}(\.\d{1,4})?$
-          example: '10'
+          format: uuid
+          readOnly: true
+        serviceItemId: *id002
+        conceptId: *id002
+        performedBy: *id002
+        qty:
+          type: number
+          exclusiveMinimum: 0
+          maximum: 100
+        serviceName:
+          type: string
+          readOnly: true
+        code:
+          type: string
+          readOnly: true
+        display:
+          type: string
+          readOnly: true
+        performedByName:
+          type: string
+          readOnly: true
+        performedAt:
+          type: string
+          format: date-time
+          readOnly: true
       required:
       - serviceItemId
+    WorklistItem:
+      type: object
+      properties:
+        id: *id002
+        encounterNo:
+          type: string
+        status:
+          type: string
+        arrivedAt: *id005
+        localTime:
+          type: string
+        triagedAt: *id005
+        consultStartedAt: *id005
+        unitId: *id002
+        unitName:
+          type: string
+        practitionerId: *id002
+        practitionerName:
+          type: string
+        payerType: *id008
+        patient:
+          type: object
+          properties:
+            id: *id002
+            mrn:
+              type: string
+            fullName:
+              type: string
+            birthDate: *id006
+            sex:
+              type: string
+            age:
+              type: string
+        queue:
+          type: object
+          properties:
+            displayCode:
+              type: string
+            status:
+              type: string
+        noteStatus:
+          type: string
+        allergyCount: *id004
+      required:
+      - id
+      - encounterNo
+      - status
+      - patient
+    ConsultationStatus:
+      type: object
+      properties:
+        id: *id002
+        status:
+          type: string
+        consultStartedAt: *id005
+      required:
+      - id
+      - status
+    ClinicalTemplate:
+      type: object
+      properties:
+        code:
+          type: string
+          enum:
+          - UMUM
+          - GIGI
+          - ANAK
+          - KEBIDANAN
+        name:
+          type: string
+        fields:
+          type: array
+          items:
+            type: object
+            properties:
+              key:
+                type: string
+              label:
+                type: string
+              type:
+                type: string
+                enum:
+                - text
+                - number
+                - date
+                - select
+              section:
+                type: string
+                enum:
+                - S
+                - O
+                - A
+                - P
+              unit:
+                type: string
+              options:
+                type: array
+                items:
+                  type: string
+              min:
+                type: number
+              max:
+                type: number
+              maxLength: *id004
+              hint:
+                type: string
+            required:
+            - key
+            - label
+            - type
+            - section
+      required:
+      - code
+      - name
+      - fields
     PrescriptionItem:
       type: object
       properties:
@@ -8065,7 +8646,10 @@ components:
             type: object
             properties:
               drugItemId: *id002
-              qty: *id009
+              qty: &id009
+                type: string
+                pattern: ^\d{1,14}(\.\d{1,4})?$
+                example: '10'
               uomId: *id002
             required:
             - drugItemId

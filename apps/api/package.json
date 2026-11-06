@@ -97,6 +97,7 @@
     "@clinicrme/iam": "workspace:*",
     "@clinicrme/masterdata": "workspace:*",
     "@clinicrme/patient": "workspace:*",
+    "@clinicrme/clinical": "workspace:*",
     "@clinicrme/scheduling": "workspace:*",
     "@clinicrme/platform": "workspace:*",
     "@clinicrme/shared": "workspace:*",

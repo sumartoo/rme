@@ -748,6 +748,64 @@ test('W21 layar TV antrean: admin membuat tautan, TV tanpa login menerima panggi
   expect(cspViolations).toEqual([]);
 });
 
+test('W22 rekam medis: dokter membuka worklist, mulai periksa, isi vital (IMT otomatis), alergi tampil di header, SOAP, diagnosis & tindakan (Stage 9 batch 1)', async ({ page }) => {
+  watchCsp(page);
+  await addClinicUser('dokter@klinik-web.test', 'drg. Web Sintetis', 'DOKTER', 'drg. Web Sintetis');
+  await login(page, 'dokter@klinik-web.test');
+  await page.getByTestId('side-menu').getByRole('link', { name: 'Worklist klinis' }).click();
+  const row = page.getByTestId('worklist-row').filter({ hasText: 'Siti Rahmawati' });
+  await expect(row).toContainText('Poli Gigi');
+  await row.getByRole('button', { name: 'Mulai periksa' }).click();
+  await expect(page.getByTestId('chart-patient')).toHaveText('Siti Rahmawati');
+  await expect(page.getByText('Diperiksa', { exact: true })).toBeVisible();
+
+  await page.getByRole('tab', { name: 'Tanda vital' }).click();
+  await page.getByLabel('TD sistolik (mmHg)').fill('120');
+  await page.getByLabel('TD diastolik (mmHg)').fill('80');
+  await page.getByLabel('Suhu (°C)').fill('37,5');
+  await page.getByLabel('Berat badan (kg)').fill('60');
+  await page.getByLabel('Tinggi badan (cm)').fill('160');
+  await page.getByRole('button', { name: 'Simpan tanda vital' }).click();
+  await expect(page.getByTestId('vital-row').first()).toContainText('IMT 23.4 kg/m²');
+  await expect(page.getByTestId('vital-row').first()).toContainText('Suhu 37.5 °C');
+
+  await page.getByRole('tab', { name: 'Alergi & riwayat' }).click();
+  await page.getByLabel('Zat / bahan').fill('Amoksisilin');
+  await page.getByLabel('Keparahan').selectOption('BERAT');
+  await page.getByRole('button', { name: 'Catat alergi' }).click();
+  await expect(page.getByTestId('allergy-row').first()).toContainText('Amoksisilin');
+  await expect(page.getByTestId('allergy-banner')).toContainText('Alergi: Amoksisilin (berat)');
+
+  await page.getByRole('tab', { name: 'SOAP' }).click();
+  await page.getByLabel('S — Subjektif (anamnesis)').fill('Gigi geraham kiri bawah berlubang dan nyeri saat makan.');
+  await page.getByLabel('Kesadaran').selectOption('Compos mentis');
+  await page.getByLabel('O — Objektif (pemeriksaan)').fill('Karies media gigi 36.');
+  await page.getByLabel('A — Asesmen').fill('Karies gigi');
+  await page.getByLabel('P — Rencana').fill('Tambal gigi');
+  await page.getByRole('button', { name: 'Simpan draft' }).click();
+  await expect(page.getByTestId('soap-saved')).toBeVisible();
+
+  await page.getByRole('tab', { name: 'Diagnosis & tindakan' }).click();
+  await page.getByLabel('Cari diagnosis').fill('gigi berlubang');
+  await page.getByRole('button', { name: /K02\.9/ }).click();
+  await expect(page.getByTestId('dx-row')).toContainText('Karies gigi, tidak spesifik');
+  await expect(page.getByLabel('Jenis K02.9')).toHaveValue('PRIMER');
+  await page.getByLabel('Layanan').selectOption({ index: 1 });
+  await page.getByLabel('Cari tindakan').fill('tambal');
+  await page.getByRole('button', { name: /23\.2/ }).click();
+  await page.getByRole('button', { name: 'Tambah tindakan' }).click();
+  await expect(page.getByTestId('procedure-row')).toContainText('23.2');
+  await expect(page.getByTestId('procedure-row')).toContainText('drg. Web Sintetis');
+
+  // Dimuat ulang: data tersimpan; ringkasan menampilkan vital terakhir
+  await page.reload();
+  await expect(page.getByTestId('allergy-banner')).toContainText('Amoksisilin');
+  await expect(page.getByLabel('A — Asesmen')).toHaveValue('Karies gigi');
+  await page.getByRole('tab', { name: 'Ringkasan' }).click();
+  await expect(page.getByText('23.4 kg/m²')).toBeVisible();
+  expect(cspViolations).toEqual([]);
+});
+
 test('W06 keamanan: CSP bernonce, no-store; proxy hanya untuk klinik dari subdomain; tidak ada pelanggaran CSP', async ({ page }) => {
   const res = await page.goto('/login');
   const h = res!.headers();

@@ -46,6 +46,9 @@
       "path": "../../libs/scheduling/tsconfig.lib.json"
     },
     {
+      "path": "../../libs/clinical/tsconfig.lib.json"
+    },
+    {
       "path": "../../libs/masterdata/tsconfig.lib.json"
     },
     {

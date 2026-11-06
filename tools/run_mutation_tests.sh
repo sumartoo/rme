@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Uji mutasi kontrol keamanan (Stage 3 M1–M4 diulang di monorepo — RSK-020; M5 Stage 4; M6–M14 Stage 5; M15–M17 Stage 6; M18–M22 Stage 7; M23–M38 Stage 8).
+# Uji mutasi kontrol keamanan (Stage 3 M1–M4 diulang di monorepo — RSK-020; M5 Stage 4; M6–M14 Stage 5; M15–M17 Stage 6; M18–M22 Stage 7; M23–M38 Stage 8; M39–M43 Stage 9).
 # Setiap mutasi sengaja merusak satu kontrol, menjalankan suite integrasi API, dan LULUS hanya bila
 # uji yang menjaga kontrol itu GAGAL. Kode selalu dikembalikan (trap), juga bila skrip dihentikan.
 #
@@ -37,7 +37,10 @@ NOSHOW=libs/db/src/lib/no-show.ts
 ENCREPO=libs/scheduling/src/lib/encounter.repo.ts
 ENCCTL=libs/scheduling/src/lib/encounters.controller.ts
 QDISP=libs/scheduling/src/lib/queue-display.controller.ts
-FILES=("$AUTH" "$SESSION" "$MIG2" "$MIG3" "$GUARD" "$PGUARD" "$LAYOUT" "$EXPORT" "$MIG5" "$MIG6" "$TOTP" "$IAMUSERS" "$ACCOUNT" "$AUDITCHG" "$PRACT" "$MIG12" "$TERM" "$IMPORTS" "$PATIENT" "$MIG15" "$IDEM" "$MIG16" "$BOOK" "$SCHED" "$NOSHOW" "$ENCREPO" "$ENCCTL" "$QDISP")
+CHART=libs/clinical/src/lib/chart.controller.ts
+CHARTREPO=libs/clinical/src/lib/chart.repo.ts
+MIG19=db/migrations/0019_clinical_record.sql
+FILES=("$AUTH" "$SESSION" "$MIG2" "$MIG3" "$GUARD" "$PGUARD" "$LAYOUT" "$EXPORT" "$MIG5" "$MIG6" "$TOTP" "$IAMUSERS" "$ACCOUNT" "$AUDITCHG" "$PRACT" "$MIG12" "$TERM" "$IMPORTS" "$PATIENT" "$MIG15" "$IDEM" "$MIG16" "$BOOK" "$SCHED" "$NOSHOW" "$ENCREPO" "$ENCCTL" "$QDISP" "$CHART" "$CHARTREPO" "$MIG19")
 BACKUP=$(mktemp -d)
 cp "${FILES[@]}" "$BACKUP"/
 restore() { for f in "${FILES[@]}"; do cp "$BACKUP/$(basename "$f")" "$f"; done; }
@@ -138,6 +141,17 @@ mutate M37 "layar antrean menampilkan inisial pasien walau pengaturan klinik mat
   "sed -i 's/\${b.initials ? sql.p.full_name. : sql.null::text.} as patient_name/p.full_name as patient_name/' $QDISP && grep -q '           p.full_name as patient_name' $QDISP" ""
 mutate M38 "perubahan antrean tidak memberi sinyal ke layar TV" 'D03' \
   "sed -i \"s/  await tx.execute(sql.select pg_notify('clinicrme_queue'.*/  void tx;/\" $ENCREPO && grep -q '^  void tx;\$' $ENCREPO" ""
+
+mutate M39 "rekam medis yang sudah disahkan masih dapat ditulisi lewat API" 'C10' \
+  "sed -i \"s/  if (e.note_status === 'SIGNED') throw/  if (false) throw/\" $CHARTREPO && grep -q '  if (false) throw' $CHARTREPO" ""
+mutate M40 "pembukaan rekam medis tidak tercatat di audit" 'C08' \
+  "sed -i \"s/      await audit(tx, 'CLINICAL_RECORD_READ'/      void (tx, 'CLINICAL_RECORD_READ'/\" $CHART && grep -q \"void (tx, 'CLINICAL_RECORD_READ'\" $CHART" ""
+mutate M41 "kode non-ICD-10 diterima sebagai diagnosis" 'C05' \
+  "sed -i \"s/ and c.is_active and s.is_current and s.code = 'ICD10'/ and c.is_active/\" $CHART && ! grep -q \"s.code = 'ICD10'\" $CHART" ""
+mutate M42 "role aplikasi dapat menghapus data alergi pasien" 'C07' \
+  "sed -i 's/^REVOKE DELETE ON allergy_intolerance, /REVOKE DELETE ON /' $MIG19 && grep -q '^REVOKE DELETE ON patient_history, observation' $MIG19" ""
+mutate M43 "perawat dapat menulis SOAP lengkap (melewati OD-092)" 'C03' \
+  "sed -i \"s/@RequirePermission('clinical.note.write') @BodySchema(NoteBody)/@RequirePermission('clinical.vitals.write') @BodySchema(NoteBody)/\" $CHART && grep -q \"'clinical.vitals.write') @BodySchema(NoteBody)\" $CHART" ""
 
 # Mutasi UI: suite Playwright (U##) sebagai detektor
 if [ "${MUTATION_E2E:-0}" = "1" ]; then

@@ -44,7 +44,8 @@ export async function seedClinic(): Promise<void> {
 }
 
 /** User sintetis tambahan untuk uji tahap berikutnya (Stage 8+); ditambah saat uji itu mulai agar jumlah user uji lama tidak berubah. */
-export async function addClinicUser(email: string, name: string, role: string): Promise<void> {
+/** `practitionerName`: tautkan akun ke data tenaga kesehatan (dokter yang mengisi & mengesahkan rekam medis). */
+export async function addClinicUser(email: string, name: string, role: string, practitionerName?: string): Promise<void> {
   const c = new Client({ connectionString: dbUrl() });
   await c.connect();
   try {
@@ -55,6 +56,10 @@ export async function addClinicUser(email: string, name: string, role: string): 
     if (!u) return;
     await c.query(`INSERT INTO app.user_credential(tenant_id, user_id, password_hash) VALUES ($1, $2, $3)`, [t.id, u.id, pw]);
     await c.query(`INSERT INTO app.user_role_assignment(tenant_id, user_id, role_id) SELECT $1, $2, id FROM app.role WHERE tenant_id = $1 AND code = $3`, [t.id, u.id, role]);
+    if (practitionerName) {
+      await c.query(`UPDATE app.app_user SET practitioner_id = (SELECT id FROM app.practitioner WHERE tenant_id = $1 AND full_name = $3)
+                      WHERE id = $2`, [t.id, u.id, practitionerName]);
+    }
   } finally {
     await c.end();
   }
