@@ -38,12 +38,25 @@ export function SignPanel({ chart, onSaved }: { chart: EncounterChart; onSaved: 
   const [open, setOpen] = useState<'sign' | 'addendum'>();
   const [verify, setVerify] = useState<{ valid: boolean; addenda: { id: string; valid: boolean }[] }>();
   const [error, setError] = useState<string>();
+  const [busy, setBusy] = useState(false);
+  const [finished, setFinished] = useState<string>();
   const n = chart.note;
   const missing = [
     ...(['subjective', 'objective', 'assessment', 'plan'] as const).filter((k) => !n?.[k]?.trim()),
     ...(chart.diagnoses.some((d) => d.rank === 'PRIMER') ? [] : ['primaryDiagnosis']),
   ];
   const canSign = can(s, 'clinical.note.sign') && chart.editable && chart.encounter.status === 'IN_CONSULTATION';
+
+  async function finish() {
+    setBusy(true);
+    try {
+      const r = await api<{ status: string; prescriptionNo: string | null }>(`/encounters/${chart.encounter.id}/finish-consultation`, { method: 'POST' });
+      setFinished(`Konsultasi selesai${r.prescriptionNo ? `, resep ${r.prescriptionNo} diterbitkan` : ''}. Pasien diteruskan ke ${r.status === 'PHARMACY' ? 'farmasi' : 'kasir'}.`);
+      setError(undefined); await onSaved();
+    } catch (e) {
+      setError(e instanceof ApiError && e.code === 'CLN-422-RX-ALERTS' ? 'Ada peringatan resep yang belum diberi alasan. Buka tab Resep, isi alasannya, lalu simpan resep.' : errorText(e, 'Gagal menyelesaikan konsultasi'));
+    } finally { setBusy(false); }
+  }
 
   async function check() {
     try { setVerify(await api(`/clinical-notes/${n!.id}/verify`)); setError(undefined); }
@@ -66,8 +79,15 @@ export function SignPanel({ chart, onSaved }: { chart: EncounterChart; onSaved: 
                 {verify.valid && verify.addenda.every((a) => a.valid) ? '✓ Isi sesuai saat disahkan' : '⚠ Isi berbeda dari saat disahkan — laporkan ke admin klinik'}
               </span>
             ) : null}
-            {can(s, 'clinical.note.addendum') ? <Button size="sm" className="ml-auto" onClick={() => setOpen('addendum')}>Tambah addendum</Button> : null}
+            {can(s, 'clinical.note.addendum') ? <Button size="sm" variant="outline" className="ml-auto" onClick={() => setOpen('addendum')}>Tambah addendum</Button> : null}
           </div>
+          {can(s, 'clinical.note.write') && chart.encounter.status === 'IN_CONSULTATION' ? (
+            <div className="flex flex-wrap items-center gap-3 rounded-md bg-muted/50 p-3">
+              <span>{chart.prescription?.items.length ? `Resep ${chart.prescription.items.length} baris akan diterbitkan.` : 'Tanpa resep.'} Pasien diteruskan ke farmasi/kasir.</span>
+              <Button className="ml-auto" loading={busy} onClick={() => void finish()}>Selesai konsultasi</Button>
+            </div>
+          ) : null}
+          {finished ? <Alert tone="success" data-testid="finish-notice">{finished}</Alert> : null}
           <p className="text-xs text-muted-foreground">Tanda tangan elektronik tidak tersertifikasi (bukan PSrE).</p>
           {n.addenda.length ? (
             <div className="grid gap-2 border-t pt-3">

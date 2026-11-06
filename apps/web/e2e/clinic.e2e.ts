@@ -854,6 +854,54 @@ test('W23 pengesahan: admin melihat tautan nakes, dokter mengesahkan dengan kata
   expect(cspViolations).toEqual([]);
 });
 
+test('W24 resep: farmasi menambah obat, dokter meresepkan, peringatan alergi wajib beralasan, selesai konsultasi menerbitkan resep (Stage 9 batch 3)', async ({ page, browser }) => {
+  watchCsp(page);
+  await addClinicUser('farmasi@klinik-web.test', 'Apoteker E2E', 'FARMASI');
+  await login(page, 'farmasi@klinik-web.test');
+  await page.getByTestId('side-menu').getByRole('link', { name: 'Obat', exact: true }).click();
+  await page.getByRole('button', { name: 'Tambah obat' }).click();
+  const dd = page.getByRole('dialog', { name: 'Tambah obat' });
+  await dd.getByLabel('Kode *').fill('AMX500');
+  await dd.getByLabel('Golongan').selectOption('KERAS');
+  await dd.getByLabel('Nama generik *').fill('Amoksisilin 500 mg');
+  await dd.getByLabel('Bentuk sediaan *').fill('Kapsul');
+  await dd.getByLabel('Satuan dasar *').selectOption({ label: 'Strip (STRIP)' });
+  await dd.getByLabel('Zat aktif *').fill('Amoksisilin');
+  await dd.getByLabel('Batas per pemberian (satuan dasar)').fill('1');
+  await dd.getByRole('button', { name: 'Simpan' }).click();
+  await expect(page.getByTestId('drug-row').filter({ hasText: 'AMX500' })).toContainText('amoksisilin');
+
+  const ctx = await browser.newContext();
+  const doc = await ctx.newPage();
+  watchCsp(doc);
+  await login(doc, 'dokter@klinik-web.test');
+  await doc.getByTestId('side-menu').getByRole('link', { name: 'Worklist klinis' }).click();
+  await doc.getByTestId('worklist-row').filter({ hasText: 'Siti Rahmawati' }).getByRole('link', { name: 'Buka' }).click();
+  await doc.getByRole('tab', { name: 'Resep' }).click();
+  await doc.getByRole('button', { name: 'Tambah obat' }).click();
+  await doc.getByLabel('Cari obat baris 1').fill('amoks');
+  await doc.getByRole('button', { name: /Amoksisilin 500 mg/ }).click();
+  await doc.getByLabel('Aturan pakai').fill('Sesudah makan, habiskan');
+  await expect(doc.getByLabel('Jumlah')).toHaveValue('9');
+  await doc.getByRole('button', { name: 'Simpan resep' }).click();
+  await expect(doc.getByTestId('rx-saved')).toBeVisible();
+  const alert = doc.getByTestId('rx-alert');
+  await expect(alert).toContainText('pasien tercatat alergi amoksisilin');
+
+  await doc.getByRole('button', { name: 'Selesai konsultasi' }).click();
+  await expect(doc.getByText('Ada peringatan resep yang belum diberi alasan')).toBeVisible();
+  await alert.getByRole('textbox').fill('Alergi lama diragukan; dikonfirmasi ulang dengan pasien');
+  await doc.getByRole('button', { name: 'Simpan resep' }).click();
+  await expect(doc.getByTestId('rx-saved')).toBeVisible();
+  await doc.getByRole('button', { name: 'Selesai konsultasi' }).click();
+  await expect(doc.getByTestId('finish-notice')).toContainText(/resep RX\d+ diterbitkan\. Pasien diteruskan ke (kasir|farmasi)/);
+  await doc.getByRole('tab', { name: 'Resep' }).click();
+  await expect(doc.getByTestId('rx-line')).toContainText('Amoksisilin 500 mg');
+  await expect(doc.getByText('Diterbitkan', { exact: true })).toBeVisible();
+  await ctx.close();
+  expect(cspViolations).toEqual([]);
+});
+
 test('W06 keamanan: CSP bernonce, no-store; proxy hanya untuk klinik dari subdomain; tidak ada pelanggaran CSP', async ({ page }) => {
   const res = await page.goto('/login');
   const h = res!.headers();

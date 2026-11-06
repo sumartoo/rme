@@ -6,12 +6,13 @@ import { Alert, Badge, Button, Card, CardContent, CardHeader, CardTitle } from '
 import { ApiError, EncounterChart, api, errorText } from '../../../../lib/api';
 import { ENCOUNTER_STATUS, PAYER_TYPE_LABEL, SEX_LABEL, fmtDate } from '../../../../lib/format';
 import { can, useSession } from '../../../../lib/session';
+import { RxTab } from './rx';
 import { SignPanel } from './sign';
 import { AllergyHistoryTab, DiagnosisTab, SoapTab, VitalsTab, VITAL_LABELS } from './tabs';
 
 const TABS = [
   { key: 'summary', label: 'Ringkasan' }, { key: 'vitals', label: 'Tanda vital' }, { key: 'soap', label: 'SOAP' },
-  { key: 'dx', label: 'Diagnosis & tindakan' }, { key: 'allergy', label: 'Alergi & riwayat' },
+  { key: 'dx', label: 'Diagnosis & tindakan' }, { key: 'rx', label: 'Resep' }, { key: 'allergy', label: 'Alergi & riwayat' },
 ] as const;
 type Tab = (typeof TABS)[number]['key'];
 
@@ -116,6 +117,7 @@ export default function EncounterPage() {
       {tab === 'vitals' ? <VitalsTab chart={chart} onSaved={load} /> : null}
       {tab === 'soap' ? <SoapTab chart={chart} onSaved={load} /> : null}
       {tab === 'dx' ? <DiagnosisTab chart={chart} onSaved={load} /> : null}
+      {tab === 'rx' ? <RxTab chart={chart} onSaved={load} /> : null}
       {tab === 'allergy' ? <AllergyHistoryTab chart={chart} onSaved={load} /> : null}
     </div>
   );

@@ -14,9 +14,9 @@ export const AddendumBody = z.object({ ...ReauthFields, reason: z.string().trim(
 const NOTE_404 = ['CLN-404-NOTE', 'Catatan klinis tidak ditemukan'] as const;
 const DOCTOR_TYPES = ['DOKTER', 'DOKTER_GIGI', 'DOKTER_SPESIALIS'];
 
-interface Signer { practitioner_id: string; full_name: string; practitioner_type: string; is_active: boolean; sip_number: string | null; sip_ok: boolean }
+export interface Signer { practitioner_id: string; full_name: string; practitioner_type: string; is_active: boolean; sip_number: string | null; sip_ok: boolean }
 /** Akun yang login harus tertaut ke dokter/dokter gigi/spesialis aktif dengan SIP masih berlaku (IAM-FR-016). */
-async function signerOf(tx: Tx, tz: string): Promise<Signer> {
+export async function signerOf(tx: Tx, tz: string): Promise<Signer> {
   const [s] = await rows<Signer>(tx, sql`
     select p.id as practitioner_id, p.full_name, p.practitioner_type, p.is_active, p.sip_number,
            coalesce(p.sip_valid_until >= (now() at time zone ${tz})::date, false) as sip_ok
