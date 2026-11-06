@@ -6,6 +6,7 @@
 import type { Pool } from 'pg';
 import { expireExports, runNextExport, type ExportOptions } from '@clinicrme/db/tenant-export';
 import { dispatchNotifications, type NotifyOptions, type SendMail } from '@clinicrme/db/notifications';
+import { markNoShows } from '@clinicrme/db/no-show';
 import type { ObjectStorage } from '@clinicrme/storage';
 
 export interface JobDeps {
@@ -39,6 +40,7 @@ export const EXPORT_RUN = 'tenant.export.run';
 export const EXPORT_EXPIRE = 'tenant.export.expire';
 const EXPORTS_PER_RUN = 3;
 export const NOTIFY_DISPATCH = 'notify.outbox.dispatch';
+export const NO_SHOW = 'scheduling.no_show';
 const AUDIT_MONTHS_AHEAD = 2;
 
 export const jobs: JobDefinition[] = [
@@ -125,6 +127,13 @@ export const jobs: JobDefinition[] = [
       if (r.noRecipient > 0) deps.warn({ noRecipient: r.noRecipient }, 'notifikasi tanpa penerima (tenant tanpa admin aktif?)');
       return r;
     },
+  },
+  {
+    // OD-087: janji temu belum check-in saat sesi praktik berakhir → NO_SHOW (teraudit sebagai SYSTEM)
+    name: NO_SHOW,
+    retryLimit: 0,
+    cron: '*/5 * * * *',
+    handler: async (_data, deps) => markNoShows(deps.pool),
   },
 ];
 

@@ -65,3 +65,13 @@ export function fmtAge(birth: string): string {
   if (months >= 1) return `${months} bln`;
   return `${Math.max(0, Math.round((now.getTime() - Date.UTC(y, m - 1, d)) / 86_400_000))} hr`;
 }
+
+// ------------------------------------------------------------------ Jadwal & janji temu (Stage 8)
+export const DAY_LABEL = ['', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Minggu'] as const;
+export const TZ_SHORT = { 'Asia/Jakarta': 'WIB', 'Asia/Makassar': 'WITA', 'Asia/Jayapura': 'WIT' } as const;
+export const APPOINTMENT_STATUS = {
+  BOOKED: { label: 'Terjadwal', tone: 'info' }, CHECKED_IN: { label: 'Hadir', tone: 'success' }, CANCELLED: { label: 'Dibatalkan', tone: 'neutral' },
+  NO_SHOW: { label: 'Tidak hadir', tone: 'warning' }, RESCHEDULED: { label: 'Dijadwalkan ulang', tone: 'neutral' },
+} as const;
+/** "HH:MM" dari waktu ber-zona slot (string ISO dengan offset) — jam lokal cabang apa adanya. */
+export const slotTime = (iso: string) => iso.slice(11, 16);

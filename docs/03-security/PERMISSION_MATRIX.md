@@ -40,7 +40,7 @@
 |---|---|---|---|---|---|---|---|---|---|
 | **appointment** | | | | | | | | | |
 | `appointment.manage` |  | ✓ |  | ✓ |  |  |  |  | appointmentCancel; appointmentCreate; appointmentReschedule; followUpCreate |
-| `appointment.read` |  | ✓ |  | ✓ |  |  |  |  | appointmentList; slotList |
+| `appointment.read` |  | ✓ |  | ✓ |  |  |  |  | appointmentGet; appointmentList; slotList |
 | **audit** | | | | | | | | | |
 | `audit.log.read` | ✓ |  |  |  |  |  | ✓ | ✓ | auditSearch |
 | **billing** | | | | | | | | | |
@@ -127,8 +127,8 @@
 | `report.pharmacy.controlled` |  |  |  |  | ✓ |  | ✓ | ✓ | reportControlledDrugs |
 | `report.pharmacy.read` |  |  |  |  | ✓ |  | ✓ | ✓ | reportStock |
 | **schedule** | | | | | | | | | |
-| `schedule.manage` | ✓ |  |  |  |  |  |  |  | scheduleCreate; scheduleExceptionCreate |
-| `schedule.read` | ✓ |  |  | ✓ |  |  |  |  | scheduleList |
+| `schedule.manage` | ✓ |  |  |  |  |  |  |  | scheduleCreate; scheduleExceptionCreate; scheduleExceptionDelete; scheduleUpdate |
+| `schedule.read` | ✓ |  |  | ✓ |  |  |  |  | scheduleExceptionList; scheduleList |
 | **tenant** | | | | | | | | | |
 | `tenant.data.export` | ✓ |  |  |  |  |  |  |  | tenantExportCreate; tenantExportDownload; tenantExportGet; tenantExportKey; tenantExportList |
 | `tenant.profile.manage` | ✓ |  |  |  |  |  |  |  | consentDocumentCreate; tenantProfileUpdate |

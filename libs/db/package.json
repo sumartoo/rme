@@ -21,6 +21,11 @@
       "import": "./src/lib/notifications.ts",
       "default": "./src/lib/notifications.ts"
     },
+    "./no-show": {
+      "types": "./src/lib/no-show.ts",
+      "import": "./src/lib/no-show.ts",
+      "default": "./src/lib/no-show.ts"
+    },
     "./reference": {
       "types": "./src/lib/reference.ts",
       "import": "./src/lib/reference.ts",

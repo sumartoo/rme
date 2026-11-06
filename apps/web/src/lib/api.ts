@@ -72,7 +72,7 @@ export interface Permission { code: string; module: string; description: string 
 export interface SessionItem { id: string; userAgent: string | null; ip: string | null; createdAt: string; lastSeenAt: string; current: boolean }
 export interface TenantProfile {
   displayName: string; letterhead: { name?: string; address?: string; phone?: string; license?: string } | null;
-  logoFileId: string | null; settings: { pharmacyBeforeCashier?: boolean; discountLimitPercent?: number; noShowMinutes?: number; mrnPrefix?: string }; version: number;
+  logoFileId: string | null; settings: { pharmacyBeforeCashier?: boolean; discountLimitPercent?: number; noShowMinutes?: number; lateToleranceMinutes?: number; mrnPrefix?: string }; version: number;
 }
 export type ExportStatus = 'QUEUED' | 'RUNNING' | 'DONE' | 'FAILED' | 'EXPIRED';
 export interface ExportJob {
@@ -142,3 +142,23 @@ export interface Patient extends PatientSummary {
   consents: PatientConsent[]; hasConsent: boolean; hasActiveCoverage: boolean; version: number;
 }
 export interface ConsentDocument { id: string; consentType: 'UMUM' | 'DATA_SHARING' | 'PORTAL'; version: string; title: string | null; content: string; effectiveAt: string }
+
+// ------------------------------------------------------------------ Jadwal & janji temu (Stage 8)
+export interface Schedule {
+  id: string; practitionerId: string; practitionerName: string; branchId: string; branchName: string; timezone: Timezone; unitId: string; unitName: string;
+  dayOfWeek: number; startTime: string; endTime: string; slotMinutes: number; quota: number; slotCount: number; validFrom: string; validTo: string | null;
+  isActive: boolean; version: number;
+}
+export interface ScheduleException {
+  id: string; practitionerId: string | null; practitionerName: string | null; branchId: string | null; branchName: string | null;
+  exceptionDate: string; reason: string; affectedAppointments?: Appointment[];
+}
+export interface Slot { start: string; end: string; available: boolean; taken: boolean }
+export interface SlotSession extends Schedule { booked: number; closed: { reason: string; type: 'CUTI_DOKTER' | 'LIBUR_CABANG' } | null; slots: Slot[] }
+export type AppointmentStatus = 'BOOKED' | 'CHECKED_IN' | 'CANCELLED' | 'NO_SHOW' | 'RESCHEDULED';
+export interface Appointment {
+  id: string; status: AppointmentStatus; statusReason: string | null; channel: string; notes: string | null; slotStart: string; slotEnd: string | null;
+  localDate: string; localTime: string; timezone: Timezone; rescheduledToId: string | null; practitionerId: string; practitionerName: string;
+  branchId: string; branchName: string; unitId: string; unitName: string;
+  patient: { id: string; mrn: string; fullName: string; birthDate: string; sex: Sex; phone: string | null; status: string }; version: number;
+}

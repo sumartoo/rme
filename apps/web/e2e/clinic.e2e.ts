@@ -565,6 +565,85 @@ test('W18 consent berversi & gabung pasien: admin menerbitkan teks, petugas menc
   await expect(page.getByText('Belum ada persetujuan umum yang berlaku.')).toHaveCount(0);
 });
 
+test('W19 jadwal & janji temu: admin membuat jadwal & cuti, petugas memesan slot, menjadwalkan ulang, dan membatalkan (Stage 8 batch 2)', async ({ page }) => {
+  watchCsp(page);
+  // Tanggal Senin 1–2 minggu ke depan (WIB) & Selasa sesudahnya
+  const wib = new Date(Date.now() + 7 * 3600_000);
+  const d = new Date(Date.UTC(wib.getUTCFullYear(), wib.getUTCMonth(), wib.getUTCDate()));
+  d.setUTCDate(d.getUTCDate() + ((8 - ((d.getUTCDay() + 6) % 7 + 1)) % 7) + 7);
+  const mon = d.toISOString().slice(0, 10);
+  const tue = new Date(d.getTime() + 86_400_000).toISOString().slice(0, 10);
+
+  await signInAdmin(page);
+  const menu = page.getByTestId('side-menu');
+  await menu.getByRole('link', { name: 'Jadwal dokter' }).click();
+  await page.getByRole('button', { name: 'Tambah jadwal' }).click();
+  const sd = page.getByRole('dialog', { name: 'Tambah jadwal praktik' });
+  await sd.getByLabel('Dokter *').selectOption({ label: 'drg. Web Sintetis' });
+  await sd.getByLabel('Cabang *').selectOption({ label: 'Cabang Timur' });
+  await sd.getByLabel('Poli/ruang *').selectOption({ label: 'Poli Gigi' });
+  await sd.getByLabel('Hari').selectOption({ label: 'Senin' });
+  await sd.getByLabel('Mulai', { exact: true }).fill('08:00');
+  await sd.getByLabel('Selesai', { exact: true }).fill('10:00');
+  await sd.getByLabel('Slot (menit)').fill('30');
+  await expect(sd.getByText('Kosong = 4 (jumlah slot)')).toBeVisible();
+  await sd.getByRole('button', { name: 'Simpan' }).click();
+  await expect(page.getByText('Jadwal ditambahkan.')).toBeVisible();
+  await expect(page.getByTestId('schedule-row')).toContainText('08:00–10:00');
+  await expect(page.getByTestId('schedule-row')).toContainText('4 / 4');
+  // Jadwal Selasa juga, lalu cuti pada Selasa itu
+  await page.getByRole('button', { name: 'Tambah jadwal' }).click();
+  await sd.getByLabel('Dokter *').selectOption({ label: 'drg. Web Sintetis' });
+  await sd.getByLabel('Cabang *').selectOption({ label: 'Cabang Timur' });
+  await sd.getByLabel('Poli/ruang *').selectOption({ label: 'Poli Gigi' });
+  await sd.getByLabel('Hari').selectOption({ label: 'Selasa' });
+  await sd.getByLabel('Mulai', { exact: true }).fill('13:00');
+  await sd.getByLabel('Selesai', { exact: true }).fill('14:00');
+  await sd.getByRole('button', { name: 'Simpan' }).click();
+  await expect(page.getByTestId('schedule-row')).toHaveCount(2);
+  await page.getByRole('button', { name: 'Tambah cuti/libur' }).click();
+  const ex = page.getByRole('dialog', { name: 'Tambah cuti/libur' });
+  await ex.getByLabel('Dokter *').selectOption({ label: 'drg. Web Sintetis' });
+  await ex.getByLabel('Tanggal *').fill(tue);
+  await ex.getByLabel('Alasan *').fill('Pelatihan');
+  await ex.getByRole('button', { name: 'Simpan' }).click();
+  await expect(page.getByTestId('exception-row')).toContainText('Pelatihan');
+  await page.getByRole('button', { name: 'Keluar' }).click();
+
+  await login(page, 'pendaftaran@klinik-web.test');
+  await page.getByTestId('side-menu').getByRole('link', { name: 'Janji temu' }).click();
+  await page.getByRole('button', { name: 'Buat janji temu' }).click();
+  const bk = page.getByRole('dialog', { name: 'Buat janji temu' });
+  await bk.getByLabel('Cari pasien').fill('Siti');
+  await bk.getByRole('button', { name: /Siti Rahmawati/ }).click();
+  await bk.getByLabel('Tanggal').fill(tue);
+  await expect(bk.getByTestId('slot-picker')).toContainText('Dokter cuti: Pelatihan');
+  await bk.getByLabel('Tanggal').fill(mon);
+  await bk.getByRole('button', { name: 'drg. Web Sintetis 08:00' }).click();
+  await bk.getByLabel('Catatan').fill('Kontrol gigi');
+  await bk.getByRole('button', { name: 'Simpan janji temu' }).click();
+  await expect(page.getByText(/Janji temu Siti Rahmawati — .* 08:00 dibuat\./)).toBeVisible();
+  const row = page.getByTestId('appointment-row').filter({ hasText: 'Siti Rahmawati' });
+  await expect(row).toContainText('Terjadwal');
+
+  await row.getByRole('button', { name: 'Jadwal ulang' }).click();
+  const rs = page.getByRole('dialog', { name: 'Jadwal ulang janji temu' });
+  await expect(rs.getByRole('button', { name: 'drg. Web Sintetis 08:00 (terisi)' })).toBeDisabled();
+  await rs.getByRole('button', { name: 'drg. Web Sintetis 09:00' }).click();
+  await rs.getByLabel('Alasan jadwal ulang *').fill('Pasien minta lebih siang');
+  await rs.getByRole('button', { name: 'Jadwalkan ulang' }).click();
+  await expect(page.getByText(/Dijadwalkan ulang ke .* 09:00\./)).toBeVisible();
+  await expect(page.getByTestId('appointment-row').filter({ hasText: 'Dijadwalkan ulang' })).toContainText('Pasien minta lebih siang');
+
+  const booked = page.getByTestId('appointment-row').filter({ hasText: 'Terjadwal' });
+  await booked.getByRole('button', { name: 'Batalkan' }).click();
+  const cn = page.getByRole('dialog', { name: 'Batalkan janji temu' });
+  await cn.getByLabel('Alasan *').fill('Pasien berhalangan');
+  await cn.getByRole('button', { name: 'Batalkan janji' }).click();
+  await expect(page.getByText('Janji temu dibatalkan.')).toBeVisible();
+  await expect(page.getByTestId('appointment-row').filter({ hasText: 'Dibatalkan' })).toContainText('Pasien berhalangan');
+});
+
 test('W06 keamanan: CSP bernonce, no-store; proxy hanya untuk klinik dari subdomain; tidak ada pelanggaran CSP', async ({ page }) => {
   const res = await page.goto('/login');
   const h = res!.headers();

@@ -7,6 +7,7 @@ import { AppConfig, BodyValidationInterceptor, ProblemFilter, REDACT_CENSOR, RED
 import { IamModule } from '@clinicrme/iam';
 import { MasterdataModule } from '@clinicrme/masterdata';
 import { PatientModule } from '@clinicrme/patient';
+import { SchedulingModule } from '@clinicrme/scheduling';
 import { PlatformModule } from '@clinicrme/platform';
 import { TenantModule } from '@clinicrme/tenant';
 import { CoreModule } from './core.module';
@@ -51,6 +52,7 @@ export class AppModule {
         TenantModule,
         MasterdataModule,
         PatientModule,
+        SchedulingModule,
       ],
       controllers: [HealthController, ...(extra.controllers ?? [])],
       providers: [

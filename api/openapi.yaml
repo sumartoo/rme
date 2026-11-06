@@ -3293,12 +3293,72 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '409':
           $ref: '#/components/responses/Conflict'
+  /api/v1/schedules/{scheduleId}:
+    put:
+      operationId: scheduleUpdate
+      tags:
+      - Scheduling
+      summary: Ubah jadwal (ditolak bila janji temu mendatang tidak lagi masuk)
+      x-requirements:
+      - SCH-FR-001
+      x-permission: schedule.manage
+      parameters:
+      - $ref: '#/components/parameters/scheduleId'
+      - $ref: '#/components/parameters/IfMatch'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ScheduleUpdate'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Schedule'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '412':
+          $ref: '#/components/responses/PreconditionFailed'
   /api/v1/schedule-exceptions:
+    get:
+      operationId: scheduleExceptionList
+      tags:
+      - Scheduling
+      summary: Daftar cuti/libur (from, to)
+      x-requirements:
+      - SCH-FR-002
+      x-permission: schedule.read
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ScheduleException'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
     post:
       operationId: scheduleExceptionCreate
       tags:
       - Scheduling
-      summary: Cuti/libur
+      summary: Cuti dokter / libur cabang (+ janji temu terdampak)
       x-requirements:
       - SCH-FR-002
       x-permission: schedule.manage
@@ -3310,7 +3370,11 @@ paths:
               $ref: '#/components/schemas/ScheduleException'
       responses:
         '201':
-          description: Dibuat
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScheduleException'
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -3319,12 +3383,34 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '409':
           $ref: '#/components/responses/Conflict'
+  /api/v1/schedule-exceptions/{exceptionId}:
+    delete:
+      operationId: scheduleExceptionDelete
+      tags:
+      - Scheduling
+      summary: Hapus cuti/libur
+      x-requirements:
+      - SCH-FR-002
+      x-permission: schedule.manage
+      parameters:
+      - $ref: '#/components/parameters/exceptionId'
+      responses:
+        '204':
+          description: Berhasil
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
   /api/v1/slots:
     get:
       operationId: slotList
       tags:
       - Scheduling
-      summary: Slot tersedia (practitionerId, date)
+      summary: Slot per sesi pada satu tanggal (date wajib; practitionerId, branchId, unitId)
       x-requirements:
       - SCH-FR-003
       x-permission: appointment.read
@@ -3334,9 +3420,7 @@ paths:
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/Slot'
+                $ref: '#/components/schemas/SlotDay'
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -3379,7 +3463,7 @@ paths:
       operationId: appointmentList
       tags:
       - Scheduling
-      summary: Daftar appointment
+      summary: Daftar appointment (date/from/to, practitionerId, branchId, patientId, status)
       x-requirements:
       - SCH-FR-003
       x-permission: appointment.read
@@ -3409,6 +3493,32 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
+  /api/v1/appointments/{appointmentId}:
+    get:
+      operationId: appointmentGet
+      tags:
+      - Scheduling
+      summary: Detail appointment
+      x-requirements:
+      - SCH-FR-003
+      x-permission: appointment.read
+      parameters:
+      - $ref: '#/components/parameters/appointmentId'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Appointment'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
   /api/v1/appointments/{appointmentId}/cancel:
     post:
       operationId: appointmentCancel
@@ -5801,6 +5911,12 @@ components:
       description: entity
       schema:
         type: string
+    exceptionId:
+      name: exceptionId
+      in: path
+      required: true
+      description: exceptionId
+      schema: *id002
     facilityId:
       name: facilityId
       in: path
@@ -5904,6 +6020,12 @@ components:
       in: path
       required: true
       description: roleId
+      schema: *id002
+    scheduleId:
+      name: scheduleId
+      in: path
+      required: true
+      description: scheduleId
       schema: *id002
     serviceItemId:
       name: serviceItemId
@@ -7059,39 +7181,102 @@ components:
     Schedule:
       type: object
       properties:
-        id: *id002
+        id:
+          type: string
+          format: uuid
+          readOnly: true
         practitionerId: *id002
+        practitionerName:
+          type: string
+          readOnly: true
         branchId: *id002
+        branchName:
+          type: string
+          readOnly: true
         unitId: *id002
+        unitName:
+          type: string
+          readOnly: true
+        timezone:
+          type: string
+          readOnly: true
         dayOfWeek:
           type: integer
           minimum: 1
           maximum: 7
+          description: 1 = Senin
         startTime:
           type: string
           pattern: ^\d{2}:\d{2}$
         endTime:
           type: string
           pattern: ^\d{2}:\d{2}$
-        slotMinutes: *id004
-        quota: *id004
+        slotMinutes:
+          type: integer
+          minimum: 5
+          maximum: 120
+        quota:
+          type: integer
+          minimum: 1
+          description: Bawaan = jumlah slot; maksimal jumlah slot (OD-090)
+        slotCount:
+          type: integer
+          readOnly: true
         validFrom: *id006
         validTo: *id006
+        isActive:
+          type: boolean
+          readOnly: true
+        version:
+          type: integer
+          readOnly: true
       required:
       - practitionerId
+      - branchId
       - unitId
       - dayOfWeek
       - startTime
       - endTime
-      - quota
+    ScheduleUpdate:
+      type: object
+      properties:
+        dayOfWeek:
+          type: integer
+          minimum: 1
+          maximum: 7
+        startTime:
+          type: string
+        endTime:
+          type: string
+        slotMinutes: *id004
+        quota: *id004
+        validFrom: *id006
+        validTo: *id006
+        isActive: *id001
     ScheduleException:
       type: object
       properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
         practitionerId: *id002
+        practitionerName:
+          type: string
+          readOnly: true
         branchId: *id002
+        branchName:
+          type: string
+          readOnly: true
         exceptionDate: *id006
         reason:
           type: string
+          minLength: 3
+        affectedAppointments:
+          type: array
+          items:
+            $ref: '#/components/schemas/Appointment'
+          readOnly: true
       required:
       - exceptionDate
       - reason
@@ -7099,11 +7284,44 @@ components:
       type: object
       properties:
         start: *id005
-        available: *id004
-        scheduleId: *id002
+        end: *id005
+        available: *id001
+        taken: *id001
       required:
       - start
+      - end
       - available
+    SlotDay:
+      type: object
+      properties:
+        date: *id006
+        sessions:
+          type: array
+          items:
+            allOf:
+            - $ref: '#/components/schemas/Schedule'
+            - type: object
+              properties:
+                booked: *id004
+                closed:
+                  type:
+                  - object
+                  - 'null'
+                  properties:
+                    reason:
+                      type: string
+                    type:
+                      type: string
+                      enum:
+                      - CUTI_DOKTER
+                      - LIBUR_CABANG
+                slots:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/Slot'
+      required:
+      - date
+      - sessions
     AppointmentCreate:
       type: object
       properties:
@@ -7111,10 +7329,12 @@ components:
         practitionerId: *id002
         unitId: *id002
         slotStart: *id005
+        notes:
+          type: string
+          maxLength: 500
       required:
       - patientId
       - practitionerId
-      - unitId
       - slotStart
     Appointment:
       type: object
@@ -7123,8 +7343,30 @@ components:
         patient:
           $ref: '#/components/schemas/PatientSummary'
         practitionerId: *id002
+        practitionerName:
+          type: string
+        branchId: *id002
+        branchName:
+          type: string
         unitId: *id002
+        unitName:
+          type: string
+        scheduleId: *id002
         slotStart: *id005
+        slotEnd: *id005
+        localDate: *id006
+        localTime:
+          type: string
+        timezone:
+          type: string
+        channel:
+          type: string
+          enum:
+          - STAFF
+          - PATIENT_APP
+          - FOLLOW_UP
+        notes:
+          type: string
         status:
           type: string
           enum:
@@ -7135,6 +7377,9 @@ components:
           - RESCHEDULED
         statusReason:
           type: string
+        rescheduledToId: *id002
+        createdAt: *id005
+        version: *id004
       required:
       - id
       - status
@@ -7151,6 +7396,7 @@ components:
       type: object
       properties:
         slotStart: *id005
+        practitionerId: *id002
         reason:
           type: string
           minLength: 3

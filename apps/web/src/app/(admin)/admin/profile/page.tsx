@@ -5,11 +5,12 @@ import { ApiError, TenantProfile, api, errorText } from '../../../../lib/api';
 import { can, useSession } from '../../../../lib/session';
 
 interface Form { displayName: string; name: string; address: string; phone: string; license: string;
-                 pharmacyBeforeCashier: boolean; discountLimitPercent: string; noShowMinutes: string; mrnPrefix: string }
+                 pharmacyBeforeCashier: boolean; discountLimitPercent: string; noShowMinutes: string; lateToleranceMinutes: string; mrnPrefix: string }
 const toForm = (p: TenantProfile): Form => ({
   displayName: p.displayName, name: p.letterhead?.name ?? '', address: p.letterhead?.address ?? '', phone: p.letterhead?.phone ?? '',
   license: p.letterhead?.license ?? '', pharmacyBeforeCashier: p.settings.pharmacyBeforeCashier ?? false,
   discountLimitPercent: p.settings.discountLimitPercent?.toString() ?? '', noShowMinutes: p.settings.noShowMinutes?.toString() ?? '',
+  lateToleranceMinutes: p.settings.lateToleranceMinutes?.toString() ?? '',
   mrnPrefix: p.settings.mrnPrefix ?? '',
 });
 
@@ -36,9 +37,11 @@ export default function ProfilePage() {
   const num = (v: string) => (v.trim() === '' ? undefined : Number(v));
   const discount = f ? num(f.discountLimitPercent) : undefined;
   const noShow = f ? num(f.noShowMinutes) : undefined;
+  const late = f ? num(f.lateToleranceMinutes) : undefined;
   const invalid = !f || f.displayName.trim().length < 2
     || (discount !== undefined && !(discount >= 0 && discount <= 100))
     || (noShow !== undefined && !(Number.isInteger(noShow) && noShow >= 5 && noShow <= 240))
+    || (late !== undefined && !(Number.isInteger(late) && late >= 0 && late <= 120))
     || !/^[A-Za-z]{0,5}$/.test(f.mrnPrefix);
 
   async function save(e: React.FormEvent) {
@@ -53,7 +56,7 @@ export default function ProfilePage() {
           displayName: f.displayName.trim(),
           letterhead: Object.values(letterhead).some(Boolean) ? letterhead : null,
           settings: { ...p.settings, pharmacyBeforeCashier: f.pharmacyBeforeCashier,
-                      ...(discount !== undefined ? { discountLimitPercent: discount } : {}), ...(noShow !== undefined ? { noShowMinutes: noShow } : {}), mrnPrefix: f.mrnPrefix.toUpperCase() },
+                      ...(discount !== undefined ? { discountLimitPercent: discount } : {}), ...(noShow !== undefined ? { noShowMinutes: noShow } : {}), ...(late !== undefined ? { lateToleranceMinutes: late } : {}), mrnPrefix: f.mrnPrefix.toUpperCase() },
         },
       });
       setP(r); setF(toForm(r)); setNotice('Profil klinik disimpan.');
@@ -114,6 +117,10 @@ export default function ProfilePage() {
             <Field id="noShow" label="Batas tidak hadir (menit)" hint="5–240; antrean dianggap tidak hadir setelah ini."
                    error={noShow !== undefined && !(Number.isInteger(noShow) && noShow >= 5 && noShow <= 240) ? 'Bilangan bulat 5–240' : undefined}>
               <Input id="noShow" inputMode="numeric" value={f.noShowMinutes} onChange={(e) => set('noShowMinutes', e.target.value)} />
+            </Field>
+            <Field id="late" label="Toleransi terlambat janji temu (menit)" hint="0–120; bawaan 15. Lewat dari ini pasien masuk antrean paling belakang (OD-087)."
+                   error={late !== undefined && !(Number.isInteger(late) && late >= 0 && late <= 120) ? 'Bilangan bulat 0–120' : undefined}>
+              <Input id="late" inputMode="numeric" value={f.lateToleranceMinutes} onChange={(e) => set('lateToleranceMinutes', e.target.value)} />
             </Field>
             <Field id="mrnPrefix" label="Awalan nomor rekam medis" hint="0–5 huruf, mis. RM → RM00000123. Berlaku untuk pasien baru (OD-081)."
                    error={!/^[A-Za-z]{0,5}$/.test(f.mrnPrefix) ? 'Maksimal 5 huruf, tanpa angka/simbol' : undefined}>

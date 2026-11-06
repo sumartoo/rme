@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Uji mutasi kontrol keamanan (Stage 3 M1–M4 diulang di monorepo — RSK-020; M5 Stage 4; M6–M14 Stage 5; M15–M17 Stage 6; M18–M22 Stage 7; M23–M26 Stage 8).
+# Uji mutasi kontrol keamanan (Stage 3 M1–M4 diulang di monorepo — RSK-020; M5 Stage 4; M6–M14 Stage 5; M15–M17 Stage 6; M18–M22 Stage 7; M23–M31 Stage 8).
 # Setiap mutasi sengaja merusak satu kontrol, menjalankan suite integrasi API, dan LULUS hanya bila
 # uji yang menjaga kontrol itu GAGAL. Kode selalu dikembalikan (trap), juga bila skrip dihentikan.
 #
@@ -30,7 +30,11 @@ IMPORTS=libs/masterdata/src/lib/imports.controller.ts
 PATIENT=libs/patient/src/lib/patient.controller.ts
 MIG15=db/migrations/0015_patient_registration.sql
 IDEM=libs/db/src/lib/idempotency.ts
-FILES=("$AUTH" "$SESSION" "$MIG2" "$MIG3" "$GUARD" "$PGUARD" "$LAYOUT" "$EXPORT" "$MIG5" "$MIG6" "$TOTP" "$IAMUSERS" "$ACCOUNT" "$AUDITCHG" "$PRACT" "$MIG12" "$TERM" "$IMPORTS" "$PATIENT" "$MIG15" "$IDEM")
+MIG16=db/migrations/0016_scheduling.sql
+BOOK=libs/scheduling/src/lib/appointment.repo.ts
+SCHED=libs/scheduling/src/lib/schedules.controller.ts
+NOSHOW=libs/db/src/lib/no-show.ts
+FILES=("$AUTH" "$SESSION" "$MIG2" "$MIG3" "$GUARD" "$PGUARD" "$LAYOUT" "$EXPORT" "$MIG5" "$MIG6" "$TOTP" "$IAMUSERS" "$ACCOUNT" "$AUDITCHG" "$PRACT" "$MIG12" "$TERM" "$IMPORTS" "$PATIENT" "$MIG15" "$IDEM" "$MIG16" "$BOOK" "$SCHED" "$NOSHOW")
 BACKUP=$(mktemp -d)
 cp "${FILES[@]}" "$BACKUP"/
 restore() { for f in "${FILES[@]}"; do cp "$BACKUP/$(basename "$f")" "$f"; done; }
@@ -107,6 +111,16 @@ mutate M25 "registrasi mengabaikan kandidat duplikat (alasan tidak lagi wajib)" 
   "sed -i 's/if (found.candidates.length > 0 \&\& !b.duplicateOverrideReason) {/if (false) {/' $PATIENT && grep -q 'if (false) {' $PATIENT" ""
 mutate M26 "NIK pasien tercatat apa adanya di audit registrasi" 'P01|P14' \
   "sed -i 's/      after: this.auditView(d, dup.nikHash, dup.identityHash),/      after: { ...this.auditView(d, dup.nikHash, dup.identityHash), nik: b.nik },/' $PATIENT && grep -q 'nik: b.nik },' $PATIENT" ""
+mutate M27 "jadwal dokter boleh tumpang tindih (exclusion constraint dilemahkan)" 'S01' \
+  "sed -i 's/    app.timerange(start_time, end_time) WITH \\&\\&,/    id WITH =,/' $MIG16 && ! grep -q 'app.timerange(start_time, end_time) WITH' $MIG16" ""
+mutate M28 "kuota sesi janji temu tidak diperiksa" 'S04|S05' \
+  "sed -i 's/  if (n >= s.quota) throw/  if (false) throw/' $BOOK && grep -q 'if (false) throw' $BOOK" ""
+mutate M29 "pemesanan mengabaikan cuti dokter / libur cabang" 'S08' \
+  "sed -i 's/  if (ex) throw problem(409, .SCH-409-CLOSED./  if (false \\&\\& ex) throw problem(409, \\x27SCH-409-CLOSED\\x27/' $BOOK && grep -q 'if (false && ex) throw' $BOOK" ""
+mutate M30 "no-show otomatis menandai janji sebelum sesi praktik berakhir" 'S11' \
+  "sed -i 's/(((a.slot_start at time zone b.timezone)::date + s.end_time) at time zone b.timezone),/a.slot_start,/' $NOSHOW && grep -q '^               a.slot_start,\$' $NOSHOW" ""
+mutate M31 "perubahan jadwal tidak memeriksa janji temu mendatang" 'S09' \
+  "sed -i 's/      await this.assertBookingsStillFit(tx, id);/      \\/\\/ dimatikan/' $SCHED && grep -q '// dimatikan' $SCHED" ""
 
 # Mutasi UI: suite Playwright (U##) sebagai detektor
 if [ "${MUTATION_E2E:-0}" = "1" ]; then
