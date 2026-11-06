@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Uji mutasi kontrol keamanan (Stage 3 M1–M4 diulang di monorepo — RSK-020; M5 Stage 4; M6–M14 Stage 5; M15–M17 Stage 6; M18–M22 Stage 7; M23–M38 Stage 8; M39–M43 Stage 9).
+# Uji mutasi kontrol keamanan (Stage 3 M1–M4 diulang di monorepo — RSK-020; M5 Stage 4; M6–M14 Stage 5; M15–M17 Stage 6; M18–M22 Stage 7; M23–M38 Stage 8; M39–M49 Stage 9).
 # Setiap mutasi sengaja merusak satu kontrol, menjalankan suite integrasi API, dan LULUS hanya bila
 # uji yang menjaga kontrol itu GAGAL. Kode selalu dikembalikan (trap), juga bila skrip dihentikan.
 #
@@ -40,7 +40,10 @@ QDISP=libs/scheduling/src/lib/queue-display.controller.ts
 CHART=libs/clinical/src/lib/chart.controller.ts
 CHARTREPO=libs/clinical/src/lib/chart.repo.ts
 MIG19=db/migrations/0019_clinical_record.sql
-FILES=("$AUTH" "$SESSION" "$MIG2" "$MIG3" "$GUARD" "$PGUARD" "$LAYOUT" "$EXPORT" "$MIG5" "$MIG6" "$TOTP" "$IAMUSERS" "$ACCOUNT" "$AUDITCHG" "$PRACT" "$MIG12" "$TERM" "$IMPORTS" "$PATIENT" "$MIG15" "$IDEM" "$MIG16" "$BOOK" "$SCHED" "$NOSHOW" "$ENCREPO" "$ENCCTL" "$QDISP" "$CHART" "$CHARTREPO" "$MIG19")
+SIGNCTL=libs/clinical/src/lib/sign.controller.ts
+REAUTH=libs/clinical/src/lib/reauth.ts
+MIG20=db/migrations/0020_clinical_signing.sql
+FILES=("$AUTH" "$SESSION" "$MIG2" "$MIG3" "$GUARD" "$PGUARD" "$LAYOUT" "$EXPORT" "$MIG5" "$MIG6" "$TOTP" "$IAMUSERS" "$ACCOUNT" "$AUDITCHG" "$PRACT" "$MIG12" "$TERM" "$IMPORTS" "$PATIENT" "$MIG15" "$IDEM" "$MIG16" "$BOOK" "$SCHED" "$NOSHOW" "$ENCREPO" "$ENCCTL" "$QDISP" "$CHART" "$CHARTREPO" "$MIG19" "$SIGNCTL" "$REAUTH" "$MIG20")
 BACKUP=$(mktemp -d)
 cp "${FILES[@]}" "$BACKUP"/
 restore() { for f in "${FILES[@]}"; do cp "$BACKUP/$(basename "$f")" "$f"; done; }
@@ -152,6 +155,19 @@ mutate M42 "role aplikasi dapat menghapus data alergi pasien" 'C07' \
   "sed -i 's/^REVOKE DELETE ON allergy_intolerance, /REVOKE DELETE ON /' $MIG19 && grep -q '^REVOKE DELETE ON patient_history, observation' $MIG19" ""
 mutate M43 "perawat dapat menulis SOAP lengkap (melewati OD-092)" 'C03' \
   "sed -i \"s/@RequirePermission('clinical.note.write') @BodySchema(NoteBody)/@RequirePermission('clinical.vitals.write') @BodySchema(NoteBody)/\" $CHART && grep -q \"'clinical.vitals.write') @BodySchema(NoteBody)\" $CHART" ""
+
+mutate M44 "pengesahan tanpa konfirmasi ulang kata sandi/TOTP" 'C12' \
+  "sed -i '0,/    const method = await reauthenticate(this.db, this.cfg, b);/s//    const method = \x27PASSWORD\x27 as const;/' $SIGNCTL && grep -q \"const method = 'PASSWORD' as const;\" $SIGNCTL" ""
+mutate M45 "rekam medis tanpa SOAP lengkap / diagnosis primer dapat disahkan" 'C11' \
+  "sed -i 's/    if (missing.length) throw/    if (false \&\& missing.length) throw/' $SIGNCTL && grep -q 'if (false && missing.length) throw' $SIGNCTL" ""
+mutate M46 "dokter yang tidak bertugas di cabang dapat mengesahkan sebagai pengganti" 'C14' \
+  "sed -i 's/      if (!onDuty) throw/      if (false) throw/' $SIGNCTL && grep -q '      if (false) throw' $SIGNCTL" ""
+mutate M47 "addendum dapat ditambahkan ke catatan yang belum disahkan (database)" 'C16' \
+  "sed -i '/^CREATE TRIGGER trg_addendum_insert/d' $MIG20 && ! grep -q 'trg_addendum_insert BEFORE' $MIG20" ""
+mutate M48 "verifikasi hash selalu menyatakan valid" 'C17' \
+  "sed -i 's/valid: recomputed === n.content_hash,/valid: true,/' $SIGNCTL && grep -q 'valid: true,' $SIGNCTL" ""
+mutate M49 "kode TOTP yang sama dapat dipakai ulang untuk pengesahan" 'C15' \
+  "sed -i '/      await tx.execute(sql\`update user_mfa set last_totp_step/d' $REAUTH && ! grep -q 'last_totp_step = ' $REAUTH" ""
 
 # Mutasi UI: suite Playwright (U##) sebagai detektor
 if [ "${MUTATION_E2E:-0}" = "1" ]; then

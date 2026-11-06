@@ -81,7 +81,7 @@ SELECT test.expect_error('T07 dua diagnosis primer pada satu kunjungan',
      VALUES (app.current_tenant_id(), test.id('a',70), 'c1000000-0000-0000-0000-000000000002', 'PRIMER')$q$, 'unique');
 SELECT test.expect_error('T07b sahkan tanpa signed_by/hash',
   $q$UPDATE clinical_note SET status = 'SIGNED' WHERE id = test.id('a',71)$q$, 'check');
-UPDATE clinical_note SET status = 'SIGNED', signed_by = test.id('a',20), signed_at = now(), content_hash = 'abc'
+UPDATE clinical_note SET status = 'SIGNED', signed_by = test.id('a',20), signed_at = now(), content_hash = 'abc', signer_user_id = test.id('a',21), sign_method = 'PASSWORD'
  WHERE id = test.id('a',71);
 SELECT test.expect_error('T08 ubah SOAP setelah disahkan',
   $q$UPDATE clinical_note SET assessment = 'diubah' WHERE id = test.id('a',71)$q$, 'IMMUTABLE');

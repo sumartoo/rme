@@ -61,7 +61,7 @@ export interface Me {
   branches: Branch[]; activeBranchId: string | null;
 }
 export interface MenuNode { code: string; label: string; route?: string; icon?: string; children: MenuNode[] }
-export interface UserItem { id: string; email: string; fullName: string; status: 'ACTIVE' | 'DISABLED'; lastLoginAt: string | null; roles: string[]; mfaEnrolled: boolean }
+export interface UserItem { id: string; email: string; fullName: string; status: 'ACTIVE' | 'DISABLED'; lastLoginAt: string | null; roles: string[]; mfaEnrolled: boolean; practitionerId?: string | null }
 export interface Page<T> { data: T[]; page: { hasMore: boolean; nextCursor: string | null } }
 export interface InvitationItem { id: string; email: string; expiresAt: string; createdAt?: string; acceptedAt: string | null; roles?: string[]; clinicName?: string }
 export interface Role {
@@ -200,7 +200,12 @@ export interface HistoryEntry { id: string; historyType: 'PENYAKIT' | 'OBAT_RUTI
   status: ClinicalStatus; statusReason: string | null; recordedAt: string; recordedByName: string | null }
 export interface ClinicalNote { id: string; templateCode: TemplateCode; subjective: string | null; objective: string | null; assessment: string | null;
   plan: string | null; structured: Record<string, unknown>; status: 'DRAFT' | 'SIGNED'; signedAt: string | null; signedByName: string | null;
-  updatedAt: string; updatedByName: string | null; version: number }
+  signerSip: string | null; signMethod: 'PASSWORD' | 'TOTP' | null; substituteReason: string | null; contentHash: string | null;
+  addenda: Addendum[]; updatedAt: string; updatedByName: string | null; version: number }
+export interface Addendum { id: string; reason: string; content: string; authorId: string; authorName: string; authorSip: string | null;
+  signMethod: 'PASSWORD' | 'TOTP' | null; signedAt: string; contentHash: string }
+export interface MedicalRecordEntry { encounterId: string; encounterNo: string; localDate: string; unitName: string; practitionerName: string;
+  status: EncounterStatus; note: ClinicalNote | null; diagnoses: Diagnosis[]; procedures: Procedure[]; vitals: VitalSet | null }
 export interface VitalSet { recordedAt: string; recordedByName: string | null; values: Record<string, number> }
 export interface Diagnosis { id: string; conceptId: string; code: string; display: string; rank: 'PRIMER' | 'SEKUNDER'; caseStatus: 'BARU' | 'LAMA'; note: string | null }
 export interface Procedure { id: string; serviceItemId: string; serviceName: string; conceptId: string | null; code: string | null; display: string | null;

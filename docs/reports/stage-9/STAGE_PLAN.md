@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | Stage | 9 — Clinical Workflow & Rekam Medis |
-| Status | **BERJALAN** — batch 1 selesai; OD diputuskan (DEC-038) |
+| Status | **BERJALAN** — batch 1–2 selesai; OD diputuskan (DEC-038) |
 | Project Owner | Sumarto |
 | Requirement | **MVP saja** (DEC-010): CLN-FR-001, 002, 004–012, 014–023. Di luar stage ini (LJT): CLN-FR-003 peringatan nilai vital, CLN-FR-013 interaksi obat, CLN-FR-024 informed consent tindakan, CLN-FR-025 odontogram, CLN-FR-026 tanda tangan tersertifikasi |
 | Mode verifikasi | Lokal sampai GitHub Actions aktif 1 Des (DEC-036) |
@@ -47,9 +47,9 @@ Perkiraan: ±1 hari kerja per batch, di luar waktu tunggu keputusan dan review m
 ## 5. Gate Stage 9
 
 - [ ] Workflow klinis divalidasi tenaga medis (DEC-005, OD-095)
-- [ ] Catatan SIGNED tidak dapat diubah lewat API maupun SQL role aplikasi
-- [ ] Addendum & hash integritas teruji
-- [ ] Audit akses baca rekam medis berfungsi
+- [x] Catatan SIGNED tidak dapat diubah lewat API maupun SQL role aplikasi — C10, C12, uji SQL T08
+- [x] Addendum & hash integritas teruji — C16, C17 (perubahan di luar aplikasi terdeteksi)
+- [x] Audit akses baca rekam medis berfungsi — C08, C19
 - [ ] Order & hasil lab teruji dengan vendor tiruan
 - [ ] Matriks permission X01 mencakup semua endpoint baru
 - [ ] Uji mutasi untuk kontrol baru terdeteksi (lokal; di Actions setelah 1 Des)
@@ -62,3 +62,5 @@ Perkiraan: ±1 hari kerja per batch, di luar waktu tunggu keputusan dan review m
 | 6 Nov 2026 | Stage 8 disetujui (DEC-037); rencana Stage 9 disusun, menunggu keputusan OD | — |
 | 6 Nov 2026 | PO menyetujui semua usulan OD (DEC-038) | — |
 | 6 Nov 2026 | **Batch 1 — worklist & pencatatan klinis:** modul baru `libs/clinical`. Worklist hari ini per cabang/poli (tampilan perawat & dokter, `mine=true` untuk pasien dokter yang login), tombol Mulai periksa (status Diperiksa, tiket antrean selesai, layar TV diperbarui). Tanda vital per set dengan batas salah ketik `[REVIEW-MEDIS]` dan IMT otomatis (juga dari TB set sebelumnya); set pertama → status Triase. Anamnesis awal oleh perawat (OD-092) dan SOAP dokter dengan If-Match; template Umum/Gigi/Anak/Kebidanan dengan isian terstruktur tervalidasi (OD-035), bawaan dari master poli. Diagnosis ICD-10 (maks. satu primer, versi berlaku), tindakan = layanan + ICD-9-CM opsional dengan pelaksana. Alergi & riwayat penyakit/obat rutin di tingkat pasien, tidak dihapus (nonaktif/salah input wajib alasan); alergi aktif tampil di header & worklist. Layar encounter dengan kunjungan sebelumnya (diagnosis primer & asesmen); setiap pembukaan tercatat `CLINICAL_RECORD_READ` dengan patient_id. Audit perubahan catatan/diagnosis tidak menyalin isi klinis. Semua penulisan ditolak setelah catatan disahkan atau kunjungan selesai/batal (API 409 + trigger DB). Migrasi 0019 (DELETE alergi/riwayat/observasi/catatan dicabut; menu Worklist klinis). UI: Worklist klinis, layar encounter (Ringkasan, Tanda vital, SOAP, Diagnosis & tindakan, Alergi & riwayat), template di master poli | C01–C10, W22, mutasi M39–M43 |
+| 6 Nov 2026 | Akses ke `AtoAIs/atoai-rme-v2` dari sesi kerja terputus; atas permintaan PO, repo kerja sementara `sumartoo/rme` (Actions akun pribadi). CI pertama di sana menemukan 2 uji SQL lama (T05, T08b) yang belum menyesuaikan DELETE yang dicabut di 0017/0019 → diperbaiki (PR sumartoo/rme#1); CI hijau dan deploy VPS berhasil (migrasi 0016–0019). Verifikasi lokal kini juga mencakup `test:db`, `check:schema`, worker self-test | — |
+| 6 Nov 2026 | **Batch 2 — pengesahan, addendum & riwayat:** Sahkan rekam medis (OD-034): hanya saat pasien Diperiksa; wajib SOAP lengkap + diagnosis primer (422 dengan daftar yang kurang); penandatangan = akun tertaut dokter/dokter gigi/spesialis aktif dengan SIP berlaku; dokter pengganti harus berjadwal di cabang yang sama dan mengisi alasan (OD-092); konfirmasi ulang kata sandi ATAU TOTP (anti-replay), gagal tercatat & dibatasi 5×/15 menit. Disimpan: penandatangan, SIP, cara konfirmasi, waktu server, hash SHA-256 isi kanonik (SOAP, isian template, vital, diagnosis, tindakan, identitas kunjungan & penandatangan). Addendum ber-alasan dengan konfirmasi ulang & hash berantai ke hash catatan; database menolak addendum untuk catatan yang belum disahkan dan menolak perubahan addendum. Verifikasi integritas menghitung ulang hash (perubahan di luar aplikasi terdeteksi). Riwayat rekam medis pasien berhalaman, akses tercatat. Penautan akun yang sudah ada ke tenaga kesehatan di halaman Pengguna. Migrasi 0020. UI: panel Sahkan/terkunci + Periksa integritas + addendum di layar encounter, halaman Riwayat rekam medis | C11–C19, W23, mutasi M44–M49 |

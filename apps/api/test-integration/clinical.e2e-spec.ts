@@ -268,7 +268,7 @@ describe('Alergi, riwayat & layar encounter (CLN-FR-006, 007, 016; AUD-FR-002)',
     const n = await put(`/api/v1/encounters/${e}/note`, dokter, 0).send({ subjective: 'S', assessment: 'A' });
     await put(`/api/v1/encounters/${e}/diagnoses`, dokter).send([{ conceptId: ICD10_R50, rank: 'PRIMER' }]);
     // Pengesahan dibuat di batch 2 — di sini disimulasikan langsung
-    await su(`update app.clinical_note set status = 'SIGNED', signed_by = $2, signed_at = now(), content_hash = 'uji' where id = $1`, [n.body.id, DR]);
+    await su(`update app.clinical_note set status = 'SIGNED', signed_by = $2, signed_at = now(), content_hash = 'uji', signer_user_id = $3, sign_method = 'PASSWORD' where id = $1`, [n.body.id, DR, ids.dokterA]);
     const writes = [
       () => put(`/api/v1/encounters/${e}/note`, dokter, n.body.version + 1).send({ plan: 'P' }),
       () => put(`/api/v1/encounters/${e}/anamnesis`, perawat, n.body.version + 1).send({ subjective: 'x' }),

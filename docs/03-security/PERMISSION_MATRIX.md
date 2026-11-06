@@ -65,7 +65,7 @@
 | `clinical.note.write` |  | ✓ |  |  |  |  |  |  | consultationStart; diagnosesSet; noteSave; procedureAdd; procedureRemove |
 | `clinical.prescription.approve_substitution` |  | ✓ |  |  |  |  |  |  | substitutionDecide |
 | `clinical.prescription.write` |  | ✓ |  |  |  |  |  |  | prescriptionSave |
-| `clinical.record.read` |  | ✓ | ✓ |  | ✓ |  |  |  | allergyList; clinicalTemplates; clinicalWorklist; encounterChart; historyList; medicalDocumentGet; patientEncounterHistory |
+| `clinical.record.read` |  | ✓ | ✓ |  | ✓ |  |  |  | allergyList; clinicalNoteVerify; clinicalTemplates; clinicalWorklist; encounterChart; historyList; medicalDocumentGet; patientEncounterHistory; patientMedicalRecords |
 | `clinical.record.write` |  | ✓ | ✓ |  |  |  |  |  | allergyCreate; allergyStatus; historyCreate; historyStatus |
 | `clinical.vitals.write` |  | ✓ | ✓ |  |  |  |  |  | noteAnamnesis; vitalsRecord |
 | **document** | | | | | | | | | |

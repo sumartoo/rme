@@ -67,17 +67,29 @@ export async function historyOf(tx: Tx, patientId: string, activeOnly: boolean) 
 
 export interface NoteRow { id: string; template_code: string; subjective: string | null; objective: string | null; assessment: string | null;
   plan: string | null; structured: Record<string, unknown>; status: string; signed_at: string | null; signed_by_name: string | null;
+  signer_sip: string | null; sign_method: string | null; substitute_reason: string | null; content_hash: string | null;
   updated_at: string; updated_by_name: string | null; version: number }
 export const noteDto = (r: NoteRow) => ({ id: r.id, templateCode: r.template_code, subjective: r.subjective, objective: r.objective,
   assessment: r.assessment, plan: r.plan, structured: r.structured, status: r.status, signedAt: r.signed_at, signedByName: r.signed_by_name,
+  signerSip: r.signer_sip, signMethod: r.sign_method, substituteReason: r.substitute_reason, contentHash: r.content_hash,
   updatedAt: r.updated_at, updatedByName: r.updated_by_name, version: r.version });
 export async function noteOf(tx: Tx, encounterId: string) {
   const [n] = await rows<NoteRow>(tx, sql`
     select n.id, n.template_code, n.subjective, n.objective, n.assessment, n.plan, n.structured, n.status, n.signed_at,
-           p.full_name as signed_by_name, n.updated_at, u.full_name as updated_by_name, n.version
+           p.full_name as signed_by_name, n.signer_sip, n.sign_method, n.substitute_reason, n.content_hash,
+           n.updated_at, u.full_name as updated_by_name, n.version
       from clinical_note n left join practitioner p on p.id = n.signed_by left join app_user u on u.id = n.updated_by
      where n.encounter_id = ${encounterId}`);
-  return n ? noteDto(n) : null;
+  return n ? { ...noteDto(n), addenda: await addendaOf(tx, n.id) } : null;
+}
+
+export async function addendaOf(tx: Tx, noteId: string) {
+  return (await rows<{ id: string; reason: string; content: string; author_id: string; author_name: string; author_sip: string | null;
+                       sign_method: string | null; signed_at: string; content_hash: string }>(tx, sql`
+    select a.id, a.reason, a.content, a.author_id, p.full_name as author_name, a.author_sip, a.sign_method, a.signed_at, a.content_hash
+      from clinical_addendum a join practitioner p on p.id = a.author_id where a.note_id = ${noteId} order by a.signed_at, a.id`))
+    .map((a) => ({ id: a.id, reason: a.reason, content: a.content, authorId: a.author_id, authorName: a.author_name, authorSip: a.author_sip,
+      signMethod: a.sign_method, signedAt: a.signed_at, contentHash: a.content_hash }));
 }
 
 export async function vitalsOf(tx: Tx, encounterId: string) {
