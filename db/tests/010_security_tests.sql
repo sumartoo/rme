@@ -39,7 +39,8 @@ SELECT test.expect_error('T04 encounter tenant A merujuk pasien tenant B',
 
 -- T05: update/delete pada data tenant B tidak berefek (0 baris)
 UPDATE patient SET full_name = 'DIRETAS' WHERE id = test.id('b',60);
-DELETE FROM queue_ticket WHERE tenant_id = 'bbbbbbbb-0000-0000-0000-000000000000';
+-- queue_ticket tidak lagi boleh dihapus role aplikasi (migrasi 0017); uji pakai tabel yang masih boleh DELETE
+DELETE FROM condition_dx WHERE tenant_id = 'bbbbbbbb-0000-0000-0000-000000000000';
 RESET ROLE;
 SELECT test.expect_eq('T05 nama pasien B setelah upaya update dari A',
   (SELECT full_name FROM patient WHERE id = test.id('b',60)), 'Pasien Uji b'::text);
@@ -85,7 +86,7 @@ UPDATE clinical_note SET status = 'SIGNED', signed_by = test.id('a',20), signed_
 SELECT test.expect_error('T08 ubah SOAP setelah disahkan',
   $q$UPDATE clinical_note SET assessment = 'diubah' WHERE id = test.id('a',71)$q$, 'IMMUTABLE');
 SELECT test.expect_error('T08b hapus catatan yang disahkan',
-  $q$DELETE FROM clinical_note WHERE id = test.id('a',71)$q$, 'IMMUTABLE');
+  $q$DELETE FROM clinical_note WHERE id = test.id('a',71)$q$, 'IMMUTABLE|permission denied');   -- sejak 0019 DELETE juga dicabut dari role aplikasi
 SELECT test.expect_error('T08c tambah diagnosis setelah disahkan',
   $q$INSERT INTO condition_dx(tenant_id, encounter_id, concept_id, rank)
      VALUES (app.current_tenant_id(), test.id('a',70), 'c1000000-0000-0000-0000-000000000002', 'SEKUNDER')$q$, 'IMMUTABLE');
