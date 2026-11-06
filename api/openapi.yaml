@@ -3592,7 +3592,7 @@ paths:
       operationId: appointmentCheckIn
       tags:
       - Scheduling
-      summary: Check-in → kunjungan & nomor antrean
+      summary: Check-in janji temu hari ini → kunjungan & nomor antrean (toleransi terlambat OD-087)
       x-requirements:
       - SCH-FR-006
       - SCH-FR-007
@@ -3600,6 +3600,12 @@ paths:
       parameters:
       - $ref: '#/components/parameters/appointmentId'
       - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CheckInInput'
       responses:
         '200':
           description: OK
@@ -3686,6 +3692,32 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
+  /api/v1/encounters/{encounterId}:
+    get:
+      operationId: encounterGet
+      tags:
+      - Scheduling
+      summary: Detail kunjungan (administratif)
+      x-requirements:
+      - SCH-FR-013
+      x-permission: encounter.read
+      parameters:
+      - $ref: '#/components/parameters/encounterId'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Encounter'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
   /api/v1/encounters/{encounterId}/cancel:
     post:
       operationId: encounterCancel
@@ -3718,6 +3750,65 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /api/v1/queue:
+    get:
+      operationId: queueList
+      tags:
+      - Scheduling
+      summary: Antrean poli hari ini (unitId wajib)
+      x-requirements:
+      - SCH-FR-008
+      x-permission: queue.call
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/QueueTicket'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /api/v1/queue/call-next:
+    post:
+      operationId: queueCallNext
+      tags:
+      - Scheduling
+      summary: Panggil antrean menunggu berikutnya
+      x-requirements:
+      - SCH-FR-008
+      x-permission: queue.call
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                unitId: *id002
+                practitionerId: *id002
+              required:
+              - unitId
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QueueTicket'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
         '409':
           $ref: '#/components/responses/Conflict'
   /api/v1/queue/{ticketId}/call:
@@ -6556,6 +6647,12 @@ components:
           - LAINNYA
         specialty:
           type: string
+        queuePrefix:
+          type:
+          - string
+          - 'null'
+          pattern: ^[A-Z]{1,3}$
+          description: Awalan nomor antrean (OD-086); kosong = huruf pertama kode
         isActive: *id001
         version: *id004
       required:
@@ -7410,21 +7507,61 @@ components:
         unitId: *id002
         practitionerId: *id002
         coverageId: *id002
+        eligibilityNote:
+          type: string
+          maxLength: 500
       required:
       - patientId
       - unitId
       - practitionerId
+    CheckInInput:
+      type: object
+      properties:
+        coverageId: *id002
+        eligibilityNote:
+          type: string
+          maxLength: 500
     Encounter:
       type: object
       properties:
         id: *id002
         encounterNo:
           type: string
+          example: KJ202611000123
         patient:
           $ref: '#/components/schemas/PatientSummary'
+        branchId: *id002
+        branchName:
+          type: string
         unitId: *id002
+        unitName:
+          type: string
         practitionerId: *id002
+        practitionerName:
+          type: string
         payerType: *id008
+        coverage:
+          type: object
+          properties:
+            id: *id002
+            payerName:
+              type: string
+            memberNo:
+              type: string
+        coverageVerifiedAt: *id005
+        coverageVerificationNote:
+          type: string
+        arrivalType:
+          type: string
+          enum:
+          - WALK_IN
+          - APPOINTMENT
+        arrivedLate: *id001
+        appointment:
+          type: object
+          properties:
+            id: *id002
+            slotStart: *id005
         status:
           type: string
           enum:
@@ -7437,9 +7574,18 @@ components:
           - BILLING
           - FINISHED
           - CANCELLED
+        cancelReason:
+          type: string
         queue:
           $ref: '#/components/schemas/QueueTicket'
         arrivedAt: *id005
+        localDate: *id006
+        localTime:
+          type: string
+        warnings:
+          type: array
+          items:
+            type: string
         version: *id004
       required:
       - id
@@ -7454,6 +7600,16 @@ components:
           example: A-012
         queueNumber: *id004
         unitId: *id002
+        unitName:
+          type: string
+        practitionerId: *id002
+        practitionerName:
+          type: string
+        encounterId: *id002
+        encounterNo:
+          type: string
+        patient:
+          $ref: '#/components/schemas/PatientSummary'
         status:
           type: string
           enum:
@@ -7464,6 +7620,11 @@ components:
           - CANCELLED
         calledAt: *id005
         callCount: *id004
+        skippedAt: *id005
+        arrivalType:
+          type: string
+        arrivedLate: *id001
+        version: *id004
       required:
       - id
       - displayCode

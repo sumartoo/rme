@@ -5,8 +5,8 @@ import { useCallback, useEffect, useState } from 'react';
 import {
   Alert, Badge, Button, Card, CardContent, CardHeader, CardTitle, Dialog, Field, Input, Select, Switch, TBody, TD, TH, THead, TR, Table, Textarea,
 } from '@clinicrme/ui';
-import { ConsentDocument, Coverage, Patient, PatientSummary, Payer, api, errorText } from '../../../../lib/api';
-import { CONSENT_TYPE_LABEL, IDENTITY_LABEL, PAYER_TYPE_LABEL, SEX_LABEL, daysUntil, fmtAge, fmtDate, fmtDateTime } from '../../../../lib/format';
+import { ConsentDocument, Coverage, Encounter, Page, Patient, PatientSummary, Payer, api, errorText } from '../../../../lib/api';
+import { CONSENT_TYPE_LABEL, ENCOUNTER_STATUS, IDENTITY_LABEL, PAYER_TYPE_LABEL, SEX_LABEL, daysUntil, fmtAge, fmtDate, fmtDateTime } from '../../../../lib/format';
 import { can, useSession } from '../../../../lib/session';
 import { PatientLine, PatientPicker } from '../../../../components/patient-picker';
 import { PatientForm } from '../patient-form';
@@ -143,6 +143,8 @@ export default function PatientDetailPage() {
           )}
         </CardContent>
       </Card>
+
+      {can(s, 'encounter.read') ? <VisitHistory patientId={p.id} /> : null}
 
       {!merged && (update || can(s, 'patient.merge')) ? (
         <Card>
@@ -370,5 +372,34 @@ function MergeDialog({ p, onClose }: { p: Patient; onClose: () => void }) {
         </div>
       </form>
     </Dialog>
+  );
+}
+
+/** Riwayat kunjungan administratif (tanggal, poli, dokter, status) — isi klinis ada di Stage 9. */
+function VisitHistory({ patientId }: { patientId: string }) {
+  const [items, setItems] = useState<Encounter[]>();
+  useEffect(() => { void api<Page<Encounter>>(`/encounters?patientId=${patientId}&limit=20`).then((r) => setItems(r.data)).catch(() => setItems([])); }, [patientId]);
+  return (
+    <Card>
+      <CardHeader><CardTitle>Riwayat kunjungan</CardTitle></CardHeader>
+      <CardContent>
+        {!items ? <p className="text-sm text-muted-foreground" role="status">Memuat…</p> : items.length === 0 ? <p className="text-sm text-muted-foreground">Belum ada kunjungan.</p> : (
+          <Table>
+            <THead><TR><TH>Tanggal</TH><TH>No. kunjungan</TH><TH>Poli / dokter</TH><TH>Penjamin</TH><TH>Status</TH></TR></THead>
+            <TBody>
+              {items.map((e) => (
+                <TR key={e.id} data-testid="history-row">
+                  <TD className="whitespace-nowrap text-xs">{e.localDate ? fmtDate(e.localDate) : '—'} {e.localTime}</TD>
+                  <TD className="font-mono text-xs">{e.encounterNo}</TD>
+                  <TD className="text-xs">{e.unitName}<span className="block text-muted-foreground">{e.practitionerName}</span></TD>
+                  <TD className="text-xs">{PAYER_TYPE_LABEL[e.payerType]}</TD>
+                  <TD><Badge tone={ENCOUNTER_STATUS[e.status].tone}>{ENCOUNTER_STATUS[e.status].label}</Badge></TD>
+                </TR>
+              ))}
+            </TBody>
+          </Table>
+        )}
+      </CardContent>
+    </Card>
   );
 }

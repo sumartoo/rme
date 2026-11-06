@@ -75,3 +75,17 @@ export const APPOINTMENT_STATUS = {
 } as const;
 /** "HH:MM" dari waktu ber-zona slot (string ISO dengan offset) — jam lokal cabang apa adanya. */
 export const slotTime = (iso: string) => iso.slice(11, 16);
+
+// ------------------------------------------------------------------ Kunjungan & antrean (Stage 8)
+export const ENCOUNTER_STATUS = {
+  REGISTERED: { label: 'Terdaftar', tone: 'neutral' }, ARRIVED: { label: 'Hadir', tone: 'info' }, TRIAGED: { label: 'Triase', tone: 'info' },
+  IN_CONSULTATION: { label: 'Diperiksa', tone: 'warning' }, CONSULT_DONE: { label: 'Selesai periksa', tone: 'success' },
+  PHARMACY: { label: 'Farmasi', tone: 'info' }, BILLING: { label: 'Kasir', tone: 'info' }, FINISHED: { label: 'Selesai', tone: 'success' },
+  CANCELLED: { label: 'Dibatalkan', tone: 'neutral' },
+} as const;
+export const TICKET_STATUS = {
+  WAITING: { label: 'Menunggu', tone: 'info' }, CALLED: { label: 'Dipanggil', tone: 'warning' }, SKIPPED: { label: 'Dilewati', tone: 'neutral' },
+  SERVED: { label: 'Dilayani', tone: 'success' }, CANCELLED: { label: 'Batal', tone: 'neutral' },
+} as const;
+/** Penjamin yang wajib verifikasi kepesertaan manual saat kunjungan (OD-032). */
+export const NEEDS_ELIGIBILITY = (t: string) => t === 'ASURANSI' || t === 'PERUSAHAAN' || t === 'BPJS';

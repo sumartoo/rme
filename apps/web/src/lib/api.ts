@@ -89,7 +89,7 @@ export interface BranchItem {
   timezone: Timezone; isActive: boolean; version: number;
 }
 export type UnitType = 'POLI' | 'RUANG' | 'FARMASI' | 'KASIR' | 'LAB' | 'LAINNYA';
-export interface ServiceUnit { id: string; branchId: string; code: string; name: string; unitType: UnitType; specialty: string | null; isActive: boolean; version: number }
+export interface ServiceUnit { id: string; branchId: string; code: string; name: string; unitType: UnitType; specialty: string | null; queuePrefix: string | null; isActive: boolean; version: number }
 export type PractitionerType = 'DOKTER' | 'DOKTER_GIGI' | 'DOKTER_SPESIALIS' | 'PERAWAT' | 'BIDAN' | 'APOTEKER' | 'TTK' | 'ANALIS' | 'LAINNYA';
 export interface Practitioner {
   id: string; fullName: string; nikMasked: string | null; practitionerType: PractitionerType; specialty: string | null;
@@ -161,4 +161,23 @@ export interface Appointment {
   localDate: string; localTime: string; timezone: Timezone; rescheduledToId: string | null; practitionerId: string; practitionerName: string;
   branchId: string; branchName: string; unitId: string; unitName: string;
   patient: { id: string; mrn: string; fullName: string; birthDate: string; sex: Sex; phone: string | null; status: string }; version: number;
+}
+
+// ------------------------------------------------------------------ Kunjungan & antrean (Stage 8)
+export type EncounterStatus = 'REGISTERED' | 'ARRIVED' | 'TRIAGED' | 'IN_CONSULTATION' | 'CONSULT_DONE' | 'PHARMACY' | 'BILLING' | 'FINISHED' | 'CANCELLED';
+export type TicketStatus = 'WAITING' | 'CALLED' | 'SKIPPED' | 'SERVED' | 'CANCELLED';
+export interface Encounter {
+  id: string; encounterNo: string; status: EncounterStatus; arrivalType: 'WALK_IN' | 'APPOINTMENT'; arrivedAt: string; arrivedLate: boolean;
+  localDate: string; localTime: string; timezone: Timezone; cancelReason: string | null;
+  patient: { id: string; mrn: string; fullName: string; birthDate: string; sex: Sex; phone: string | null };
+  branchId: string; branchName: string; unitId: string; unitName: string; practitionerId: string; practitionerName: string;
+  payerType: PayerType; coverage: { id: string; payerName: string; memberNo: string | null } | null; coverageVerificationNote: string | null;
+  appointment: { id: string; slotStart: string | null } | null;
+  queue: { id: string; displayCode: string; queueNumber: number; status: TicketStatus; calledAt: string | null; callCount: number } | null;
+  warnings?: string[]; version: number;
+}
+export interface QueueTicket {
+  id: string; displayCode: string; queueNumber: number; status: TicketStatus; calledAt: string | null; callCount: number; unitName: string;
+  practitionerId: string | null; practitionerName: string | null; encounterId: string; encounterNo: string; arrivalType: string; arrivedLate: boolean;
+  patient: { id: string; mrn: string; fullName: string };
 }

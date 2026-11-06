@@ -43,12 +43,13 @@ export const UnitBody = z.object({
   name: Name,
   unitType: z.enum(['POLI', 'RUANG', 'FARMASI', 'KASIR', 'LAB', 'LAINNYA']),
   specialty: optText(100),
+  queuePrefix: z.string().trim().toUpperCase().regex(/^[A-Z]{1,3}$/, 'Awalan antrean 1–3 huruf').nullable().optional(),   // OD-086
   isActive: z.boolean().optional(),
 }).strict();
-interface UnitRow { id: string; branch_id: string; code: string; name: string; unit_type: string; specialty: string | null; is_active: boolean; version: number }
+interface UnitRow { id: string; branch_id: string; code: string; name: string; unit_type: string; specialty: string | null; queue_prefix: string | null; is_active: boolean; version: number }
 const unitDto = (r: UnitRow) => ({ id: r.id, branchId: r.branch_id, code: r.code, name: r.name, unitType: r.unit_type,
-  specialty: r.specialty, isActive: r.is_active, version: r.version });
-const UNIT = sql`select id, branch_id, code, name, unit_type, specialty, is_active, version from service_unit`;
+  specialty: r.specialty, queuePrefix: r.queue_prefix, isActive: r.is_active, version: r.version });
+const UNIT = sql`select id, branch_id, code, name, unit_type, specialty, queue_prefix, is_active, version from service_unit`;
 
 const ListQuery = z.object({
   includeInactive: z.enum(['true', 'false']).optional(),
@@ -199,10 +200,10 @@ export class OrganizationController {
       const [dup] = await rows(tx, sql`select 1 from service_unit where branch_id = ${b.branchId} and code = ${b.code}`);
       if (dup) throw problem(409, 'MST-409-CODE', 'Kode unit sudah dipakai di cabang ini');
       const [r] = await rows<UnitRow>(tx, sql`
-        insert into service_unit(tenant_id, branch_id, code, name, unit_type, specialty, is_active, updated_by)
+        insert into service_unit(tenant_id, branch_id, code, name, unit_type, specialty, queue_prefix, is_active, updated_by)
         values (app.current_tenant_id(), ${b.branchId}, ${b.code}, ${b.name}, ${b.unitType}, ${b.specialty ?? null},
-                ${b.isActive ?? true}, ${ctx().userId})
-        returning id, branch_id, code, name, unit_type, specialty, is_active, version`);
+                ${b.queuePrefix ?? null}, ${b.isActive ?? true}, ${ctx().userId})
+        returning id, branch_id, code, name, unit_type, specialty, queue_prefix, is_active, version`);
       const d = unitDto(r);
       await auditChange(tx, 'SERVICE_UNIT_CREATED', 'service_unit', r.id, null, d);
       return d;
@@ -227,8 +228,8 @@ export class OrganizationController {
       }
       const [r] = await rows<UnitRow>(tx, sql`
         update service_unit set branch_id = ${n.branchId}, code = ${n.code}, name = ${n.name}, unit_type = ${n.unitType},
-               specialty = ${n.specialty}, is_active = ${n.isActive}, updated_by = ${ctx().userId}
-         where id = ${id} returning id, branch_id, code, name, unit_type, specialty, is_active, version`);
+               specialty = ${n.specialty}, queue_prefix = ${n.queuePrefix}, is_active = ${n.isActive}, updated_by = ${ctx().userId}
+         where id = ${id} returning id, branch_id, code, name, unit_type, specialty, queue_prefix, is_active, version`);
       const after = unitDto(r);
       await auditChange(tx, 'SERVICE_UNIT_UPDATED', 'service_unit', id, before, after);
       return after;

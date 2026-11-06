@@ -73,7 +73,7 @@
 | **encounter** | | | | | | | | | |
 | `encounter.cancel` |  |  |  | ✓ |  |  |  |  | encounterCancel |
 | `encounter.create` |  |  |  | ✓ |  |  |  |  | appointmentCheckIn; encounterWalkIn |
-| `encounter.read` |  | ✓ | ✓ | ✓ | ✓ | ✓ |  |  | encounterBoard |
+| `encounter.read` |  | ✓ | ✓ | ✓ | ✓ | ✓ |  |  | encounterBoard; encounterGet |
 | **iam** | | | | | | | | | |
 | `iam.role.manage` | ✓ |  |  |  |  |  |  |  | roleCreate; roleUpdate |
 | `iam.role.read` | ✓ |  |  |  |  |  |  |  | permissionList; roleList |
@@ -115,7 +115,7 @@
 | `pharmacy.stock.read` |  |  |  |  | ✓ |  | ✓ | ✓ | stockAlerts; stockList |
 | `pharmacy.stock.receive` |  |  |  |  | ✓ |  |  |  | goodsReceiptCreate |
 | **queue** | | | | | | | | | |
-| `queue.call` |  | ✓ | ✓ | ✓ |  |  |  |  | queueCall; queueSkip |
+| `queue.call` |  | ✓ | ✓ | ✓ |  |  |  |  | queueCall; queueCallNext; queueList; queueSkip |
 | `queue.display` |  |  |  | ✓ |  |  |  |  | queueBoard |
 | **report** | | | | | | | | | |
 | `report.clinical.read` |  | ✓ |  |  |  |  | ✓ | ✓ | reportTopDiagnoses |

@@ -120,6 +120,13 @@
       "when": 1794470400000,
       "tag": "0016_scheduling",
       "breakpoints": false
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1794556800000,
+      "tag": "0017_encounter_queue",
+      "breakpoints": false
     }
   ]
 }

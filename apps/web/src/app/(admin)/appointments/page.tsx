@@ -1,6 +1,6 @@
 'use client';
 import Link from 'next/link';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, Badge, Button, Card, CardContent, Dialog, Field, Input, Select, TBody, TD, TH, THead, TR, Table, Textarea } from '@clinicrme/ui';
 import { Appointment, Page, PatientSummary, SlotSession, api, errorText } from '../../../lib/api';
 import { APPOINTMENT_STATUS, TZ_SHORT, fmtDate, slotTime, todayWib } from '../../../lib/format';
@@ -19,11 +19,14 @@ export default function AppointmentsPage() {
   const [notice, setNotice] = useState<string>();
   const [dialog, setDialog] = useState<{ kind: 'new' } | { kind: 'cancel' | 'reschedule'; a: Appointment }>();
 
+  const seq = useRef(0);   // respons lama (tanggal sebelumnya) tidak menimpa hasil terbaru
   const load = useCallback(async () => {
+    const my = ++seq.current;
     try {
       const p = new URLSearchParams({ date, limit: '200' });
       if (status) p.set('status', status);
       const r = await api<Page<Appointment>>(`/appointments?${p}`);
+      if (my !== seq.current) return;
       setItems(r.data); setError(undefined);
     } catch (e) { setError(errorText(e, 'Gagal memuat janji temu')); }
   }, [date, status]);

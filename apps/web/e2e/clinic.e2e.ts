@@ -644,6 +644,53 @@ test('W19 jadwal & janji temu: admin membuat jadwal & cuti, petugas memesan slot
   await expect(page.getByTestId('appointment-row').filter({ hasText: 'Dibatalkan' })).toContainText('Pasien berhalangan');
 });
 
+test('W20 kunjungan & antrean: walk-in dengan verifikasi asuransi, panggil/lewati/panggil ulang, batal, riwayat pasien (Stage 8 batch 3)', async ({ page }) => {
+  watchCsp(page);
+  await login(page, 'pendaftaran@klinik-web.test');
+  const menu = page.getByTestId('side-menu');
+  await menu.getByRole('link', { name: 'Kunjungan' }).click();
+  await page.getByRole('button', { name: 'Daftar walk-in' }).click();
+  const wi = page.getByRole('dialog', { name: 'Daftar kunjungan walk-in' });
+  await wi.getByLabel('Cari pasien').fill('Siti');
+  await wi.getByRole('button', { name: /Siti Rahmawati/ }).click();
+  await wi.getByLabel('Poli *').selectOption({ label: 'Poli Gigi' });
+  await wi.getByLabel('Dokter *').selectOption({ label: 'drg. Web Sintetis' });
+  await wi.getByLabel('Penjamin').selectOption({ label: 'Asuransi Web Sintetis (Asuransi) — POL-778' });
+  const submit = wi.getByRole('button', { name: 'Daftarkan & ambil nomor antrean' });
+  await expect(submit).toBeDisabled();
+  await wi.getByLabel('Verifikasi kepesertaan *').fill('Konfirmasi telepon ref 778');
+  await submit.click();
+  await expect(page.getByTestId('visit-notice')).toContainText('Nomor antrean G-001');
+  const row = page.getByTestId('visit-row').filter({ hasText: 'Siti Rahmawati' });
+  await expect(row).toContainText('G-001');
+  await expect(row).toContainText('Asuransi Web Sintetis');
+  await expect(row).toContainText('Hadir');
+
+  await menu.getByRole('link', { name: 'Antrean' }).click();
+  await page.getByLabel('Poli').selectOption({ label: 'Poli Gigi' });
+  await page.getByRole('button', { name: 'Panggil berikutnya' }).click();
+  await expect(page.getByTestId('now-calling')).toContainText('G-001');
+  await expect(page.getByTestId('now-calling')).toContainText('Siti Rahmawati');
+  const q = page.getByTestId('queue-row').filter({ hasText: 'G-001' });
+  await q.getByRole('button', { name: 'Lewati' }).click();
+  await expect(q).toContainText('Dilewati');
+  await q.getByRole('button', { name: 'Panggil' }).click();
+  await expect(q).toContainText('Dipanggil');
+  await q.getByRole('button', { name: 'Panggil ulang' }).click();
+  await expect(page.getByTestId('now-calling')).toContainText('dipanggil 3×');
+
+  await menu.getByRole('link', { name: 'Kunjungan' }).click();
+  await page.getByTestId('visit-row').filter({ hasText: 'Siti Rahmawati' }).getByRole('button', { name: 'Batalkan' }).click();
+  const cn = page.getByRole('dialog', { name: 'Batalkan kunjungan' });
+  await cn.getByLabel('Alasan *').fill('Pasien pulang');
+  await cn.getByRole('button', { name: 'Batalkan kunjungan' }).click();
+  await expect(page.getByTestId('visit-notice')).toContainText('Kunjungan dibatalkan.');
+  await expect(page.getByTestId('visit-row').filter({ hasText: 'Siti Rahmawati' })).toContainText('Dibatalkan');
+  await page.getByTestId('visit-row').filter({ hasText: 'Siti Rahmawati' }).getByRole('link', { name: 'Siti Rahmawati' }).click();
+  await expect(page.getByTestId('history-row').first()).toContainText('Poli Gigi');
+  await expect(page.getByTestId('history-row').first()).toContainText('Dibatalkan');
+});
+
 test('W06 keamanan: CSP bernonce, no-store; proxy hanya untuk klinik dari subdomain; tidak ada pelanggaran CSP', async ({ page }) => {
   const res = await page.goto('/login');
   const h = res!.headers();

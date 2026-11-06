@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Uji mutasi kontrol keamanan (Stage 3 M1–M4 diulang di monorepo — RSK-020; M5 Stage 4; M6–M14 Stage 5; M15–M17 Stage 6; M18–M22 Stage 7; M23–M31 Stage 8).
+# Uji mutasi kontrol keamanan (Stage 3 M1–M4 diulang di monorepo — RSK-020; M5 Stage 4; M6–M14 Stage 5; M15–M17 Stage 6; M18–M22 Stage 7; M23–M35 Stage 8).
 # Setiap mutasi sengaja merusak satu kontrol, menjalankan suite integrasi API, dan LULUS hanya bila
 # uji yang menjaga kontrol itu GAGAL. Kode selalu dikembalikan (trap), juga bila skrip dihentikan.
 #
@@ -34,7 +34,9 @@ MIG16=db/migrations/0016_scheduling.sql
 BOOK=libs/scheduling/src/lib/appointment.repo.ts
 SCHED=libs/scheduling/src/lib/schedules.controller.ts
 NOSHOW=libs/db/src/lib/no-show.ts
-FILES=("$AUTH" "$SESSION" "$MIG2" "$MIG3" "$GUARD" "$PGUARD" "$LAYOUT" "$EXPORT" "$MIG5" "$MIG6" "$TOTP" "$IAMUSERS" "$ACCOUNT" "$AUDITCHG" "$PRACT" "$MIG12" "$TERM" "$IMPORTS" "$PATIENT" "$MIG15" "$IDEM" "$MIG16" "$BOOK" "$SCHED" "$NOSHOW")
+ENCREPO=libs/scheduling/src/lib/encounter.repo.ts
+ENCCTL=libs/scheduling/src/lib/encounters.controller.ts
+FILES=("$AUTH" "$SESSION" "$MIG2" "$MIG3" "$GUARD" "$PGUARD" "$LAYOUT" "$EXPORT" "$MIG5" "$MIG6" "$TOTP" "$IAMUSERS" "$ACCOUNT" "$AUDITCHG" "$PRACT" "$MIG12" "$TERM" "$IMPORTS" "$PATIENT" "$MIG15" "$IDEM" "$MIG16" "$BOOK" "$SCHED" "$NOSHOW" "$ENCREPO" "$ENCCTL")
 BACKUP=$(mktemp -d)
 cp "${FILES[@]}" "$BACKUP"/
 restore() { for f in "${FILES[@]}"; do cp "$BACKUP/$(basename "$f")" "$f"; done; }
@@ -121,6 +123,14 @@ mutate M30 "no-show otomatis menandai janji sebelum sesi praktik berakhir" 'S11'
   "sed -i 's/(((a.slot_start at time zone b.timezone)::date + s.end_time) at time zone b.timezone),/a.slot_start,/' $NOSHOW && grep -q '^               a.slot_start,\$' $NOSHOW" ""
 mutate M31 "perubahan jadwal tidak memeriksa janji temu mendatang" 'S09' \
   "sed -i 's/      await this.assertBookingsStillFit(tx, id);/      \\/\\/ dimatikan/' $SCHED && grep -q '// dimatikan' $SCHED" ""
+mutate M32 "penjamin asuransi tanpa verifikasi kepesertaan diterima" 'Q02' \
+  "sed -i 's/    else if (!b.eligibilityNote?.trim()) {/    else if (false) {/' $ENCREPO && grep -q 'else if (false) {' $ENCREPO" ""
+mutate M33 "pasien janji temu terlambat tetap mendapat urutan jam slot" 'Q03' \
+  "sed -i 's/sortKey: a.late ? new Date().toISOString() : slot/sortKey: slot/' $ENCCTL && grep -q 'sortKey: slot,' $ENCCTL" ""
+mutate M34 "batal kunjungan tidak membatalkan tiket antrean" 'Q07' \
+  "sed -i '/update queue_ticket set status = .CANCELLED./,+1d' $ENCCTL && ! grep -q 'update queue_ticket set status' $ENCCTL" ""
+mutate M35 "pasien dapat didaftarkan dua kali di poli yang sama pada hari yang sama" 'Q01' \
+  "sed -i 's/  if (active) throw/  if (false) throw/' $ENCREPO && grep -q 'if (false) throw' $ENCREPO" ""
 
 # Mutasi UI: suite Playwright (U##) sebagai detektor
 if [ "${MUTATION_E2E:-0}" = "1" ]; then

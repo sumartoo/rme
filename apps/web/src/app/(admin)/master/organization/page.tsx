@@ -141,7 +141,7 @@ function initial(e: Editing, facilities: Facility[], branches: BranchItem[], def
   if (e.kind === 'branch') return { facilityId: i?.facilityId ?? facilities.find((f) => f.isActive)?.id ?? '', code: i?.code ?? '', name: i?.name ?? '',
     address: i?.address ?? '', regionCode: i?.regionCode ?? '', phone: i?.phone ?? '', timezone: i?.timezone ?? 'Asia/Jakarta', isActive: i?.isActive ?? true };
   return { branchId: i?.branchId ?? (defaultBranch || branches.find((b) => b.isActive)?.id || ''), code: i?.code ?? '', name: i?.name ?? '',
-    unitType: i?.unitType ?? 'POLI', specialty: i?.specialty ?? '', isActive: i?.isActive ?? true };
+    unitType: i?.unitType ?? 'POLI', specialty: i?.specialty ?? '', queuePrefix: i?.queuePrefix ?? '', isActive: i?.isActive ?? true };
 }
 
 function EditDialog({ editing, facilities, branches, defaultBranch, onClose, onSaved }: {
@@ -154,7 +154,7 @@ function EditDialog({ editing, facilities, branches, defaultBranch, onClose, onS
   const str = (k: string) => String(f[k] ?? '');
   const isNew = !editing.item;
   const codeOk = editing.kind === 'facility' || /^[A-Za-z0-9][A-Za-z0-9_-]{1,19}$/.test(str('code').trim());
-  const ok = str('name').trim().length >= 2 && codeOk && (editing.kind !== 'branch' || !!f.facilityId) && (editing.kind !== 'unit' || !!f.branchId);
+  const ok = str('name').trim().length >= 2 && codeOk && (editing.kind !== 'branch' || !!f.facilityId) && (editing.kind !== 'unit' || (!!f.branchId && (!str('queuePrefix') || /^[A-Za-z]{1,3}$/.test(str('queuePrefix')))));
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -162,6 +162,7 @@ function EditDialog({ editing, facilities, branches, defaultBranch, onClose, onS
     setBusy(true); setError(undefined);
     const body: Record<string, string | boolean | null> = Object.fromEntries(Object.entries(f).map(([k, v]) => [k, typeof v === 'string' ? v.trim() : v]));
     if (editing.kind === 'branch') body.regionCode = body.regionCode || null;
+    if (editing.kind === 'unit') body.queuePrefix = typeof body.queuePrefix === 'string' && body.queuePrefix ? body.queuePrefix.toUpperCase() : null;
     try {
       const item = editing.item;
       await api(item ? `${PATH[editing.kind]}/${item.id}` : PATH[editing.kind], {
@@ -222,6 +223,10 @@ function EditDialog({ editing, facilities, branches, defaultBranch, onClose, onS
             </Select>
           </Field>
           <Field id="md-specialty" label="Spesialisasi"><Input id="md-specialty" value={str('specialty')} maxLength={100} onChange={(e) => set('specialty', e.target.value)} /></Field>
+          <Field id="md-qprefix" label="Awalan nomor antrean" hint="1–3 huruf, mis. A → A-001. Kosong = huruf pertama kode."
+                 error={str('queuePrefix') && !/^[A-Za-z]{1,3}$/.test(str('queuePrefix')) ? 'Hanya 1–3 huruf' : undefined}>
+            <Input id="md-qprefix" value={str('queuePrefix')} maxLength={3} onChange={(e) => set('queuePrefix', e.target.value.toUpperCase())} />
+          </Field>
         </>) : null}
         <label className="flex items-center gap-2 text-sm">
           <Switch checked={!!f.isActive} onChange={(e) => set('isActive', e.target.checked)} aria-label="Aktif" /> Aktif
