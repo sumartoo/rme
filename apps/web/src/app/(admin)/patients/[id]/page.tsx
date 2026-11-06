@@ -377,11 +377,14 @@ function MergeDialog({ p, onClose }: { p: Patient; onClose: () => void }) {
 
 /** Riwayat kunjungan administratif (tanggal, poli, dokter, status) — isi klinis ada di Stage 9. */
 function VisitHistory({ patientId }: { patientId: string }) {
+  const s = useSession();
+  const clinical = can(s, 'clinical.record.read');
   const [items, setItems] = useState<Encounter[]>();
   useEffect(() => { void api<Page<Encounter>>(`/encounters?patientId=${patientId}&limit=20`).then((r) => setItems(r.data)).catch(() => setItems([])); }, [patientId]);
   return (
     <Card>
-      <CardHeader><CardTitle>Riwayat kunjungan</CardTitle></CardHeader>
+      <CardHeader><CardTitle className="flex items-center gap-3">Riwayat kunjungan
+        {clinical ? <Link className="ml-auto text-sm font-normal underline" href={`/patients/${patientId}/records`}>Riwayat rekam medis</Link> : null}</CardTitle></CardHeader>
       <CardContent>
         {!items ? <p className="text-sm text-muted-foreground" role="status">Memuat…</p> : items.length === 0 ? <p className="text-sm text-muted-foreground">Belum ada kunjungan.</p> : (
           <Table>
@@ -390,7 +393,7 @@ function VisitHistory({ patientId }: { patientId: string }) {
               {items.map((e) => (
                 <TR key={e.id} data-testid="history-row">
                   <TD className="whitespace-nowrap text-xs">{e.localDate ? fmtDate(e.localDate) : '—'} {e.localTime}</TD>
-                  <TD className="font-mono text-xs">{e.encounterNo}</TD>
+                  <TD className="font-mono text-xs">{clinical ? <Link className="underline" href={`/encounters/${e.id}`}>{e.encounterNo}</Link> : e.encounterNo}</TD>
                   <TD className="text-xs">{e.unitName}<span className="block text-muted-foreground">{e.practitionerName}</span></TD>
                   <TD className="text-xs">{PAYER_TYPE_LABEL[e.payerType]}</TD>
                   <TD><Badge tone={ENCOUNTER_STATUS[e.status].tone}>{ENCOUNTER_STATUS[e.status].label}</Badge></TD>

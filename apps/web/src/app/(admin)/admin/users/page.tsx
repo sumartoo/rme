@@ -22,6 +22,8 @@ export default function UsersPage() {
   const [inviteOpen, setInviteOpen] = useState(false);
   const [disable, setDisable] = useState<UserItem>();
   const [resetMfa, setResetMfa] = useState<UserItem>();
+  const [link, setLink] = useState<UserItem>();
+  const [allPractitioners, setAllPractitioners] = useState<Practitioner[]>([]);
 
   const load = useCallback(async () => {
     try {
@@ -29,7 +31,10 @@ export default function UsersPage() {
       setUsers(u.data); setInvites(i);
       if (manage && can(s, 'iam.role.read')) setRoles(await api<Role[]>('/roles'));
       // IAM-FR-016: tenaga kesehatan aktif yang belum punya akun dapat ditautkan saat mengundang
-      if (manage && can(s, 'master.practitioner.read')) setPractitioners((await api<Page<Practitioner>>('/practitioners?unlinked=true&limit=200')).data);
+      if (manage && can(s, 'master.practitioner.read')) {
+        const [unlinked, all] = await Promise.all([api<Page<Practitioner>>('/practitioners?unlinked=true&limit=200'), api<Page<Practitioner>>('/practitioners?limit=200')]);
+        setPractitioners(unlinked.data); setAllPractitioners(all.data);
+      }
     } catch (e) { setError(errorText(e, 'Gagal memuat pengguna')); }
   }, [manage, s]);
   useEffect(() => { void load(); }, [load]);
@@ -68,6 +73,7 @@ export default function UsersPage() {
                     <TD className="text-right">
                       {u.id === s.me.user.id ? <span className="text-xs text-muted-foreground">Anda</span> : (
                         <span className="inline-flex gap-2">
+                          {can(s, 'master.practitioner.read') ? <Button size="sm" variant="outline" onClick={() => setLink(u)}>Tenaga kesehatan</Button> : null}
                           <Button size="sm" variant="outline" onClick={() => act(() => api(`/users/${u.id}/sessions`, { method: 'DELETE' }), `Semua sesi ${u.email} dicabut.`)}>Cabut sesi</Button>
                           {u.mfaEnrolled ? <Button size="sm" variant="outline" onClick={() => setResetMfa(u)}>Reset MFA</Button> : null}
                           {u.status === 'ACTIVE'
@@ -112,6 +118,11 @@ export default function UsersPage() {
             void act(() => api(`/users/${u.id}/mfa`, { method: 'DELETE' }), `MFA ${u.email} direset; ia akan diminta mendaftar ulang.`); }}>Ya, reset MFA</Button>
         </div>
       </Dialog>
+      {link ? <LinkDialog user={link} options={allPractitioners.filter((p) => p.id === link.practitionerId || practitioners.some((x) => x.id === p.id))}
+                          current={allPractitioners.find((p) => p.id === link.practitionerId)} onClose={() => setLink(undefined)}
+                          onSave={(pid) => { const u = link; setLink(undefined);
+                            void act(() => api(`/users/${u.id}/practitioner`, { method: 'POST', body: { practitionerId: pid } }),
+                              pid ? `${u.email} ditautkan ke tenaga kesehatan.` : `Tautan tenaga kesehatan ${u.email} dilepas.`); }} /> : null}
       <DisableDialog user={disable} onClose={() => setDisable(undefined)}
                      onDone={(u) => { setDisable(undefined); void act(async () => undefined, `${u.email} dinonaktifkan; semua sesinya dicabut.`); }} />
     </div>
@@ -203,3 +214,31 @@ function DisableDialog({ user, onClose, onDone }: { user?: UserItem; onClose: ()
     </Dialog>
   );
 }
+
+/**
+ * IAM-FR-016: menautkan akun yang sudah ada ke data tenaga kesehatan (STR/SIP). Dibutuhkan dokter untuk mengesahkan
+ * rekam medis dan untuk filter "pasien saya". Satu tenaga kesehatan hanya untuk satu akun.
+ */
+function LinkDialog({ user, options, current, onClose, onSave }: {
+  user: UserItem; options: Practitioner[]; current?: Practitioner; onClose: () => void; onSave: (practitionerId: string | null) => void;
+}) {
+  const [pid, setPid] = useState(user.practitionerId ?? '');
+  return (
+    <Dialog open onClose={onClose} title="Tautkan tenaga kesehatan" description={user.email}>
+      <div className="grid gap-3">
+        <p className="text-sm">Saat ini: <b>{current ? current.fullName : 'belum ditautkan'}</b></p>
+        <Field id="link-practitioner" label="Tenaga kesehatan">
+          <Select id="link-practitioner" value={pid} onChange={(e) => setPid(e.target.value)}>
+            <option value="">— tidak ditautkan —</option>
+            {options.map((p) => <option key={p.id} value={p.id}>{p.fullName} · {PRACTITIONER_TYPE_LABEL[p.practitionerType]}</option>)}
+          </Select>
+        </Field>
+        <div className="flex justify-end gap-2">
+          <Button variant="outline" onClick={onClose}>Batal</Button>
+          <Button disabled={pid === (user.practitionerId ?? '')} onClick={() => onSave(pid || null)}>Simpan</Button>
+        </div>
+      </div>
+    </Dialog>
+  );
+}
+

@@ -806,6 +806,54 @@ test('W22 rekam medis: dokter membuka worklist, mulai periksa, isi vital (IMT ot
   expect(cspViolations).toEqual([]);
 });
 
+test('W23 pengesahan: admin melihat tautan nakes, dokter mengesahkan dengan kata sandi, periksa integritas, addendum, riwayat rekam medis (Stage 9 batch 2)', async ({ page, browser }) => {
+  watchCsp(page);
+  await signInAdmin(page);
+  await page.getByTestId('side-menu').getByRole('link', { name: 'Pengguna' }).click();
+  await page.getByTestId('user-row').filter({ hasText: 'dokter@klinik-web.test' }).getByRole('button', { name: 'Tenaga kesehatan' }).click();
+  const ld = page.getByRole('dialog', { name: 'Tautkan tenaga kesehatan' });
+  await expect(ld).toContainText('Saat ini: drg. Web Sintetis');
+  await ld.getByRole('button', { name: 'Batal' }).click();
+
+  const ctx = await browser.newContext();
+  const doc = await ctx.newPage();
+  watchCsp(doc);
+  await login(doc, 'dokter@klinik-web.test');
+  await doc.getByTestId('side-menu').getByRole('link', { name: 'Worklist klinis' }).click();
+  await doc.getByTestId('worklist-row').filter({ hasText: 'Siti Rahmawati' }).getByRole('link', { name: 'Buka' }).click();
+  await expect(doc.getByText('Rekam medis lengkap dan siap disahkan.')).toBeVisible();
+  await doc.getByRole('button', { name: 'Sahkan rekam medis' }).click();
+  const sd = doc.getByRole('dialog', { name: 'Sahkan rekam medis' });
+  await sd.getByLabel('Kata sandi Anda').fill('salah-sekali');
+  await sd.getByRole('button', { name: 'Sahkan', exact: true }).click();
+  await expect(sd).toContainText('Kata sandi tidak cocok');
+  await sd.getByLabel('Kata sandi Anda').fill(USER_PASSWORD);
+  await sd.getByRole('button', { name: 'Sahkan', exact: true }).click();
+  const panel = doc.getByTestId('signed-panel');
+  await expect(panel).toContainText('drg. Web Sintetis (SIP SIP-WEB-2)');
+  await expect(panel).toContainText('konfirmasi kata sandi');
+  await expect(doc.getByLabel('A — Asesmen')).toBeDisabled();
+  await panel.getByRole('button', { name: 'Periksa integritas' }).click();
+  await expect(doc.getByTestId('verify-result')).toContainText('Isi sesuai saat disahkan');
+
+  await panel.getByRole('button', { name: 'Tambah addendum' }).click();
+  const ad = doc.getByRole('dialog', { name: 'Tambah addendum' });
+  await ad.getByLabel('Alasan *').fill('Melengkapi rencana tindak lanjut');
+  await ad.getByLabel('Isi addendum *').fill('Kontrol 1 minggu untuk tambal permanen.');
+  await ad.getByLabel('Kata sandi Anda').fill(USER_PASSWORD);
+  await ad.getByRole('button', { name: 'Simpan addendum' }).click();
+  await expect(doc.getByTestId('addendum-row')).toContainText('Kontrol 1 minggu untuk tambal permanen.');
+  await expect(doc.getByLabel('A — Asesmen')).toHaveValue('Karies gigi');          // catatan asli tidak berubah
+
+  await doc.getByRole('link', { name: 'Riwayat rekam medis' }).click();
+  const entry = doc.getByTestId('record-entry').first();
+  await expect(entry).toContainText('Disahkan');
+  await expect(entry).toContainText('K02.9');
+  await expect(entry.getByTestId('record-addendum')).toContainText('Melengkapi rencana tindak lanjut');
+  await ctx.close();
+  expect(cspViolations).toEqual([]);
+});
+
 test('W06 keamanan: CSP bernonce, no-store; proxy hanya untuk klinik dari subdomain; tidak ada pelanggaran CSP', async ({ page }) => {
   const res = await page.goto('/login');
   const h = res!.headers();

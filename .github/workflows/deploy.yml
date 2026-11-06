@@ -3,9 +3,10 @@
 # dinonaktifkan kebijakan organisasi AtoAIs). Rilis di /home/deploy/apps/clinicrme/releases/<sha>, `app` = symlink rilis aktif,
 # 3 rilis terakhir disimpan. Image dibuild di runner lalu dikirim lewat SSH (tanpa registry, hemat disk VPS). Data SINTETIS saja.
 # Environment GitHub `production` (Settings → Environments; nama mengikuti pengaturan PO — isinya tetap VPS DEV):
-#   variable VPS_HOST, VPS_USER (deploy), DEPLOY_VPS_ENABLED=true   (boleh juga di level repository)
-#   secret   VPS_SSH_KEY (kunci privat khusus deploy), VPS_KNOWN_HOSTS (ssh-keyscan VPS)
-# VPS_HOST/VPS_USER diterima sebagai variable maupun secret. Selama DEPLOY_VPS_ENABLED belum `true`, deploy dilewati.
+#   secret   DEPLOY_VPS_ENABLED=true, VPS_HOST, VPS_USER (deploy), VPS_SSH_KEY (kunci privat khusus deploy),
+#            VPS_KNOWN_HOSTS (baris `IP_VPS ssh-ed25519 …`)            (boleh juga di level repository)
+# DEPLOY_VPS_ENABLED/VPS_HOST/VPS_USER dibaca dari secret lebih dulu; variable dengan nama sama tetap diterima sebagai
+# cadangan (masa peralihan). Nilai secret tersamar (***) di log. Selama DEPLOY_VPS_ENABLED belum `true`, deploy dilewati.
 name: deploy-dev
 
 on:
@@ -29,7 +30,7 @@ concurrency:
 
 jobs:
   deploy:
-    # Variable environment baru terbaca setelah job masuk environment → saklar DEPLOY_VPS_ENABLED dicek di langkah pertama
+    # Secret/variable environment baru terbaca setelah job masuk environment → saklar DEPLOY_VPS_ENABLED dicek di langkah pertama
     if: >-
       (github.event_name == 'workflow_dispatch' ||
        (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push'))
@@ -38,9 +39,9 @@ jobs:
     environment: production
     env:
       SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
-      ENABLED: ${{ vars.DEPLOY_VPS_ENABLED }}
-      VPS_HOST: ${{ vars.VPS_HOST || secrets.VPS_HOST }}
-      VPS_USER: ${{ vars.VPS_USER || secrets.VPS_USER }}
+      ENABLED: ${{ secrets.DEPLOY_VPS_ENABLED || vars.DEPLOY_VPS_ENABLED }}
+      VPS_HOST: ${{ secrets.VPS_HOST || vars.VPS_HOST }}
+      VPS_USER: ${{ secrets.VPS_USER || vars.VPS_USER }}
     steps:
       - name: Cek saklar & konfigurasi
         id: gate

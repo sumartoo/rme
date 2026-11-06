@@ -4555,7 +4555,7 @@ paths:
       operationId: encounterSign
       tags:
       - Clinical
-      summary: Sahkan rekam medis (422 bila belum lengkap)
+      summary: 'Sahkan rekam medis: konfirmasi ulang kata sandi/TOTP; 422 bila SOAP/diagnosis primer belum lengkap (OD-034)'
       x-requirements:
       - CLN-FR-017
       - CLN-FR-018
@@ -4563,7 +4563,12 @@ paths:
       x-permission: clinical.note.sign
       parameters:
       - $ref: '#/components/parameters/encounterId'
-      - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SignInput'
       responses:
         '200':
           description: OK
@@ -4589,6 +4594,72 @@ paths:
                 allOf:
                 - $ref: '#/components/schemas/Problem'
                 - $ref: '#/components/schemas/SignValidationError'
+  /api/v1/clinical-notes/{noteId}/verify:
+    get:
+      operationId: clinicalNoteVerify
+      tags:
+      - Clinical
+      summary: Hitung ulang hash catatan & addendum (deteksi perubahan)
+      x-requirements:
+      - CLN-FR-017
+      - CLN-FR-019
+      x-permission: clinical.record.read
+      parameters:
+      - $ref: '#/components/parameters/noteId'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NoteVerification'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /api/v1/patients/{patientId}/medical-records:
+    get:
+      operationId: patientMedicalRecords
+      tags:
+      - Clinical
+      summary: Riwayat rekam medis pasien lintas kunjungan (akses dicatat audit)
+      x-requirements:
+      - CLN-FR-016
+      - AUD-FR-002
+      x-permission: clinical.record.read
+      parameters:
+      - $ref: '#/components/parameters/patientId'
+      - $ref: '#/components/parameters/cursor'
+      - $ref: '#/components/parameters/limit'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/MedicalRecordEntry'
+                  page:
+                    $ref: '#/components/schemas/PageInfo'
+                required:
+                - data
+                - page
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
   /api/v1/clinical-notes/{noteId}/addenda:
     post:
       operationId: addendumCreate
@@ -7055,6 +7126,17 @@ components:
           - 'null'
           pattern: ^[A-Z]{1,3}$
           description: Awalan nomor antrean (OD-086); kosong = huruf pertama kode
+        defaultTemplate:
+          type:
+          - string
+          - 'null'
+          enum:
+          - UMUM
+          - GIGI
+          - ANAK
+          - KEBIDANAN
+          - null
+          description: Template klinis bawaan (OD-035); kosong = UMUM
         isActive: *id001
         version: *id004
       required:
@@ -8254,6 +8336,17 @@ components:
         signedAt: *id005
         signedByName:
           type: string
+        signerSip:
+          type: string
+        signMethod:
+          type: string
+          enum:
+          - PASSWORD
+          - TOTP
+        substituteReason:
+          type: string
+        contentHash:
+          type: string
         updatedAt: *id005
         updatedByName:
           type: string
@@ -8800,15 +8893,38 @@ components:
         resultedAt: *id005
       required:
       - source
+    SignInput:
+      type: object
+      properties:
+        password:
+          type: string
+          format: password
+          description: 'Konfirmasi ulang: kata sandi akun ATAU code'
+        code:
+          type: string
+          pattern: ^\d{6}$
+          description: Kode TOTP aplikasi autentikator
+        substituteReason:
+          type: string
+          minLength: 5
+          maxLength: 500
+          description: Wajib bila penandatangan bukan dokter kunjungan (OD-092)
     SignResult:
       type: object
       properties:
         noteId: *id002
+        status:
+          type: string
+          enum:
+          - SIGNED
         signedAt: *id005
+        signedByName:
+          type: string
         contentHash:
           type: string
       required:
       - noteId
+      - status
       - signedAt
       - contentHash
     SignValidationError:
@@ -8818,6 +8934,12 @@ components:
           type: array
           items:
             type: string
+            enum:
+            - subjective
+            - objective
+            - assessment
+            - plan
+            - primaryDiagnosis
       required:
       - missing
     AddendumInput:
@@ -8825,11 +8947,18 @@ components:
       properties:
         reason:
           type: string
-          minLength: 3
+          minLength: 5
+          maxLength: 500
         content:
           type: string
-        changes:
-          type: object
+          minLength: 1
+          maxLength: 10000
+        password:
+          type: string
+          format: password
+        code:
+          type: string
+          pattern: ^\d{6}$
       required:
       - reason
       - content
@@ -8842,12 +8971,68 @@ components:
         content:
           type: string
         authorId: *id002
+        authorName:
+          type: string
+        authorSip:
+          type: string
+        signMethod:
+          type: string
+          enum:
+          - PASSWORD
+          - TOTP
         signedAt: *id005
+        contentHash:
+          type: string
       required:
       - id
       - reason
       - content
       - signedAt
+    NoteVerification:
+      type: object
+      properties:
+        noteId: *id002
+        contentHash:
+          type: string
+        valid: *id001
+        addenda:
+          type: array
+          items:
+            type: object
+            properties:
+              id: *id002
+              valid: *id001
+      required:
+      - noteId
+      - valid
+    MedicalRecordEntry:
+      type: object
+      properties:
+        encounterId: *id002
+        encounterNo:
+          type: string
+        localDate: *id006
+        unitName:
+          type: string
+        practitionerName:
+          type: string
+        status:
+          type: string
+        note:
+          $ref: '#/components/schemas/ClinicalNote'
+        diagnoses:
+          type: array
+          items:
+            $ref: '#/components/schemas/Diagnosis'
+        procedures:
+          type: array
+          items:
+            $ref: '#/components/schemas/Procedure'
+        vitals:
+          $ref: '#/components/schemas/VitalSet'
+      required:
+      - encounterId
+      - encounterNo
     DocumentInput:
       type: object
       properties:

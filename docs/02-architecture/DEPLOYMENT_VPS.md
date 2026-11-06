@@ -43,15 +43,17 @@ Mode `nginx` tidak mengubah firewall maupun vhost situs lain; vhost ClinicRME be
    cat ~/gh_actions.pub >> ~/.ssh/authorized_keys
    cat ~/gh_actions        # kunci PRIVAT → hanya ditempel ke GitHub Secrets, lalu hapus: rm ~/gh_actions*
    ```
-5. **GitHub Secrets** (repo → Settings → Secrets and variables → Actions):
+5. **GitHub Secrets** (repo → Settings → Environments → `production` → *Environment secrets*; boleh juga di Secrets and variables → Actions):
    | Nama | Isi |
    |---|---|
+   | `DEPLOY_VPS_ENABLED` | `true` (saklar deploy otomatis) |
    | `VPS_HOST` | IP VPS |
    | `VPS_USER` | `deploy` |
    | `VPS_SSH_KEY` | isi `~/gh_actions` (kunci privat) |
-   | `VPS_KNOWN_HOSTS` | hasil `ssh-keyscan -t ed25519 IP_VPS` dijalankan dari komputer Anda |
+   | `VPS_KNOWN_HOSTS` | satu baris `IP_VPS ssh-ed25519 …` — buat di VPS: `echo "IP_VPS $(cut -d' ' -f1,2 /etc/ssh/ssh_host_ed25519_key.pub)"` |
 
-   Tab **Variables**: `DEPLOY_VPS_ENABLED` = `true`. Buat juga *Environment* bernama `dev` (Settings → Environments).
+   Workflow membaca ketiga nilai pertama dari **secret** lebih dulu; *variable* dengan nama sama masih diterima sebagai cadangan,
+   jadi hapus variable lama setelah secret diisi agar tidak membingungkan. Nilai secret tampil `***` di log Actions.
 6. **Deploy pertama + data demo.** GitHub → Actions → `deploy-dev` → *Run workflow* → centang **seed**. Selesai ±10–15 menit (build pertama).
    Password akun demo = `DEV_SEED_PASSWORD` di `/home/deploy/apps/clinicrme/.env` (lihat di VPS: `sudo grep DEV_SEED /home/deploy/apps/clinicrme/.env`).
 

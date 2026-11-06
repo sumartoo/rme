@@ -6,6 +6,7 @@ import { Alert, Badge, Button, Card, CardContent, CardHeader, CardTitle } from '
 import { ApiError, EncounterChart, api, errorText } from '../../../../lib/api';
 import { ENCOUNTER_STATUS, PAYER_TYPE_LABEL, SEX_LABEL, fmtDate } from '../../../../lib/format';
 import { can, useSession } from '../../../../lib/session';
+import { SignPanel } from './sign';
 import { AllergyHistoryTab, DiagnosisTab, SoapTab, VitalsTab, VITAL_LABELS } from './tabs';
 
 const TABS = [
@@ -48,6 +49,7 @@ export default function EncounterPage() {
             <h1 className="text-xl font-semibold" data-testid="chart-patient">{p.fullName}</h1>
             <span className="font-mono text-sm text-muted-foreground">{p.mrn}</span>
             <span className="text-sm">{SEX_LABEL[p.sex as keyof typeof SEX_LABEL] ?? p.sex} · {p.age} · lahir {fmtDate(p.birthDate)}</span>
+            <Link className="text-sm underline" href={`/patients/${p.id}/records`}>Riwayat rekam medis</Link>
             <Badge tone={st.tone as 'info'} className="ml-auto">{st.label}</Badge>
           </div>
           <div className="text-sm text-muted-foreground">
@@ -66,6 +68,7 @@ export default function EncounterPage() {
         </CardContent>
       </Card>
       {error ? <Alert tone="error">{error}</Alert> : null}
+      <SignPanel chart={chart} onSaved={load} />
       <div className="flex flex-wrap gap-1 border-b" role="tablist" aria-label="Bagian rekam medis">
         {TABS.map((t) => (
           <button key={t.key} type="button" role="tab" aria-selected={tab === t.key}
