@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Uji mutasi kontrol keamanan (Stage 3 M1–M4 diulang di monorepo — RSK-020; M5 Stage 4; M6–M14 Stage 5; M15–M17 Stage 6; M18–M22 Stage 7; M23–M38 Stage 8; M39–M54 Stage 9).
+# Uji mutasi kontrol keamanan (Stage 3 M1–M4 diulang di monorepo — RSK-020; M5 Stage 4; M6–M14 Stage 5; M15–M17 Stage 6; M18–M22 Stage 7; M23–M38 Stage 8; M39–M59 Stage 9).
 # Setiap mutasi sengaja merusak satu kontrol, menjalankan suite integrasi API, dan LULUS hanya bila
 # uji yang menjaga kontrol itu GAGAL. Kode selalu dikembalikan (trap), juga bila skrip dihentikan.
 #
@@ -46,7 +46,10 @@ MIG20=db/migrations/0020_clinical_signing.sql
 RXREPO=libs/clinical/src/lib/prescription.repo.ts
 RXCTL=libs/clinical/src/lib/prescription.controller.ts
 MIG21=db/migrations/0021_prescription.sql
-FILES=("$AUTH" "$SESSION" "$MIG2" "$MIG3" "$GUARD" "$PGUARD" "$LAYOUT" "$EXPORT" "$MIG5" "$MIG6" "$TOTP" "$IAMUSERS" "$ACCOUNT" "$AUDITCHG" "$PRACT" "$MIG12" "$TERM" "$IMPORTS" "$PATIENT" "$MIG15" "$IDEM" "$MIG16" "$BOOK" "$SCHED" "$NOSHOW" "$ENCREPO" "$ENCCTL" "$QDISP" "$CHART" "$CHARTREPO" "$MIG19" "$SIGNCTL" "$REAUTH" "$MIG20" "$RXREPO" "$RXCTL" "$MIG21")
+LABCTL=libs/clinical/src/lib/lab.controller.ts
+DOCCTL=libs/clinical/src/lib/documents.controller.ts
+MIG22=db/migrations/0022_lab_documents.sql
+FILES=("$AUTH" "$SESSION" "$MIG2" "$MIG3" "$GUARD" "$PGUARD" "$LAYOUT" "$EXPORT" "$MIG5" "$MIG6" "$TOTP" "$IAMUSERS" "$ACCOUNT" "$AUDITCHG" "$PRACT" "$MIG12" "$TERM" "$IMPORTS" "$PATIENT" "$MIG15" "$IDEM" "$MIG16" "$BOOK" "$SCHED" "$NOSHOW" "$ENCREPO" "$ENCCTL" "$QDISP" "$CHART" "$CHARTREPO" "$MIG19" "$SIGNCTL" "$REAUTH" "$MIG20" "$RXREPO" "$RXCTL" "$MIG21" "$LABCTL" "$DOCCTL" "$MIG22")
 BACKUP=$(mktemp -d)
 cp "${FILES[@]}" "$BACKUP"/
 restore() { for f in "${FILES[@]}"; do cp "$BACKUP/$(basename "$f")" "$f"; done; }
@@ -182,6 +185,17 @@ mutate M53 "komponen racikan dapat diubah setelah resep diterbitkan (database)" 
   "sed -i '/^CREATE TRIGGER trg_compound_component_guard/,+1d' $MIG21 && ! grep -q 'trg_compound_component_guard BEFORE' $MIG21" ""
 mutate M54 "peringatan tidak dihitung ulang saat resep diterbitkan" 'C25' \
   "sed -i 's/await computeAlerts(tx, e.patient_id, lines), rx.alerts/rx.alerts, rx.alerts/' $RXCTL && grep -q 'this.withReasons(rx.alerts, rx.alerts' $RXCTL" ""
+
+mutate M55 "order lab menerima layanan yang bukan pemeriksaan lab" 'C26' \
+  "sed -i \"s/ and is_active and service_type = 'LAB'\\\`);/ and is_active\\\`);/\" $LABCTL && ! grep -q \"service_type = 'LAB'\" $LABCTL" ""
+mutate M56 "unggahan hasil lab bukan PDF diterima" 'C28' \
+  "sed -i \"s/ || body.subarray(0, 5).toString('latin1') !== '%PDF-'//\" $LABCTL && ! grep -q \"'%PDF-'\" $LABCTL" ""
+mutate M57 "dokumen medis dapat diterbitkan dari rekam medis yang belum disahkan" 'C29' \
+  "sed -i \"s/    if (c.note_status !== 'SIGNED') throw/    if (false) throw/\" $DOCCTL && grep -q '    if (false) throw' $DOCCTL" ""
+mutate M58 "hasil lab dapat diubah/dihapus role aplikasi" 'C27' \
+  "sed -i '/^REVOKE UPDATE, DELETE ON lab_result FROM clinicrme_app;/d' $MIG22 && ! grep -q 'ON lab_result FROM' $MIG22" ""
+mutate M59 "unduhan PDF dokumen medis tidak tercatat di audit" 'C29' \
+  "sed -i \"s/      await audit(tx, 'MEDICAL_DOCUMENT_READ'/      void (tx, 'MEDICAL_DOCUMENT_READ'/\" $DOCCTL && grep -q \"void (tx, 'MEDICAL_DOCUMENT_READ'\" $DOCCTL" ""
 
 # Mutasi UI: suite Playwright (U##) sebagai detektor
 if [ "${MUTATION_E2E:-0}" = "1" ]; then

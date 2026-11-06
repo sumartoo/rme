@@ -58,14 +58,14 @@
 | `billing.shift.manage` |  |  |  |  |  | ✓ |  |  | shiftClose; shiftCurrent; shiftOpen |
 | **clinical** | | | | | | | | | |
 | `clinical.document.issue` |  | ✓ |  |  |  |  |  |  | medicalDocumentIssue; referralCreate |
-| `clinical.lab.order` |  | ✓ |  |  |  |  |  |  | labOrderCreate |
-| `clinical.lab.result.write` |  | ✓ | ✓ |  |  |  |  |  | labResultManual |
+| `clinical.lab.order` |  | ✓ |  |  |  |  |  |  | labOrderCancel; labOrderCreate |
+| `clinical.lab.result.write` |  | ✓ | ✓ |  |  |  |  |  | labResultManual; labResultSimulate; labResultUpload |
 | `clinical.note.addendum` |  | ✓ |  |  |  |  |  |  | addendumCreate |
 | `clinical.note.sign` |  | ✓ |  |  |  |  |  |  | encounterSign |
 | `clinical.note.write` |  | ✓ |  |  |  |  |  |  | consultationFinish; consultationStart; diagnosesSet; noteSave; procedureAdd; procedureRemove |
 | `clinical.prescription.approve_substitution` |  | ✓ |  |  |  |  |  |  | substitutionDecide |
 | `clinical.prescription.write` |  | ✓ |  |  |  |  |  |  | prescriptionSave |
-| `clinical.record.read` |  | ✓ | ✓ |  | ✓ |  |  |  | allergyList; clinicalNoteVerify; clinicalTemplates; clinicalWorklist; encounterChart; historyList; medicalDocumentGet; patientEncounterHistory; patientMedicalRecords; prescriptionGet |
+| `clinical.record.read` |  | ✓ | ✓ |  | ✓ |  |  |  | allergyList; clinicalNoteVerify; clinicalTemplates; clinicalWorklist; encounterChart; historyList; labOrderList; labResultFile; medicalDocumentFile; medicalDocumentGet; medicalDocumentList; patientEncounterHistory; patientMedicalRecords; prescriptionGet |
 | `clinical.record.write` |  | ✓ | ✓ |  |  |  |  |  | allergyCreate; allergyStatus; historyCreate; historyStatus |
 | `clinical.vitals.write` |  | ✓ | ✓ |  |  |  |  |  | noteAnamnesis; vitalsRecord |
 | **document** | | | | | | | | | |

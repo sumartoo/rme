@@ -110,7 +110,7 @@ jobs:
   # ±75 menit: hanya manual sebelum gate stage (DEC-036) — tidak per PR/push agar deploy-dev
   # (menunggu seluruh workflow ci selesai) tidak tertahan satu jam setiap merge.
   mutation:
-    name: uji mutasi M1–M54
+    name: uji mutasi M1–M59
     if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-24.04
     timeout-minutes: 120

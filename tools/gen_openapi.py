@@ -246,11 +246,16 @@ schemas = {
   "ClinicalWarning": obj(["key", "type", "message"], key=S(), type=enum("ALLERGY", "DUPLICATE", "DOSE_MAX", "DAILY_MAX"), lineNo=INT, message=S(),
                          reason=S(description="Alasan dokter melanjutkan (wajib sebelum resep diterbitkan)")),
   "ConsultationFinish": obj(["id", "status"], id=UUID, status=enum("PHARMACY", "BILLING"), prescriptionNo=S()),
-  "LabOrderInput": obj(["serviceItemIds"], serviceItemIds=arr(UUID), clinicalInfo=S()),
-  "LabOrder": obj(["id", "orderNo", "status"], id=UUID, orderNo=S(), status=enum("ORDERED", "SENT", "RECEIVED", "RESULTED", "CANCELLED", "ERROR"),
-                  items=arr(obj(id=UUID, serviceItemId=UUID, name=S())), results=arr("LabResult")),
+  "LabOrderInput": obj(["serviceItemIds"], serviceItemIds={"type": "array", "minItems": 1, "maxItems": 30, "items": UUID, "description": "Layanan berjenis LAB"},
+                       clinicalInfo=S(maxLength=1000)),
+  "LabOrder": obj(["id", "orderNo", "status"], id=UUID, orderNo=S(), encounterId=UUID, status=enum("ORDERED", "SENT", "RECEIVED", "RESULTED", "CANCELLED", "ERROR"),
+                  connector=S(), externalOrderId=S(), clinicalInfo=S(), orderedAt=DT, orderedByName=S(), cancelReason=S(), resultedAt=DT,
+                  items=arr(obj(id=UUID, serviceItemId=UUID, code=S(), name=S())), results=arr("LabResult")),
+  "LabResultInput": obj(["results"], results={"type": "array", "minItems": 1, "maxItems": 100, "items": obj(["testName", "value"], labOrderItemId=UUID,
+                        testName=S(maxLength=200), value=S(maxLength=200), unit=S(maxLength=50), referenceRange=S(maxLength=100),
+                        flag=enum("N", "L", "H", "LL", "HH", "A"), notes=S(maxLength=500))}),
   "LabResult": obj(["source"], id=UUID, labOrderItemId=UUID, source=enum("CONNECTOR", "MANUAL", "UPLOAD"), testName=S(), value=S(),
-                   unit=S(), referenceRange=S(), flag=S(), fileId=UUID, resultedAt=DT),
+                   unit=S(), referenceRange=S(), flag=S(), fileId=UUID, notes=S(), resultedAt=DT, enteredByName=S()),
   "SignInput": obj(password=S(format="password", description="Konfirmasi ulang: kata sandi akun ATAU code"),
                    code=S(pattern=r"^\d{6}$", description="Kode TOTP aplikasi autentikator"),
                    substituteReason=S(minLength=5, maxLength=500, description="Wajib bila penandatangan bukan dokter kunjungan (OD-092)")),
@@ -263,9 +268,13 @@ schemas = {
   "NoteVerification": obj(["noteId", "valid"], noteId=UUID, contentHash=S(), valid=BOOL, addenda=arr(obj(id=UUID, valid=BOOL))),
   "MedicalRecordEntry": obj(["encounterId", "encounterNo"], encounterId=UUID, encounterNo=S(), localDate=DATE, unitName=S(), practitionerName=S(),
                             status=S(), note=ref("ClinicalNote"), diagnoses=arr("Diagnosis"), procedures=arr("Procedure"), vitals=ref("VitalSet")),
-  "DocumentInput": obj(["docType"], docType=enum("RESUME", "SURAT_SEHAT", "SURAT_SAKIT", "RUJUKAN"), data={"type": "object"}),
-  "MedicalDocument": obj(["id", "documentNo", "docType", "downloadUrl"], id=UUID, documentNo=S(), docType=S(), issuedAt=DT,
-                         downloadUrl=S(format="uri", description="Signed URL ≤ 5 menit")),
+  "DocumentInput": obj(["docType"], docType=enum("RESUME", "SURAT_SEHAT", "SURAT_SAKIT"),
+                       restDays={"type": "integer", "minimum": 1, "maximum": 30, "description": "SURAT_SAKIT"}, startDate={**DATE, "description": "SURAT_SAKIT; bawaan hari ini"},
+                       includeDiagnosis={"type": "boolean", "description": "SURAT_SAKIT; bawaan false (privasi)"},
+                       purpose=S(maxLength=200, description="SURAT_SEHAT"), notes=S(maxLength=500)),
+  "MedicalDocument": obj(["id", "documentNo", "docType"], id=UUID, documentNo=S(description="{KODE}/{YYYY}/{MM}/{SEQ:4} (OD-093)"),
+                         docType=enum("RESUME", "SURAT_SEHAT", "SURAT_SAKIT", "RUJUKAN"), encounterId=UUID, patientId=UUID, issuedAt=DT,
+                         issuedByName=S(), doctorName=S(), verificationCode=S(description="12 karakter pertama hash isi"), sizeBytes=INT),
   "ReferralInput": obj(["destination", "reason"], destination=S(), destinationUnit=S(), reason=S(), clinicalSummary=S()),
   "FollowUpInput": obj(["date"], date=DATE, practitionerId=UUID, unitId=UUID, note=S()),
   "FileUploadTicket": obj(["fileId", "uploadUrl"], fileId=UUID, uploadUrl=S(format="uri"), expiresAt=DT),
@@ -538,13 +547,20 @@ ops = [
  ("post", f"{P}/encounters/{{encounterId}}/finish-consultation", "consultationFinish", "Clinical", "Selesai konsultasi: terbitkan resep (peringatan wajib beralasan) → Farmasi/Kasir (OD-094)", ["CLN-FR-010", "CLN-FR-012", "SCH-FR-013"], "clinical.note.write", None, "ConsultationFinish", {"e422": 1}),
  ("put",  f"{P}/encounters/{{encounterId}}/prescription", "prescriptionSave", "Clinical", "Simpan resep (peringatan alergi & duplikasi)", ["CLN-FR-010", "CLN-FR-011", "CLN-FR-012", "TRM-FR-005"], "clinical.prescription.write", "PrescriptionInput", "PrescriptionEnvelope", {}),
  ("post", f"{P}/encounters/{{encounterId}}/lab-orders", "labOrderCreate", "Clinical", "Order lab ke aplikasi lab", ["CLN-FR-014"], "clinical.lab.order", "LabOrderInput", "LabOrder", {"code": "201", "idem": 1}),
- ("post", f"{P}/lab-orders/{{labOrderId}}/results", "labResultManual", "Clinical", "Input hasil manual / unggahan PDF", ["CLN-FR-015", "DOC-FR-003"], "clinical.lab.result.write", "LabResult", "LabResult", {"code": "201"}),
+ ("post", f"{P}/lab-orders/{{labOrderId}}/results", "labResultManual", "Clinical", "Input hasil manual", ["CLN-FR-015", "DOC-FR-003"], "clinical.lab.result.write", "LabResultInput", "LabOrder", {"code": "201"}),
+ ("post", f"{P}/lab-orders/{{labOrderId}}/results/upload", "labResultUpload", "Clinical", "Unggah PDF hasil lab (≤ 5 MB)", ["CLN-FR-015", "DOC-FR-003"], "clinical.lab.result.write", {"type": "string", "format": "binary"}, "LabOrder", {"code": "201", "pdf": 1}),
+ ("post", f"{P}/lab-orders/{{labOrderId}}/simulate-result", "labResultSimulate", "Clinical", "Konektor tiruan: simulasi hasil dari aplikasi lab (OD-059)", ["CLN-FR-014"], "clinical.lab.result.write", None, "LabOrder", {"code": "201"}),
+ ("post", f"{P}/lab-orders/{{labOrderId}}/cancel", "labOrderCancel", "Clinical", "Batalkan order lab (alasan wajib)", ["CLN-FR-014"], "clinical.lab.order", "ReasonInput", "LabOrder", {}),
+ ("get",  f"{P}/encounters/{{encounterId}}/lab-orders", "labOrderList", "Clinical", "Order & hasil lab kunjungan", ["CLN-FR-015"], "clinical.record.read", None, "LabOrder", {"list": 1}),
+ ("get",  f"{P}/lab-results/{{labResultId}}/file", "labResultFile", "Clinical", "Unduh PDF hasil lab (akses dicatat)", ["CLN-FR-015"], "clinical.record.read", None, None, {"pdfout": 1}),
  ("post", f"{P}/encounters/{{encounterId}}/sign", "encounterSign", "Clinical", "Sahkan rekam medis: konfirmasi ulang kata sandi/TOTP; 422 bila SOAP/diagnosis primer belum lengkap (OD-034)", ["CLN-FR-017", "CLN-FR-018", "IAM-FR-016"], "clinical.note.sign", "SignInput", "SignResult", {"e422": 1}),
  ("get",  f"{P}/clinical-notes/{{noteId}}/verify", "clinicalNoteVerify", "Clinical", "Hitung ulang hash catatan & addendum (deteksi perubahan)", ["CLN-FR-017", "CLN-FR-019"], "clinical.record.read", None, "NoteVerification", {}),
  ("get",  f"{P}/patients/{{patientId}}/medical-records", "patientMedicalRecords", "Clinical", "Riwayat rekam medis pasien lintas kunjungan (akses dicatat audit)", ["CLN-FR-016", "AUD-FR-002"], "clinical.record.read", None, "MedicalRecordEntry", {"page": 1}),
  ("post", f"{P}/clinical-notes/{{noteId}}/addenda", "addendumCreate", "Clinical", "Addendum atas catatan yang disahkan", ["CLN-FR-019", "INT-FR-012"], "clinical.note.addendum", "AddendumInput", "Addendum", {"code": "201"}),
  ("post", f"{P}/encounters/{{encounterId}}/documents", "medicalDocumentIssue", "Document", "Terbitkan resume / surat sehat / surat sakit (PDF)", ["CLN-FR-020", "CLN-FR-021", "DOC-FR-001", "DOC-FR-002"], "clinical.document.issue", "DocumentInput", "MedicalDocument", {"code": "201", "idem": 1}),
- ("get",  f"{P}/medical-documents/{{documentId}}", "medicalDocumentGet", "Document", "Unduh ulang dokumen (berkas tersimpan)", ["DOC-FR-002"], "clinical.record.read", None, "MedicalDocument", {}),
+ ("get",  f"{P}/medical-documents/{{documentId}}", "medicalDocumentGet", "Document", "Metadata dokumen medis", ["DOC-FR-002"], "clinical.record.read", None, "MedicalDocument", {}),
+ ("get",  f"{P}/medical-documents/{{documentId}}/file", "medicalDocumentFile", "Document", "Unduh PDF dokumen (akses dicatat)", ["DOC-FR-002"], "clinical.record.read", None, None, {"pdfout": 1}),
+ ("get",  f"{P}/encounters/{{encounterId}}/documents", "medicalDocumentList", "Document", "Dokumen medis kunjungan", ["DOC-FR-002"], "clinical.record.read", None, "MedicalDocument", {"list": 1}),
  ("post", f"{P}/encounters/{{encounterId}}/referrals", "referralCreate", "Clinical", "Buat rujukan + surat", ["CLN-FR-022"], "clinical.document.issue", "ReferralInput", "MedicalDocument", {"code": "201"}),
  ("post", f"{P}/encounters/{{encounterId}}/follow-up", "followUpCreate", "Clinical", "Rencana kontrol → appointment", ["CLN-FR-023"], "appointment.manage", "FollowUpInput", "Appointment", {"code": "201"}),
  # Pharmacy
@@ -621,6 +637,8 @@ for method, path, opid, tag, summary, reqs, perm, body, resp, o in ops:
         b = ref(body) if isinstance(body, str) else body
         if o.get("multipart"):
             op["requestBody"] = {"required": True, "content": {"multipart/form-data": {"schema": obj(["file"], file=b, dryRun=BOOL)}}}
+        elif o.get("pdf"):
+            op["requestBody"] = {"required": True, "content": {"application/pdf": {"schema": b}}}
         elif o.get("upload"):
             op["requestBody"] = {"required": True, "content": {"text/csv": {"schema": b},
                                   "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {"schema": b}}}
@@ -631,6 +649,8 @@ for method, path, opid, tag, summary, reqs, perm, body, resp, o in ops:
         if o.get("file"):
             r = {"description": "Berkas", "content": {"text/csv": {"schema": {"type": "string", "format": "binary"}},
                  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {"schema": {"type": "string", "format": "binary"}}}}
+        elif o.get("pdfout"):
+            r = {"description": "Berkas PDF", "content": {"application/pdf": {"schema": {"type": "string", "format": "binary"}}}}
         elif o.get("binary"):
             r = {"description": "Berkas", "content": {"application/octet-stream": {"schema": {"type": "string", "format": "binary"}}}}
         else:
