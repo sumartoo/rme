@@ -902,6 +902,34 @@ test('W24 resep: farmasi menambah obat, dokter meresepkan, peringatan alergi waj
   expect(cspViolations).toEqual([]);
 });
 
+test('W25 dokumen medis: dokter menerbitkan resume & surat sakit dari rekam medis yang disahkan, PDF dapat dibuka (Stage 9 batch 4)', async ({ page }) => {
+  watchCsp(page);
+  await login(page, 'dokter@klinik-web.test');
+  await page.getByTestId('side-menu').getByRole('link', { name: 'Pasien' }).click();
+  await page.getByLabel('Cari pasien').fill('Siti');
+  await page.getByRole('link', { name: 'Siti Rahmawati', exact: true }).click();
+  await page.getByRole('link', { name: 'Riwayat rekam medis' }).click();
+  await page.getByTestId('record-entry').first().getByRole('link', { name: /^KJ/ }).click();
+  await page.getByRole('tab', { name: 'Dokumen & kontrol' }).click();
+  await page.getByRole('button', { name: 'Resume medis' }).click();
+  await expect(page.getByTestId('doc-notice')).toContainText(/Resume medis RES\/\d{4}\/\d{2}\/0001 diterbitkan/);
+  await page.getByRole('button', { name: 'Surat sakit' }).click();
+  const sd = page.getByRole('dialog', { name: 'Surat keterangan sakit' });
+  await sd.getByLabel('Lama istirahat (hari)').fill('2');
+  await sd.getByRole('button', { name: 'Terbitkan' }).click();
+  await expect(page.getByTestId('doc-notice')).toContainText(/Surat keterangan sakit SKS\/\d{4}\/\d{2}\/0001 diterbitkan/);
+  await expect(page.getByTestId('doc-row')).toHaveCount(2);
+  const href = await page.getByTestId('doc-row').filter({ hasText: 'Surat keterangan sakit' }).getByRole('link', { name: 'Buka PDF' }).getAttribute('href');
+  // Diunduh dari dalam halaman (Node tidak me-resolve *.localhost; cookie sesi ikut seperti klik pengguna)
+  const pdf = await page.evaluate(async (u) => {
+    const r = await fetch(u, { credentials: 'same-origin' });
+    return { status: r.status, type: r.headers.get('content-type'), head: new TextDecoder('latin1').decode((await r.arrayBuffer()).slice(0, 5)) };
+  }, href!);
+  expect(pdf).toEqual({ status: 200, type: expect.stringContaining('application/pdf'), head: '%PDF-' });
+  await expect(page.getByTestId('doc-row').first()).toContainText(/kode [0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}/);
+  expect(cspViolations).toEqual([]);
+});
+
 test('W06 keamanan: CSP bernonce, no-store; proxy hanya untuk klinik dari subdomain; tidak ada pelanggaran CSP', async ({ page }) => {
   const res = await page.goto('/login');
   const h = res!.headers();

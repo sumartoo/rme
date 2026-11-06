@@ -16,7 +16,8 @@ export async function createApp(cfg: AppConfig, extra: AppExtras = {}): Promise<
   app.useLogger(app.get(Logger));
   app.useBodyParser('json', { limit: cfg.bodyLimit });           // SC-WEB-05
   // Impor master data (MST-FR-008, OD-083): berkas CSV/XLSX mentah, maks 5 MB; tipe lain tetap ditolak body parser JSON
-  app.useBodyParser('raw', { type: ['text/csv', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'], limit: '5mb' });
+  // + unggah hasil lab PDF (CLN-FR-015); isi diperiksa (magic %PDF) di controller
+  app.useBodyParser('raw', { type: ['text/csv', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'application/pdf'], limit: '5mb' });
   app.use(helmet({ contentSecurityPolicy: { directives: { defaultSrc: ["'none'"], frameAncestors: ["'none'"] } } })); // SC-WEB-01 (API)
   app.use(cookieParser());
   app.disable('x-powered-by');

@@ -4578,12 +4578,39 @@ paths:
           $ref: '#/components/responses/NotFound'
         '409':
           $ref: '#/components/responses/Conflict'
+    get:
+      operationId: labOrderList
+      tags:
+      - Clinical
+      summary: Order & hasil lab kunjungan
+      x-requirements:
+      - CLN-FR-015
+      x-permission: clinical.record.read
+      parameters:
+      - $ref: '#/components/parameters/encounterId'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/LabOrder'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
   /api/v1/lab-orders/{labOrderId}/results:
     post:
       operationId: labResultManual
       tags:
       - Clinical
-      summary: Input hasil manual / unggahan PDF
+      summary: Input hasil manual
       x-requirements:
       - CLN-FR-015
       - DOC-FR-003
@@ -4595,14 +4622,14 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/LabResult'
+              $ref: '#/components/schemas/LabResultInput'
       responses:
         '201':
           description: OK
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/LabResult'
+                $ref: '#/components/schemas/LabOrder'
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -4613,6 +4640,131 @@ paths:
           $ref: '#/components/responses/NotFound'
         '409':
           $ref: '#/components/responses/Conflict'
+  /api/v1/lab-orders/{labOrderId}/results/upload:
+    post:
+      operationId: labResultUpload
+      tags:
+      - Clinical
+      summary: Unggah PDF hasil lab (≤ 5 MB)
+      x-requirements:
+      - CLN-FR-015
+      - DOC-FR-003
+      x-permission: clinical.lab.result.write
+      parameters:
+      - $ref: '#/components/parameters/labOrderId'
+      requestBody:
+        required: true
+        content:
+          application/pdf:
+            schema:
+              type: string
+              format: binary
+      responses:
+        '201':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LabOrder'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /api/v1/lab-orders/{labOrderId}/simulate-result:
+    post:
+      operationId: labResultSimulate
+      tags:
+      - Clinical
+      summary: 'Konektor tiruan: simulasi hasil dari aplikasi lab (OD-059)'
+      x-requirements:
+      - CLN-FR-014
+      x-permission: clinical.lab.result.write
+      parameters:
+      - $ref: '#/components/parameters/labOrderId'
+      responses:
+        '201':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LabOrder'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /api/v1/lab-orders/{labOrderId}/cancel:
+    post:
+      operationId: labOrderCancel
+      tags:
+      - Clinical
+      summary: Batalkan order lab (alasan wajib)
+      x-requirements:
+      - CLN-FR-014
+      x-permission: clinical.lab.order
+      parameters:
+      - $ref: '#/components/parameters/labOrderId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReasonInput'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LabOrder'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /api/v1/lab-results/{labResultId}/file:
+    get:
+      operationId: labResultFile
+      tags:
+      - Clinical
+      summary: Unduh PDF hasil lab (akses dicatat)
+      x-requirements:
+      - CLN-FR-015
+      x-permission: clinical.record.read
+      parameters:
+      - $ref: '#/components/parameters/labResultId'
+      responses:
+        '200':
+          description: Berkas PDF
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
   /api/v1/encounters/{encounterId}/sign:
     post:
       operationId: encounterSign
@@ -4796,12 +4948,39 @@ paths:
           $ref: '#/components/responses/NotFound'
         '409':
           $ref: '#/components/responses/Conflict'
+    get:
+      operationId: medicalDocumentList
+      tags:
+      - Document
+      summary: Dokumen medis kunjungan
+      x-requirements:
+      - DOC-FR-002
+      x-permission: clinical.record.read
+      parameters:
+      - $ref: '#/components/parameters/encounterId'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/MedicalDocument'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
   /api/v1/medical-documents/{documentId}:
     get:
       operationId: medicalDocumentGet
       tags:
       - Document
-      summary: Unduh ulang dokumen (berkas tersimpan)
+      summary: Metadata dokumen medis
       x-requirements:
       - DOC-FR-002
       x-permission: clinical.record.read
@@ -4814,6 +4993,33 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/MedicalDocument'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /api/v1/medical-documents/{documentId}/file:
+    get:
+      operationId: medicalDocumentFile
+      tags:
+      - Document
+      summary: Unduh PDF dokumen (akses dicatat)
+      x-requirements:
+      - DOC-FR-002
+      x-permission: clinical.record.read
+      parameters:
+      - $ref: '#/components/parameters/documentId'
+      responses:
+        '200':
+          description: Berkas PDF
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -6617,6 +6823,12 @@ components:
       in: path
       required: true
       description: labOrderId
+      schema: *id002
+    labResultId:
+      name: labResultId
+      in: path
+      required: true
+      description: labResultId
       schema: *id002
     noteId:
       name: noteId
@@ -9075,9 +9287,13 @@ components:
       properties:
         serviceItemIds:
           type: array
+          minItems: 1
+          maxItems: 30
           items: *id002
+          description: Layanan berjenis LAB
         clinicalInfo:
           type: string
+          maxLength: 1000
       required:
       - serviceItemIds
     LabOrder:
@@ -9086,6 +9302,7 @@ components:
         id: *id002
         orderNo:
           type: string
+        encounterId: *id002
         status:
           type: string
           enum:
@@ -9095,6 +9312,18 @@ components:
           - RESULTED
           - CANCELLED
           - ERROR
+        connector:
+          type: string
+        externalOrderId:
+          type: string
+        clinicalInfo:
+          type: string
+        orderedAt: *id005
+        orderedByName:
+          type: string
+        cancelReason:
+          type: string
+        resultedAt: *id005
         items:
           type: array
           items:
@@ -9102,6 +9331,8 @@ components:
             properties:
               id: *id002
               serviceItemId: *id002
+              code:
+                type: string
               name:
                 type: string
         results:
@@ -9112,6 +9343,46 @@ components:
       - id
       - orderNo
       - status
+    LabResultInput:
+      type: object
+      properties:
+        results:
+          type: array
+          minItems: 1
+          maxItems: 100
+          items:
+            type: object
+            properties:
+              labOrderItemId: *id002
+              testName:
+                type: string
+                maxLength: 200
+              value:
+                type: string
+                maxLength: 200
+              unit:
+                type: string
+                maxLength: 50
+              referenceRange:
+                type: string
+                maxLength: 100
+              flag:
+                type: string
+                enum:
+                - N
+                - L
+                - H
+                - LL
+                - HH
+                - A
+              notes:
+                type: string
+                maxLength: 500
+            required:
+            - testName
+            - value
+      required:
+      - results
     LabResult:
       type: object
       properties:
@@ -9134,7 +9405,11 @@ components:
         flag:
           type: string
         fileId: *id002
+        notes:
+          type: string
         resultedAt: *id005
+        enteredByName:
+          type: string
       required:
       - source
     SignInput:
@@ -9286,9 +9561,25 @@ components:
           - RESUME
           - SURAT_SEHAT
           - SURAT_SAKIT
-          - RUJUKAN
-        data:
-          type: object
+        restDays:
+          type: integer
+          minimum: 1
+          maximum: 30
+          description: SURAT_SAKIT
+        startDate:
+          type: string
+          format: date
+          description: SURAT_SAKIT; bawaan hari ini
+        includeDiagnosis:
+          type: boolean
+          description: SURAT_SAKIT; bawaan false (privasi)
+        purpose:
+          type: string
+          maxLength: 200
+          description: SURAT_SEHAT
+        notes:
+          type: string
+          maxLength: 500
       required:
       - docType
     MedicalDocument:
@@ -9297,18 +9588,29 @@ components:
         id: *id002
         documentNo:
           type: string
+          description: '{KODE}/{YYYY}/{MM}/{SEQ:4} (OD-093)'
         docType:
           type: string
+          enum:
+          - RESUME
+          - SURAT_SEHAT
+          - SURAT_SAKIT
+          - RUJUKAN
+        encounterId: *id002
+        patientId: *id002
         issuedAt: *id005
-        downloadUrl:
+        issuedByName:
           type: string
-          format: uri
-          description: Signed URL ≤ 5 menit
+        doctorName:
+          type: string
+        verificationCode:
+          type: string
+          description: 12 karakter pertama hash isi
+        sizeBytes: *id004
       required:
       - id
       - documentNo
       - docType
-      - downloadUrl
     ReferralInput:
       type: object
       properties:
