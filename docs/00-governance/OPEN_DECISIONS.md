@@ -42,6 +42,24 @@ Semua keputusan penentu Stage 0 sudah diambil — lihat bagian D.
 | ID | Pertanyaan | Usulan |
 |---|---|---|
 
+## B6. Stage 10 (menunggu PO)
+
+Usulan lengkap di `docs/reports/stage-10/STAGE_PLAN.md` §4.
+
+| ID | Pertanyaan | Usulan singkat |
+|---|---|---|
+| OD-037 | FEFO atau FIFO | FEFO bawaan, FIFO opsional per klinik; pilih batch manual dengan alasan |
+| OD-038 | Valuasi stok HPP | Ditunda (LJT); harga beli per batch sudah disimpan |
+| OD-096 | Obat → tagihan sebelum Stage 11 | Harga jual dikunci di baris penyerahan, status belum ditagih |
+| OD-097 | Lokasi stok | Satu "Apotek" per cabang otomatis; transfer LJT |
+| OD-098 | Checklist telaah resep | Administratif / farmasetik / klinis `[REVIEW-MEDIS]` |
+| OD-099 | Alur substitusi | Apoteker ajukan → dokter setujui di aplikasi; baris asli tetap |
+| OD-100 | Narkotika & psikotropika | Izin `pharmacy.restricted.dispense` + laporan pemakaian bulanan |
+| OD-101 | Penjualan obat bebas | Hanya Bebas/Bebas terbatas; status menunggu bayar → kasir Stage 11 |
+| OD-102 | Etiket obat | PDF label 80 × 50 mm dari peramban |
+| OD-103 | Urutan farmasi ↔ kasir | Perbaiki bawaan menjadi farmasi dulu (sesuai DEC-013) |
+| OD-104 | Sisa resep parsial | Dapat diambil hingga 7 hari (dapat diatur) |
+
 ## C. Ditetapkan di Stage Berikutnya
 
 Lihat `docs/APP_DESIGN.md` §13 dan masing-masing `docs/stages/STAGE_XX_*.md` (OD-003 s.d. OD-054).
