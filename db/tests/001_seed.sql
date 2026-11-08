@@ -75,7 +75,7 @@ BEGIN
     INSERT INTO drug_item(id, tenant_id, code, generic_name, dosage_form, base_uom_id, drug_class, ingredients)
       VALUES (test.id(k,41), tid, 'PCT500', 'Parasetamol 500 mg', 'Tablet', test.id(k,40), 'BEBAS', ARRAY['parasetamol']),
              (test.id(k,42), tid, 'AMX500', 'Amoksisilin 500 mg', 'Kapsul', test.id(k,40), 'KERAS', ARRAY['amoksisilin']);
-    INSERT INTO stock_location(id, tenant_id, branch_id, name) VALUES (test.id(k,50), tid, test.id(k,10), 'Apotek');
+    INSERT INTO stock_location(id, tenant_id, branch_id, name) VALUES (test.id(k,50), tid, test.id(k,10), 'Gudang Uji'); -- lokasi bawaan "Apotek" dibuat trigger (0023)
     INSERT INTO stock_batch(id, tenant_id, drug_item_id, batch_no, expiry_date, unit_cost)
       VALUES (test.id(k,51), tid, test.id(k,41), 'B-OK', current_date + 365, 200),
              (test.id(k,52), tid, test.id(k,41), 'B-EXP', current_date - 1, 200);

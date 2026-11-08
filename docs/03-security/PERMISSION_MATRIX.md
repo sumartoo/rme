@@ -2,7 +2,7 @@
 
 > Dibangkitkan oleh `tools/gen_permission_matrix.py` dari `api/openapi.yaml` (x-permission) dan `db/seed/role_templates.yaml`. Jangan diedit manual.
 
-**84 permission** · 8 role template tenant · 2 role platform · pemeriksaan: ✅ lulus
+**85 permission** · 8 role template tenant · 2 role platform · pemeriksaan: ✅ lulus
 
 ## Prinsip
 
@@ -19,7 +19,7 @@
 | `DOKTER` | Dokter |  | 27 |  |
 | `PERAWAT` | Perawat / Bidan |  | 15 |  |
 | `PENDAFTARAN` | Petugas Pendaftaran |  | 19 |  |
-| `FARMASI` | Apoteker / TTK |  | 22 |  |
+| `FARMASI` | Apoteker / TTK |  | 23 |  |
 | `KASIR` | Kasir |  | 18 |  |
 | `MANAJER` | Manajer / Pemilik Klinik | ✓ | 25 |  |
 | `AUDITOR` | Auditor (baca saja) | ✓ | 12 |  |
@@ -84,8 +84,8 @@
 | `integration.read` | ✓ |  |  |  |  |  | ✓ | ✓ | satusehatReconciliation; satusehatRecords; satusehatSummary |
 | **master** | | | | | | | | | |
 | `master.export` | ✓ |  |  |  |  |  |  |  | masterExport |
-| `master.facility.manage` | ✓ |  |  |  |  |  |  |  | branchCreate; branchUpdate; facilityCreate; facilityUpdate; unitCreate; unitUpdate |
-| `master.facility.read` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |  | branchList; facilityList; unitList |
+| `master.facility.manage` | ✓ |  |  |  |  |  |  |  | branchCreate; branchUpdate; facilityCreate; facilityUpdate; stockLocationCreate; stockLocationUpdate; unitCreate; unitUpdate |
+| `master.facility.read` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |  | branchList; facilityList; stockLocationList; unitList |
 | `master.import` | ✓ |  |  |  |  |  |  |  | masterImport |
 | `master.payer.manage` | ✓ |  |  |  |  |  |  |  | payerCreate; payerUpdate |
 | `master.payer.read` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |  | payerList |
@@ -106,13 +106,14 @@
 | `patient.update` |  |  |  | ✓ |  |  |  |  | patientConsentRecord; patientConsentRevoke; patientCoverageCreate; patientCoverageUpdate; patientRestrictionSet; patientUpdate |
 | **pharmacy** | | | | | | | | | |
 | `pharmacy.dispense` |  |  |  |  | ✓ |  |  |  | pharmacyWorklist; prescriptionDispense; prescriptionReview; substitutionRequest |
-| `pharmacy.drug.manage` |  |  |  |  | ✓ |  |  |  | drugCreate; drugUpdate |
-| `pharmacy.drug.read` |  | ✓ |  |  | ✓ |  |  |  | drugList |
+| `pharmacy.drug.manage` |  |  |  |  | ✓ |  |  |  | drugCreate; drugPriceCreate; drugPriceEnd; drugUpdate |
+| `pharmacy.drug.read` |  | ✓ |  |  | ✓ |  |  |  | drugList; drugPriceList |
 | `pharmacy.otc.sell` |  |  |  |  | ✓ | ✓ |  |  | otcSaleCreate |
+| `pharmacy.restricted.dispense` |  |  |  |  | ✓ |  |  |  | (di handler) Terima/keluarkan obat narkotika, psikotropika & prekursor (OD-100) |
 | `pharmacy.stock.adjust` |  |  |  |  | ✓ |  |  |  | stockAdjustmentRequest |
 | `pharmacy.stock.approve` |  |  |  |  |  |  | ✓ |  | opnameDecide; stockAdjustmentDecide |
 | `pharmacy.stock.opname` |  |  |  |  | ✓ |  |  |  | opnameCount; opnameStart |
-| `pharmacy.stock.read` |  |  |  |  | ✓ |  | ✓ | ✓ | stockAlerts; stockList |
+| `pharmacy.stock.read` |  |  |  |  | ✓ |  | ✓ | ✓ | goodsReceiptGet; goodsReceiptList; stockAlerts; stockDetail; stockList |
 | `pharmacy.stock.receive` |  |  |  |  | ✓ |  |  |  | goodsReceiptCreate |
 | **queue** | | | | | | | | | |
 | `queue.call` |  | ✓ | ✓ | ✓ |  |  |  |  | queueCall; queueCallNext; queueList; queueSkip |

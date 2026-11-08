@@ -94,6 +94,7 @@
   },
   "dependencies": {
     "@clinicrme/clinical": "workspace:*",
+    "@clinicrme/pharmacy": "workspace:*",
     "@clinicrme/db": "workspace:*",
     "@clinicrme/iam": "workspace:*",
     "@clinicrme/masterdata": "workspace:*",

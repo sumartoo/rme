@@ -4,6 +4,9 @@
 # Dibangkitkan oleh tools/gen_permission_matrix.py. Pola `*` cocok untuk satu segmen.
 # Tenant dapat membuat role custom; template hanya titik awal.
 
+# Permission yang diperiksa di dalam handler, bukan sebagai x-permission endpoint.
+code_permissions:
+  pharmacy.restricted.dispense: "Terima/keluarkan obat narkotika, psikotropika & prekursor (OD-100)"
 segregation_of_duties:
   # Pasangan permission yang tidak boleh dimiliki satu role template sekaligus (maker–checker)
   - [billing.refund.request, billing.refund.approve]
@@ -86,6 +89,7 @@ roles:
       - pharmacy.dispense
       - pharmacy.drug.*
       - pharmacy.otc.sell
+      - pharmacy.restricted.dispense   # migrasi 0023 (Stage 10, OD-100)
       - pharmacy.stock.read
       - master.supplier.manage   # migrasi 0012 (Stage 7)
       - master.uom.manage        # migrasi 0012 (Stage 7)

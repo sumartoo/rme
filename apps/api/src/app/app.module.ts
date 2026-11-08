@@ -9,6 +9,7 @@ import { MasterdataModule } from '@clinicrme/masterdata';
 import { PatientModule } from '@clinicrme/patient';
 import { SchedulingModule } from '@clinicrme/scheduling';
 import { ClinicalModule } from '@clinicrme/clinical';
+import { PharmacyModule } from '@clinicrme/pharmacy';
 import { PlatformModule } from '@clinicrme/platform';
 import { TenantModule } from '@clinicrme/tenant';
 import { CoreModule } from './core.module';
@@ -55,6 +56,7 @@ export class AppModule {
         PatientModule,
         SchedulingModule,
         ClinicalModule,
+        PharmacyModule,
       ],
       controllers: [HealthController, ...(extra.controllers ?? [])],
       providers: [

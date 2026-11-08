@@ -49,6 +49,9 @@
       "path": "../../libs/clinical/tsconfig.lib.json"
     },
     {
+      "path": "../../libs/pharmacy/tsconfig.lib.json"
+    },
+    {
       "path": "../../libs/masterdata/tsconfig.lib.json"
     },
     {

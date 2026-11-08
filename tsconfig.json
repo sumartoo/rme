@@ -47,6 +47,9 @@
     },
     {
       "path": "./libs/clinical"
+    },
+    {
+      "path": "./libs/pharmacy"
     }
   ],
   "compilerOptions": {}

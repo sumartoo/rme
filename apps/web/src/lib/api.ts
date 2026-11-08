@@ -224,7 +224,21 @@ export interface EncounterChart {
 export type DrugClass = 'BEBAS' | 'BEBAS_TERBATAS' | 'KERAS' | 'NARKOTIKA' | 'PSIKOTROPIKA' | 'PREKURSOR' | 'ALKES' | 'LAINNYA';
 export interface Drug { id: string; code: string; genericName: string; brandName: string | null; dosageForm: string; strength: string | null;
   baseUomId: string; uomCode: string; uomName: string; drugClass: DrugClass; ingredients: string[]; maxDoseQty: string | null; maxDailyQty: string | null;
-  isActive: boolean; version: number }
+  kfaCode: string | null; minStock: string; isActive: boolean; version: number }
+// Farmasi & persediaan (Stage 10)
+export interface StockLocation { id: string; branchId: string; branchName: string; name: string; isDefault: boolean; isActive: boolean; version: number }
+export interface DrugPrice { id: string; branchId: string | null; branchName: string | null; payerType: PayerType | null; hna: string | null; het: string | null;
+  sellPrice: string; validFrom: string; validTo: string | null; createdAt: string }
+export interface StockLevel { drugItemId: string; code: string; genericName: string; drugClass: DrugClass; uomName: string; minStock: number; onHand: number;
+  usable: number; nearestExpiry: string | null; expiringQty: number; expiredQty: number; isActive: boolean; low: boolean }
+export interface StockList extends Page<StockLevel> { expiryWarningDays: number }
+export interface StockDetail { drugItemId: string; genericName: string; uomName: string;
+  batches: { batchId: string; batchNo: string; expiryDate: string; unitCost: string; locationId: string; locationName: string; branchName: string; qtyOnHand: number }[];
+  movements: { id: string; occurredAt: string; type: string; qty: number; batchNo: string; locationName: string; refType: string; refId: string; actorName: string | null }[] }
+export interface GoodsReceipt { id: string; receiptNo: string; supplierId: string; supplierName: string; locationId: string; locationName: string; branchName: string;
+  invoiceNo: string; invoiceDate: string | null; notes: string | null; receivedAt: string; receivedByName: string | null; lineCount: number; total: string;
+  lines?: { id: string; drugItemId: string; drugName: string; batchNo: string; expiryDate: string; qty: number; uomName: string; qtyBase: number;
+    baseUomName: string; unitPrice: string }[] }
 export type RxRoute = 'ORAL' | 'SUBLINGUAL' | 'TOPIKAL' | 'TETES_MATA' | 'TETES_TELINGA' | 'INHALASI' | 'REKTAL' | 'INJEKSI' | 'LAINNYA';
 export interface RxAlert { key: string; type: 'ALLERGY' | 'DUPLICATE' | 'DOSE_MAX' | 'DAILY_MAX'; lineNo: number | null; message: string; reason: string | null }
 export interface PrescriptionItem { id: string; lineNo: number; kind: 'DRUG' | 'COMPOUND'; drugItemId: string | null; drugName: string | null;

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Uji mutasi kontrol keamanan (Stage 3 M1–M4 diulang di monorepo — RSK-020; M5 Stage 4; M6–M14 Stage 5; M15–M17 Stage 6; M18–M22 Stage 7; M23–M38 Stage 8; M39–M59 Stage 9).
+# Uji mutasi kontrol keamanan (Stage 3 M1–M4 diulang di monorepo — RSK-020; M5 Stage 4; M6–M14 Stage 5; M15–M17 Stage 6; M18–M22 Stage 7; M23–M38 Stage 8; M39–M59 Stage 9; M60–M65 Stage 10).
 # Setiap mutasi sengaja merusak satu kontrol, menjalankan suite integrasi API, dan LULUS hanya bila
 # uji yang menjaga kontrol itu GAGAL. Kode selalu dikembalikan (trap), juga bila skrip dihentikan.
 #
@@ -49,7 +49,10 @@ MIG21=db/migrations/0021_prescription.sql
 LABCTL=libs/clinical/src/lib/lab.controller.ts
 DOCCTL=libs/clinical/src/lib/documents.controller.ts
 MIG22=db/migrations/0022_lab_documents.sql
-FILES=("$AUTH" "$SESSION" "$MIG2" "$MIG3" "$GUARD" "$PGUARD" "$LAYOUT" "$EXPORT" "$MIG5" "$MIG6" "$TOTP" "$IAMUSERS" "$ACCOUNT" "$AUDITCHG" "$PRACT" "$MIG12" "$TERM" "$IMPORTS" "$PATIENT" "$MIG15" "$IDEM" "$MIG16" "$BOOK" "$SCHED" "$NOSHOW" "$ENCREPO" "$ENCCTL" "$QDISP" "$CHART" "$CHARTREPO" "$MIG19" "$SIGNCTL" "$REAUTH" "$MIG20" "$RXREPO" "$RXCTL" "$MIG21" "$LABCTL" "$DOCCTL" "$MIG22")
+RECV=libs/pharmacy/src/lib/receipts.controller.ts
+PRICE=libs/pharmacy/src/lib/prices.controller.ts
+LOCS=libs/pharmacy/src/lib/locations.controller.ts
+FILES=("$AUTH" "$SESSION" "$MIG2" "$MIG3" "$GUARD" "$PGUARD" "$LAYOUT" "$EXPORT" "$MIG5" "$MIG6" "$TOTP" "$IAMUSERS" "$ACCOUNT" "$AUDITCHG" "$PRACT" "$MIG12" "$TERM" "$IMPORTS" "$PATIENT" "$MIG15" "$IDEM" "$MIG16" "$BOOK" "$SCHED" "$NOSHOW" "$ENCREPO" "$ENCCTL" "$QDISP" "$CHART" "$CHARTREPO" "$MIG19" "$SIGNCTL" "$REAUTH" "$MIG20" "$RXREPO" "$RXCTL" "$MIG21" "$LABCTL" "$DOCCTL" "$MIG22" "$RECV" "$PRICE" "$LOCS")
 BACKUP=$(mktemp -d)
 cp "${FILES[@]}" "$BACKUP"/
 restore() { for f in "${FILES[@]}"; do cp "$BACKUP/$(basename "$f")" "$f"; done; }
@@ -196,6 +199,19 @@ mutate M58 "hasil lab dapat diubah/dihapus role aplikasi" 'C27' \
   "sed -i '/^REVOKE UPDATE, DELETE ON lab_result FROM clinicrme_app;/d' $MIG22 && ! grep -q 'ON lab_result FROM' $MIG22" ""
 mutate M59 "unduhan PDF dokumen medis tidak tercatat di audit" 'C29' \
   "sed -i \"s/      await audit(tx, 'MEDICAL_DOCUMENT_READ'/      void (tx, 'MEDICAL_DOCUMENT_READ'/\" $DOCCTL && grep -q \"void (tx, 'MEDICAL_DOCUMENT_READ'\" $DOCCTL" ""
+
+mutate M60 "penerimaan barang menerima batch yang sudah kedaluwarsa" 'P04' \
+  "sed -i 's/        if (l.expiryDate <= today) errors.push/        if (false) errors.push/' $RECV && grep -q '        if (false) errors.push' $RECV" ""
+mutate M61 "obat golongan terbatas dapat diterima tanpa izin khusus" 'P04' \
+  "sed -i 's/        if (RESTRICTED.includes(d.drug_class) \&\& /        if (false \&\& /' $RECV && grep -q 'if (false && !ctx()' $RECV" ""
+mutate M62 "jumlah penerimaan tidak dikonversi ke satuan dasar" 'P03' \
+  "sed -i 's/Math.round(l.qty \* factor \* 10_000)/Math.round(l.qty * 10_000)/' $RECV && grep -q 'Math.round(l.qty \* 10_000)' $RECV" ""
+mutate M63 "faktur yang sama dapat diterima dua kali" 'P03' \
+  "sed -i 's/      if (dupInv) throw/      if (false) throw/' $RECV && grep -q '      if (false) throw' $RECV" ""
+mutate M64 "harga jual boleh melebihi HET" 'P02' \
+  "sed -i 's/    if (b.het \&\& Number(b.sellPrice) > Number(b.het)) throw/    if (false) throw/' $PRICE && grep -q '    if (false) throw' $PRICE" ""
+mutate M65 "lokasi stok bawaan cabang dapat dinonaktifkan" 'P01' \
+  "sed -i 's/      if (cur.is_default \&\& b.isActive === false) throw/      if (false) throw/' $LOCS && grep -q '      if (false) throw' $LOCS" ""
 
 # Mutasi UI: suite Playwright (U##) sebagai detektor
 if [ "${MUTATION_E2E:-0}" = "1" ]; then

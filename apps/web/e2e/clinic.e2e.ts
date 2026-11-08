@@ -930,6 +930,67 @@ test('W25 dokumen medis: dokter menerbitkan resume & surat sakit dari rekam medi
   expect(cspViolations).toEqual([]);
 });
 
+test('W26 farmasi: stok minimum & harga jual obat, terima barang dalam Box (konversi ke Strip), stok & peringatan tampil (Stage 10 batch 1)', async ({ page }) => {
+  watchCsp(page);
+  await login(page, 'farmasi@klinik-web.test');
+  const menu = page.getByTestId('side-menu');
+  await menu.getByRole('link', { name: 'Obat', exact: true }).click();
+  const row = page.getByTestId('drug-row').filter({ hasText: 'AMX500' });
+  await row.getByRole('button', { name: 'Ubah' }).click();
+  const dd = page.getByRole('dialog', { name: 'Ubah obat' });
+  await dd.getByLabel('Kode KFA').fill('93000001');
+  await dd.getByLabel('Stok minimum (satuan dasar)').fill('50');
+  await dd.getByRole('button', { name: 'Simpan' }).click();
+  await expect(dd).toBeHidden();
+  await row.getByRole('button', { name: 'Harga' }).click();
+  const pd = page.getByRole('dialog', { name: /Harga jual — Amoksisilin/ });
+  await pd.getByLabel('Harga jual per Strip *').fill('12.500');
+  await pd.getByLabel('HET (opsional)').fill('15000');
+  await pd.getByRole('button', { name: 'Tambah harga' }).click();
+  await expect(pd.getByTestId('price-row')).toContainText('Rp 12.500');
+  await pd.getByLabel('Harga jual per Strip *').fill('13000');
+  await pd.getByRole('button', { name: 'Tambah harga' }).click();
+  await expect(pd.getByRole('alert')).toContainText('tumpang tindih');
+  await pd.getByRole('button', { name: 'Tutup', exact: true }).click();
+
+  await menu.getByRole('link', { name: 'Penerimaan barang' }).click();
+  await page.getByRole('button', { name: 'Terima barang' }).click();
+  const rd = page.getByRole('dialog', { name: 'Terima barang' });
+  await rd.getByLabel('Supplier *').selectOption({ label: 'PBF Web Sintetis' });
+  await expect(rd.getByLabel('Lokasi penyimpanan *')).toHaveValue(/.+/);
+  await rd.getByLabel('Nomor faktur *').fill('FKT-WEB-001');
+  await rd.getByLabel('Obat *').fill('amoks');
+  await rd.getByRole('option', { name: /Amoksisilin 500 mg/ }).click();
+  await rd.getByLabel('No. batch *').fill('AMX-W1');
+  const exp = new Date(Date.now() + 60 * 86_400_000).toISOString().slice(0, 10);
+  await rd.getByLabel('Kedaluwarsa *').fill(exp);
+  await rd.getByLabel('Jumlah *').fill('2');
+  await rd.getByLabel('Satuan *', { exact: true }).selectOption({ label: 'Box' });
+  await rd.getByLabel('Harga beli per satuan *').fill('80.000');
+  await expect(rd.getByText('Rp 160.000')).toBeVisible();
+  await rd.getByRole('button', { name: 'Simpan penerimaan' }).click();
+  await expect(page.getByRole('status').filter({ hasText: /Penerimaan GR\d+ tersimpan/ })).toBeVisible();
+  const rr = page.getByTestId('receipt-row').filter({ hasText: 'FKT-WEB-001' });
+  await expect(rr).toContainText('Rp 160.000');
+  await rr.getByRole('button', { name: 'Lihat' }).click();
+  await expect(page.getByRole('dialog')).toContainText('2 Box (= 20 Strip)');
+  await page.getByRole('dialog').getByRole('button', { name: 'Tutup' }).click();
+
+  await menu.getByRole('link', { name: 'Stok obat' }).click();
+  const sr = page.getByTestId('stock-row').filter({ hasText: 'AMX500' });
+  await expect(sr).toContainText('20 Strip');
+  await expect(sr).toContainText('Menipis');
+  await expect(sr).toContainText('20 akan ED');
+  await page.getByLabel('Filter stok').selectOption('LOW');
+  await expect(page.getByTestId('stock-row')).toHaveCount(1);
+  await sr.getByRole('button', { name: 'Rincian' }).click();
+  const det = page.getByRole('dialog', { name: /Stok — Amoksisilin/ });
+  await expect(det.getByTestId('batch-row')).toContainText('AMX-W1');
+  await expect(det).toContainText('Penerimaan');
+  await expect(det).toContainText('Apoteker E2E');
+  expect(cspViolations).toEqual([]);
+});
+
 test('W06 keamanan: CSP bernonce, no-store; proxy hanya untuk klinik dari subdomain; tidak ada pelanggaran CSP', async ({ page }) => {
   const res = await page.goto('/login');
   const h = res!.headers();

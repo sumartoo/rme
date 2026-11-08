@@ -136,11 +136,12 @@ const SPECS: Record<string, Spec> = {
     },
   },
   drugs: {
-    label: 'Obat', columns: ['code', 'genericName', 'brandName', 'dosageForm', 'strength', 'uomCode', 'drugClass', 'ingredients', 'maxDoseQty', 'maxDailyQty', 'isActive'],
+    label: 'Obat', columns: ['code', 'genericName', 'brandName', 'dosageForm', 'strength', 'uomCode', 'drugClass', 'ingredients', 'maxDoseQty', 'maxDailyQty', 'kfaCode', 'minStock', 'isActive'],
     key: (v) => blank(v.code)?.toUpperCase() ?? null,
     exportRows: (tx) => rows(tx, sql`select d.code, d.generic_name as "genericName", d.brand_name as "brandName", d.dosage_form as "dosageForm",
       d.strength, u.code as "uomCode", d.drug_class as "drugClass", array_to_string(d.ingredients, '|') as ingredients,
       trim_scale(d.max_dose_qty)::text as "maxDoseQty", trim_scale(d.max_daily_qty)::text as "maxDailyQty",
+      d.kfa_code as "kfaCode", trim_scale(d.min_stock)::text as "minStock",
       case when d.is_active then 'ya' else 'tidak' end as "isActive" from drug_item d join uom u on u.id = d.base_uom_id order by d.code`),
     async importRow(tx, v) {
       const uom = blank(v.uomCode);
@@ -149,23 +150,25 @@ const SPECS: Record<string, Spec> = {
       const b = parse(DrugBody, { code: blank(v.code), genericName: blank(v.genericName), brandName: orNull(v.brandName), dosageForm: blank(v.dosageForm),
         strength: orNull(v.strength), baseUomId: u.id, drugClass: blank(v.drugClass)?.toUpperCase(),
         ingredients: (blank(v.ingredients) ?? '').split(/[|;]/).map((x) => x.trim()).filter(Boolean),
-        maxDoseQty: orNull(v.maxDoseQty), maxDailyQty: orNull(v.maxDailyQty), isActive: bool(v, 'isActive') });
+        maxDoseQty: orNull(v.maxDoseQty), maxDailyQty: orNull(v.maxDailyQty), kfaCode: orNull(v.kfaCode), minStock: blank(v.minStock),
+        isActive: bool(v, 'isActive') });
       if (b.maxDoseQty && b.maxDailyQty && Number(b.maxDailyQty) < Number(b.maxDoseQty)) throw new RowError('maxDailyQty', 'Lebih kecil dari batas per pemberian');
       const arr = `{${b.ingredients.map((i) => JSON.stringify(i)).join(',')}}`;
       const [cur] = await rows<DrugRow>(tx, sql`${DRUG} where d.code = ${b.code} for update of d`);
       if (cur) {
         await tx.execute(sql`update drug_item set generic_name = ${b.genericName}, brand_name = ${b.brandName ?? null}, dosage_form = ${b.dosageForm},
           strength = ${b.strength ?? null}, base_uom_id = ${b.baseUomId}, drug_class = ${b.drugClass}, ingredients = ${arr}::text[],
-          max_dose_qty = ${b.maxDoseQty ?? null}::numeric, max_daily_qty = ${b.maxDailyQty ?? null}::numeric,
-          is_active = ${b.isActive ?? cur.is_active}, updated_by = ${ctx().userId} where id = ${cur.id}`);
+          max_dose_qty = ${b.maxDoseQty ?? null}::numeric, max_daily_qty = ${b.maxDailyQty ?? null}::numeric, kfa_code = ${b.kfaCode ?? null},
+          min_stock = ${b.minStock ?? cur.min_stock}::numeric, is_active = ${b.isActive ?? cur.is_active}, updated_by = ${ctx().userId} where id = ${cur.id}`);
         const [r] = await rows<DrugRow>(tx, sql`${DRUG} where d.id = ${cur.id}`);
         await auditChange(tx, 'DRUG_UPDATED', 'drug_item', cur.id, drugDto(cur), drugDto(r));
         return 'updated';
       }
       const [r] = await rows<{ id: string }>(tx, sql`insert into drug_item(tenant_id, code, generic_name, brand_name, dosage_form, strength, base_uom_id,
-          drug_class, ingredients, max_dose_qty, max_daily_qty, is_active, updated_by)
+          drug_class, ingredients, max_dose_qty, max_daily_qty, kfa_code, min_stock, is_active, updated_by)
         values (app.current_tenant_id(), ${b.code}, ${b.genericName}, ${b.brandName ?? null}, ${b.dosageForm}, ${b.strength ?? null}, ${b.baseUomId},
-                ${b.drugClass}, ${arr}::text[], ${b.maxDoseQty ?? null}::numeric, ${b.maxDailyQty ?? null}::numeric, ${b.isActive ?? true}, ${ctx().userId}) returning id`);
+                ${b.drugClass}, ${arr}::text[], ${b.maxDoseQty ?? null}::numeric, ${b.maxDailyQty ?? null}::numeric, ${b.kfaCode ?? null},
+                ${b.minStock ?? '0'}::numeric, ${b.isActive ?? true}, ${ctx().userId}) returning id`);
       await auditChange(tx, 'DRUG_CREATED', 'drug_item', r.id, null, b);
       return 'created';
     },

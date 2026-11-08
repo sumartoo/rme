@@ -24,6 +24,10 @@ export const DrugBody = z.object({
     .refine((a) => new Set(a).size === a.length, 'Zat aktif tercantum dua kali'),
   maxDoseQty: Qty.nullable().optional(),
   maxDailyQty: Qty.nullable().optional(),
+  /** Kode KFA SATUSEHAT (opsional; pemetaan penuh di Stage 12). */
+  kfaCode: z.string().trim().regex(/^[0-9A-Za-z.-]{3,30}$/, 'Kode KFA tidak valid').nullable().optional(),
+  /** Stok minimum dalam satuan dasar (0 = tanpa peringatan). */
+  minStock: z.union([z.string(), z.number()]).transform(String).pipe(z.string().regex(/^\d{1,13}(\.\d{1,4})?$/, 'Angka ≥ 0, maks. 4 desimal')).optional(),
   isActive: z.boolean().optional(),
 }).strict();
 const checkMax = (b: { maxDoseQty?: string | null; maxDailyQty?: string | null }) => {
@@ -34,13 +38,14 @@ const checkMax = (b: { maxDoseQty?: string | null; maxDailyQty?: string | null }
 
 export interface DrugRow { id: string; code: string; generic_name: string; brand_name: string | null; dosage_form: string; strength: string | null;
   base_uom_id: string; uom_code: string; uom_name: string; drug_class: string; ingredients: string[]; max_dose_qty: string | null;
-  max_daily_qty: string | null; is_active: boolean; version: number }
+  max_daily_qty: string | null; kfa_code: string | null; min_stock: string; is_active: boolean; version: number }
 export const drugDto = (r: DrugRow) => ({ id: r.id, code: r.code, genericName: r.generic_name, brandName: r.brand_name, dosageForm: r.dosage_form,
   strength: r.strength, baseUomId: r.base_uom_id, uomCode: r.uom_code, uomName: r.uom_name, drugClass: r.drug_class, ingredients: r.ingredients,
-  maxDoseQty: r.max_dose_qty, maxDailyQty: r.max_daily_qty, isActive: r.is_active, version: r.version });
+  maxDoseQty: r.max_dose_qty, maxDailyQty: r.max_daily_qty, kfaCode: r.kfa_code, minStock: r.min_stock, isActive: r.is_active, version: r.version });
 export const DRUG = sql`select d.id, d.code, d.generic_name, d.brand_name, d.dosage_form, d.strength, d.base_uom_id, u.code as uom_code, u.name as uom_name,
                                d.drug_class, d.ingredients, trim_scale(d.max_dose_qty)::text as max_dose_qty,
-                               trim_scale(d.max_daily_qty)::text as max_daily_qty, d.is_active, d.version
+                               trim_scale(d.max_daily_qty)::text as max_daily_qty, d.kfa_code,
+                               trim_scale(d.min_stock)::text as min_stock, d.is_active, d.version
                           from drug_item d join uom u on u.id = d.base_uom_id`;
 const DrugQuery = z.object({
   q: z.string().trim().max(100).optional(),
@@ -55,7 +60,7 @@ export async function assertUom(tx: Tx, id: string) {
 
 /**
  * Master obat minimal (OD-091 / DEC-038): identitas obat, bentuk & kekuatan, satuan dasar, golongan, zat aktif, dan
- * batas dosis opsional untuk peringatan resep (OD-033, [REVIEW-MEDIS]). Stok, harga, batch & KFA ditambah di Stage 10.
+ * batas dosis opsional untuk peringatan resep (OD-033, [REVIEW-MEDIS]). Kode KFA & stok minimum ditambah di Stage 10; harga di /drugs/:id/prices.
  * Obat tidak dihapus; dinonaktifkan. Perubahan teraudit sebelum/sesudah.
  */
 @Controller('api/v1')
@@ -86,10 +91,10 @@ export class DrugsController {
       if (dup) throw problem(409, 'MST-409-CODE', 'Kode obat sudah dipakai');
       const [{ id }] = await rows<{ id: string }>(tx, sql`
         insert into drug_item(tenant_id, code, generic_name, brand_name, dosage_form, strength, base_uom_id, drug_class, ingredients,
-                              max_dose_qty, max_daily_qty, is_active, updated_by)
+                              max_dose_qty, max_daily_qty, kfa_code, min_stock, is_active, updated_by)
         values (app.current_tenant_id(), ${b.code}, ${b.genericName}, ${b.brandName ?? null}, ${b.dosageForm}, ${b.strength ?? null},
                 ${b.baseUomId}, ${b.drugClass}, ${`{${b.ingredients.map((i) => JSON.stringify(i)).join(',')}}`}::text[],
-                ${b.maxDoseQty ?? null}::numeric, ${b.maxDailyQty ?? null}::numeric, ${b.isActive ?? true}, ${ctx().userId}) returning id`);
+                ${b.maxDoseQty ?? null}::numeric, ${b.maxDailyQty ?? null}::numeric, ${b.kfaCode ?? null}, ${b.minStock ?? '0'}::numeric, ${b.isActive ?? true}, ${ctx().userId}) returning id`);
       const [r] = await rows<DrugRow>(tx, sql`${DRUG} where d.id = ${id}`);
       const d = drugDto(r);
       await auditChange(tx, 'DRUG_CREATED', 'drug_item', id, null, d);
@@ -118,7 +123,8 @@ export class DrugsController {
         update drug_item set code = ${n.code}, generic_name = ${n.genericName}, brand_name = ${n.brandName}, dosage_form = ${n.dosageForm},
                strength = ${n.strength}, base_uom_id = ${n.baseUomId}, drug_class = ${n.drugClass},
                ingredients = ${`{${n.ingredients.map((i) => JSON.stringify(i)).join(',')}}`}::text[],
-               max_dose_qty = ${n.maxDoseQty}::numeric, max_daily_qty = ${n.maxDailyQty}::numeric, is_active = ${n.isActive}, updated_by = ${ctx().userId}
+               max_dose_qty = ${n.maxDoseQty}::numeric, max_daily_qty = ${n.maxDailyQty}::numeric,
+               kfa_code = ${n.kfaCode}, min_stock = ${n.minStock}::numeric, is_active = ${n.isActive}, updated_by = ${ctx().userId}
          where id = ${id}`);
       const [r] = await rows<DrugRow>(tx, sql`${DRUG} where d.id = ${id}`);
       const after = drugDto(r);

@@ -18,7 +18,9 @@ for path, item in api["paths"].items():
     for method, op in item.items():
         p = op.get("x-permission")
         if p: ops_by_perm[p].append((method.upper(), path, op["operationId"]))
-perms = sorted(ops_by_perm)
+# Permission yang diperiksa di dalam handler (bukan x-permission endpoint), mis. izin tambahan obat golongan terbatas.
+code_perms = tpl.get("code_permissions", {}) or {}
+perms = sorted(set(ops_by_perm) | set(code_perms))
 
 def expand(patterns):
     out = set()
@@ -41,7 +43,7 @@ for a, b in tpl["segregation_of_duties"]:
             errors.append(f"SoD dilanggar: role {code} memiliki {a} dan {b}")
 
 def module(p): return p.split(".")[0]
-desc = {p: "; ".join(sorted({o[2] for o in ops_by_perm[p]})) for p in perms}
+desc = {p: "; ".join(sorted({o[2] for o in ops_by_perm[p]})) or f"(di handler) {code_perms.get(p, '')}" for p in perms}
 
 # ---- Markdown
 cols = list(roles)
