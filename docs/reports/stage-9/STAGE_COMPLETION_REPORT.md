@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | Stage | 9 — Clinical Workflow & Rekam Medis |
-| Status | **MENUNGGU REVIEW MEDIS & PERSETUJUAN PO** |
+| Status | **DISETUJUI BERSYARAT** — DEC-040 (9 Nov 2026): S9-1 review medis sebelum/saat UAT; S9-2 uji mutasi lengkap di Actions setelah 1 Des |
 | Disusun oleh | Sumarto (dibantu Claude) |
 | Rincian | [STAGE_PLAN.md](STAGE_PLAN.md) §6 · keputusan DEC-038 · paket review [CLINICAL_SAFETY_REVIEW.md](CLINICAL_SAFETY_REVIEW.md) |
 | Repo kerja | `sumartoo/rme`, sementara (akses sesi ke `AtoAIs/atoai-rme-v2` terputus 6 Nov). CI GitHub Actions hijau dan deploy otomatis ke VPS dev untuk setiap batch |
@@ -54,14 +54,14 @@ Alur rekam medis rawat jalan kini lengkap, dari pasien hadir sampai diteruskan k
 
 ## 3. Checklist Gate
 
-- [ ] **Workflow klinis divalidasi tenaga medis** (DEC-005, OD-095). Paket review sudah siap, reviewer belum ditunjuk.
+- [ ] **Workflow klinis divalidasi tenaga medis** (DEC-005, OD-095) — **ditunda ke UAT sebagai S9-1 (DEC-040)**; paket review siap
 - [x] Catatan SIGNED tidak dapat diubah, baik lewat API maupun lewat SQL role aplikasi (C10, C12, uji SQL T08; mutasi M39)
 - [x] Addendum dan hash integritas teruji, termasuk deteksi perubahan di luar aplikasi (C16, C17; M47, M48)
 - [x] Audit akses baca rekam medis berfungsi (C08, C19, C28, C29; M40, M59)
 - [x] Order dan hasil lab teruji dengan vendor tiruan (C26–C28)
 - [x] Matriks permission X01 mencakup semua endpoint baru
-- [ ] Uji mutasi lengkap M1–M59 dijalankan di GitHub Actions (manual, `workflow_dispatch`) sebelum persetujuan
-- [ ] PO menyetujui Stage 9
+- [ ] Uji mutasi lengkap M1–M59 di GitHub Actions — **S9-2 (DEC-040)**, setelah kuota AtoAIs aktif 1 Des
+- [x] PO menyetujui Stage 9 secara bersyarat — DEC-040
 
 ## 4. Keamanan & privasi
 
@@ -86,4 +86,4 @@ Alur rekam medis rawat jalan kini lengkap, dari pasien hadir sampai diteruskan k
 | Peran | Nama | Keputusan | Tanggal | Catatan |
 |---|---|---|---|---|
 | Reviewer medis | | ☐ Layak ☐ Perlu perubahan | | |
-| Project Owner | Sumarto | ☐ Disetujui ☐ Revisi | | |
+| Project Owner | Sumarto | ☑ Disetujui bersyarat | 9 Nov 2026 | DEC-040: S9-1 review medis sebelum/saat UAT, S9-2 uji mutasi lengkap |

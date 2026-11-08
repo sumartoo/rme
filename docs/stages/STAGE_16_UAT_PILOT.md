@@ -66,6 +66,7 @@ Memastikan sistem siap dipakai di klinik nyata melalui pengujian menyeluruh, UAT
 
 ## 5. Gate Checklist
 
+- [ ] **Syarat terbuka dari stage sebelumnya ditutup** — termasuk **S9-1 review tenaga medis Stage 9** (`docs/reports/stage-9/CLINICAL_SAFETY_REVIEW.md`, DEC-040; wajib sebelum/saat UAT), S7-1 lisensi & data ICD resmi, S8-1/S9-2 uji mutasi lengkap di Actions.
 - [ ] RTM: setiap requirement MVP memiliki test case dengan hasil lulus.
 - [ ] Tidak ada defect kritis/tinggi terbuka.
 - [ ] Temuan pentest kritis/tinggi ditutup.

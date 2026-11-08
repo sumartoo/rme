@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | Stage | 10 — Pharmacy & Inventory |
-| Status | **OD diputuskan (DEC-039)** — pengembangan dimulai setelah Stage 9 disetujui |
+| Status | **BERJALAN** — OD diputuskan (DEC-039); dimulai 9 Nov 2026 (DEC-040) |
 | Project Owner | Sumarto |
 | Requirement | **MVP saja** (DEC-010): PHM-FR-001–014, 016, 017, 019. Di luar stage ini (LJT): PHM-FR-015 retur, PHM-FR-018 transfer antar lokasi/cabang, PHM-FR-020 valuasi HPP |
 | Mode verifikasi | Lokal + GitHub Actions `sumartoo/rme` (CI & deploy otomatis) |
@@ -68,3 +68,4 @@ Perkiraan: ±1 hari kerja per batch.
 |---|---|---|
 | 7 Nov 2026 | Draf rencana & OD Stage 10 disusun sambil menunggu review medis Stage 9. Uji mutasi lengkap M1–M59 dijalankan di Actions (`workflow_dispatch`) | run 42329227880 |
 | 7 Nov 2026 | PO menyetujui semua usulan OD Stage 10 (DEC-039) | — |
+| 9 Nov 2026 | Stage 10 dimulai (DEC-040). Verifikasi lokal (DEC-036) sampai Actions AtoAIs aktif 1 Des | — |
