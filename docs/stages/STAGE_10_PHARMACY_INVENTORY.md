@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | Phase | D — Operasional Klinik |
-| Status | Belum dimulai |
+| Status | **Draf rencana** — `docs/reports/stage-10/STAGE_PLAN.md`; dimulai setelah Stage 9 disetujui |
 | Prasyarat | Stage 9 disetujui |
 | Modul | `pharmacy` |
 

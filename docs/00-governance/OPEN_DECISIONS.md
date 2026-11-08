@@ -118,3 +118,14 @@ Lihat `docs/APP_DESIGN.md` §13 dan masing-masing `docs/stages/STAGE_XX_*.md` (O
 | OD-093 | PDF `pdfmake` (MIT); nomor `{KODE}/{YYYY}/{MM}/{SEQ:4}` | DEC-038 |
 | OD-094 | CONSULT_DONE → PHARMACY/BILLING sesuai pengaturan | DEC-038 |
 | OD-095 | Paket review medis di batch 4; PO mencari reviewer | DEC-038 |
+| OD-037 | FEFO bawaan, FIFO opsional per klinik | DEC-039 |
+| OD-038 | Valuasi HPP ditunda (LJT) | DEC-039 |
+| OD-096 | Harga dikunci di baris penyerahan → tagihan Stage 11 | DEC-039 |
+| OD-097 | Satu lokasi Apotek per cabang otomatis | DEC-039 |
+| OD-098 | Checklist telaah administratif/farmasetik/klinis `[REVIEW-MEDIS]` | DEC-039 |
+| OD-099 | Substitusi: apoteker ajukan → dokter setujui di aplikasi | DEC-039 |
+| OD-100 | Izin `pharmacy.restricted.dispense` + laporan pemakaian | DEC-039 |
+| OD-101 | Obat bebas: Bebas/Bebas terbatas, menunggu bayar → kasir Stage 11 | DEC-039 |
+| OD-102 | Etiket PDF 80 × 50 mm | DEC-039 |
+| OD-103 | Bawaan alur farmasi → kasir (perbaikan sesuai DEC-013) | DEC-039 |
+| OD-104 | Sisa resep parsial hingga 7 hari | DEC-039 |
