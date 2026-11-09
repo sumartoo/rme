@@ -169,6 +169,13 @@
       "when": 1795075200000,
       "tag": "0023_stock_receiving",
       "breakpoints": false
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1795161600000,
+      "tag": "0024_dispensing",
+      "breakpoints": false
     }
   ]
 }

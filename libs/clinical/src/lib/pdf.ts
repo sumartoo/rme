@@ -7,31 +7,7 @@ import { type Tx, rows } from '@clinicrme/db';
 import { ctx } from '@clinicrme/shared';
 import { type ObjectStorage, objectPathFor } from '@clinicrme/storage';
 
-/* pdfmake (MIT, OD-093) tidak menyertakan tipe; dipakai di server dengan font standar PDF (tanpa berkas font eksternal). */
-interface PdfMake {
-  setFonts(f: object): void; setUrlAccessPolicy(fn: (u: string) => boolean): void; setLocalAccessPolicy(fn: (p: string) => boolean): void;
-  createPdf(doc: object): { getBuffer(): Promise<Buffer> };
-}
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const pdfmake = require('pdfmake') as PdfMake;
-const STANDARD = new Set(['Helvetica', 'Helvetica-Bold', 'Helvetica-Oblique', 'Helvetica-BoldOblique']);
-pdfmake.setFonts({ Helvetica: { normal: 'Helvetica', bold: 'Helvetica-Bold', italics: 'Helvetica-Oblique', bolditalics: 'Helvetica-BoldOblique' } });
-pdfmake.setUrlAccessPolicy(() => false);                 // tidak pernah mengunduh sumber eksternal
-pdfmake.setLocalAccessPolicy((p) => STANDARD.has(p));     // hanya font standar bawaan
-
-export type Content = string | Record<string, unknown> | Content[];
-
-/** PDF deterministik (tanggal pembuatan tetap = waktu terbit) dengan font standar. */
-export function renderPdf(content: Content[], meta: { title: string; issuedAt: Date }): Promise<Buffer> {
-  return pdfmake.createPdf({
-    info: { title: meta.title, creator: 'ClinicRME', producer: 'ClinicRME', creationDate: meta.issuedAt },
-    pageSize: 'A4', pageMargins: [48, 40, 48, 48],
-    defaultStyle: { font: 'Helvetica', fontSize: 10, lineHeight: 1.25 },
-    styles: { title: { fontSize: 13, bold: true, alignment: 'center', margin: [0, 8, 0, 2] }, small: { fontSize: 8, color: '#555555' },
-      label: { bold: true }, clinic: { fontSize: 12, bold: true } },
-    content,
-  }).getBuffer();
-}
+export { renderPdf, type Content } from '@clinicrme/shared/pdf';
 
 /**
  * Simpan berkas ke object storage (ADR-0013) + baris stored_file. Penulisan berkas terjadi sebelum commit transaksi;

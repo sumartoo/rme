@@ -30,6 +30,11 @@
       "types": "./src/lib/reference.ts",
       "import": "./src/lib/reference.ts",
       "default": "./src/lib/reference.ts"
+    },
+    "./rx-remainder": {
+      "types": "./src/lib/rx-remainder.ts",
+      "import": "./src/lib/rx-remainder.ts",
+      "default": "./src/lib/rx-remainder.ts"
     }
   },
   "nx": {

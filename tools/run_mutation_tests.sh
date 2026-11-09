@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Uji mutasi kontrol keamanan (Stage 3 M1–M4 diulang di monorepo — RSK-020; M5 Stage 4; M6–M14 Stage 5; M15–M17 Stage 6; M18–M22 Stage 7; M23–M38 Stage 8; M39–M59 Stage 9; M60–M65 Stage 10).
+# Uji mutasi kontrol keamanan (Stage 3 M1–M4 diulang di monorepo — RSK-020; M5 Stage 4; M6–M14 Stage 5; M15–M17 Stage 6; M18–M22 Stage 7; M23–M38 Stage 8; M39–M59 Stage 9; M60–M74 Stage 10).
 # Setiap mutasi sengaja merusak satu kontrol, menjalankan suite integrasi API, dan LULUS hanya bila
 # uji yang menjaga kontrol itu GAGAL. Kode selalu dikembalikan (trap), juga bila skrip dihentikan.
 #
@@ -52,7 +52,10 @@ MIG22=db/migrations/0022_lab_documents.sql
 RECV=libs/pharmacy/src/lib/receipts.controller.ts
 PRICE=libs/pharmacy/src/lib/prices.controller.ts
 LOCS=libs/pharmacy/src/lib/locations.controller.ts
-FILES=("$AUTH" "$SESSION" "$MIG2" "$MIG3" "$GUARD" "$PGUARD" "$LAYOUT" "$EXPORT" "$MIG5" "$MIG6" "$TOTP" "$IAMUSERS" "$ACCOUNT" "$AUDITCHG" "$PRACT" "$MIG12" "$TERM" "$IMPORTS" "$PATIENT" "$MIG15" "$IDEM" "$MIG16" "$BOOK" "$SCHED" "$NOSHOW" "$ENCREPO" "$ENCCTL" "$QDISP" "$CHART" "$CHARTREPO" "$MIG19" "$SIGNCTL" "$REAUTH" "$MIG20" "$RXREPO" "$RXCTL" "$MIG21" "$LABCTL" "$DOCCTL" "$MIG22" "$RECV" "$PRICE" "$LOCS")
+DISP=libs/pharmacy/src/lib/dispense.controller.ts
+DREPO=libs/pharmacy/src/lib/dispense.repo.ts
+RXREM=libs/db/src/lib/rx-remainder.ts
+FILES=("$AUTH" "$SESSION" "$MIG2" "$MIG3" "$GUARD" "$PGUARD" "$LAYOUT" "$EXPORT" "$MIG5" "$MIG6" "$TOTP" "$IAMUSERS" "$ACCOUNT" "$AUDITCHG" "$PRACT" "$MIG12" "$TERM" "$IMPORTS" "$PATIENT" "$MIG15" "$IDEM" "$MIG16" "$BOOK" "$SCHED" "$NOSHOW" "$ENCREPO" "$ENCCTL" "$QDISP" "$CHART" "$CHARTREPO" "$MIG19" "$SIGNCTL" "$REAUTH" "$MIG20" "$RXREPO" "$RXCTL" "$MIG21" "$LABCTL" "$DOCCTL" "$MIG22" "$RECV" "$PRICE" "$LOCS" "$DISP" "$DREPO" "$RXREM")
 BACKUP=$(mktemp -d)
 cp "${FILES[@]}" "$BACKUP"/
 restore() { for f in "${FILES[@]}"; do cp "$BACKUP/$(basename "$f")" "$f"; done; }
@@ -212,6 +215,25 @@ mutate M64 "harga jual boleh melebihi HET" 'P02' \
   "sed -i 's/    if (b.het \&\& Number(b.sellPrice) > Number(b.het)) throw/    if (false) throw/' $PRICE && grep -q '    if (false) throw' $PRICE" ""
 mutate M65 "lokasi stok bawaan cabang dapat dinonaktifkan" 'P01' \
   "sed -i 's/      if (cur.is_default \&\& b.isActive === false) throw/      if (false) throw/' $LOCS && grep -q '      if (false) throw' $LOCS" ""
+
+mutate M66 "penyerahan mengeluarkan batch yang diterima lebih dulu, bukan kedaluwarsa terdekat (FEFO)" 'D01|D03' \
+  "sed -i 's/: sql\`sb.expiry_date, sb.created_at\`}/: sql\`sb.created_at, sb.expiry_date\`}/' $DREPO && grep -q ': sql\`sb.created_at, sb.expiry_date\`}' $DREPO" ""
+mutate M67 "telaah dengan masalah tetap memverifikasi resep" 'D02' \
+  "sed -i 's/const result = Object.values(b.items).every((x) => x.ok) ? /const result = true ? /' $DISP && grep -q 'const result = true ? ' $DISP" ""
+mutate M68 "obat dapat diserahkan sebelum telaah selesai" 'D02' \
+  "sed -i \"s/      if (h.status === 'ISSUED') throw/      if (false) throw/\" $DISP && grep -q '      if (false) throw' $DISP" ""
+mutate M69 "obat tanpa harga jual berlaku tetap diserahkan" 'D06' \
+  "sed -i 's/          if (!price) { errors.push/          if (false) { errors.push/' $DISP && grep -q '          if (false) { errors.push' $DISP" ""
+mutate M70 "racikan dapat diserahkan sebagian" 'D05' \
+  "sed -i 's/        if (it.is_compound \&\& round4(l.qty) !== rem)/        if (false \&\& round4(l.qty) !== rem)/' $DISP && grep -q 'if (false && round4(l.qty) !== rem)' $DISP" ""
+mutate M71 "obat golongan terbatas diserahkan tanpa izin khusus" 'D06' \
+  "sed -i 's/          if (RESTRICTED.includes(need.drugClass)) assertRestrictedAllowed/          if (false) assertRestrictedAllowed/' $DISP && grep -q 'if (false) assertRestrictedAllowed' $DISP" ""
+mutate M72 "stok tidak dikunci saat penyerahan bersamaan" 'D08' \
+  "sed -i 's/  for (const d of \[...new Set(drugItemIds)\].sort()) {/  for (const d of [] as string[]) {/' $DREPO && grep -q 'for (const d of \[\] as string\[\])' $DREPO" ""
+mutate M73 "sisa resep lewat batas ambil tidak ditutup otomatis" 'D04' \
+  "sed -i \"s/     where p.status = 'PARTIALLY_DISPENSED'/     where false and p.status = 'PARTIALLY_DISPENSED'/\" $RXREM && grep -q 'where false and p.status' $RXREM" ""
+mutate M74 "sisa resep tetap dapat diambil setelah batas waktu" 'D04' \
+  "sed -i 's/      if (h.first_dispensed_at \&\& Date.parse/      if (false \&\& Date.parse/' $DISP && grep -q 'if (false && Date.parse' $DISP" ""
 
 # Mutasi UI: suite Playwright (U##) sebagai detektor
 if [ "${MUTATION_E2E:-0}" = "1" ]; then

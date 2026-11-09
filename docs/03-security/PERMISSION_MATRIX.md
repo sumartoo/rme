@@ -105,7 +105,7 @@
 | `patient.read` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |  |  | consentDocumentList; patientGet; patientSearch |
 | `patient.update` |  |  |  | ✓ |  |  |  |  | patientConsentRecord; patientConsentRevoke; patientCoverageCreate; patientCoverageUpdate; patientRestrictionSet; patientUpdate |
 | **pharmacy** | | | | | | | | | |
-| `pharmacy.dispense` |  |  |  |  | ✓ |  |  |  | pharmacyWorklist; prescriptionDispense; prescriptionReview; substitutionRequest |
+| `pharmacy.dispense` |  |  |  |  | ✓ |  |  |  | pharmacyDispense; pharmacyDispenseLabels; pharmacyPrescriptionClose; pharmacyPrescriptionGet; pharmacyPrescriptionReview; pharmacyWorklist; substitutionRequest |
 | `pharmacy.drug.manage` |  |  |  |  | ✓ |  |  |  | drugCreate; drugPriceCreate; drugPriceEnd; drugUpdate |
 | `pharmacy.drug.read` |  | ✓ |  |  | ✓ |  |  |  | drugList; drugPriceList |
 | `pharmacy.otc.sell` |  |  |  |  | ✓ | ✓ |  |  | otcSaleCreate |

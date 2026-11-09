@@ -2,7 +2,7 @@ import { sql } from 'drizzle-orm';
 import { type Tx, rows } from '@clinicrme/db';
 import { ctx, problem } from '@clinicrme/shared';
 
-export const RESTRICTED = ['NARKOTIKA', 'PSIKOTROPIKA'];
+export const RESTRICTED = ['NARKOTIKA', 'PSIKOTROPIKA', 'PREKURSOR'];
 
 /** OD-100: obat narkotika/psikotropika hanya untuk pemegang izin `pharmacy.restricted.dispense`. */
 export function assertRestrictedAllowed(drugClass: string, name: string) {

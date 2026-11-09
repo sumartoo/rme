@@ -126,7 +126,7 @@ export class PrescriptionController {
 
   private async lockConsultation(tx: Tx, id: string) {
     const [e] = await rows<{ status: string; patient_id: string; timezone: string; pharmacy_first: boolean }>(tx, sql`
-      select e.status, e.patient_id, b.timezone, coalesce((t.settings->>'pharmacyBeforeCashier')::boolean, false) as pharmacy_first
+      select e.status, e.patient_id, b.timezone, coalesce((t.settings->>'pharmacyBeforeCashier')::boolean, true) as pharmacy_first
         from encounter e join branch b on b.id = e.branch_id join tenant t on t.id = e.tenant_id where e.id = ${id} for update of e`);
     if (!e) throw problem(404, ...ENC_NOT_FOUND);
     if (e.status !== 'IN_CONSULTATION') throw problem(409, 'CLN-409-NOT-IN-CONSULTATION', 'Resep & penyelesaian konsultasi hanya saat pasien sedang diperiksa');

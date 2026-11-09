@@ -8,7 +8,9 @@ import { Db, audit, rows } from '@clinicrme/db';
 const text = (max: number) => z.string().trim().max(max);
 /** Pengaturan yang dikenal saja (strict); kunci baru ditambah bersama modul yang memakainya. */
 const Settings = z.object({
-  pharmacyBeforeCashier: z.boolean().optional(),     // DEC-013
+  pharmacyBeforeCashier: z.boolean().optional(),     // DEC-013 — tidak diisi = farmasi dulu (OD-103)
+  dispenseMethod: z.enum(['FEFO', 'FIFO']).optional(),   // OD-037: urutan batch saat penyerahan obat (bawaan FEFO)
+  partialPickupDays: z.number().int().min(1).max(30).optional(),   // OD-104: batas ambil sisa resep parsial (bawaan 7 hari)
   discountLimitPercent: z.number().min(0).max(100).optional(),
   noShowMinutes: z.number().int().min(5).max(240).optional(),
   queueDisplayInitials: z.boolean().optional(),   // OD-088: layar TV menampilkan inisial pasien

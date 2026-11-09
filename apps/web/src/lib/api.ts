@@ -72,7 +72,7 @@ export interface Permission { code: string; module: string; description: string 
 export interface SessionItem { id: string; userAgent: string | null; ip: string | null; createdAt: string; lastSeenAt: string; current: boolean }
 export interface TenantProfile {
   displayName: string; letterhead: { name?: string; address?: string; phone?: string; license?: string } | null;
-  logoFileId: string | null; settings: { pharmacyBeforeCashier?: boolean; discountLimitPercent?: number; noShowMinutes?: number; lateToleranceMinutes?: number; mrnPrefix?: string; queueDisplayInitials?: boolean }; version: number;
+  logoFileId: string | null; settings: { pharmacyBeforeCashier?: boolean; dispenseMethod?: 'FEFO' | 'FIFO'; partialPickupDays?: number; discountLimitPercent?: number; noShowMinutes?: number; lateToleranceMinutes?: number; mrnPrefix?: string; queueDisplayInitials?: boolean }; version: number;
 }
 export type ExportStatus = 'QUEUED' | 'RUNNING' | 'DONE' | 'FAILED' | 'EXPIRED';
 export interface ExportJob {
@@ -235,6 +235,29 @@ export interface StockList extends Page<StockLevel> { expiryWarningDays: number 
 export interface StockDetail { drugItemId: string; genericName: string; uomName: string;
   batches: { batchId: string; batchNo: string; expiryDate: string; unitCost: string; locationId: string; locationName: string; branchName: string; qtyOnHand: number }[];
   movements: { id: string; occurredAt: string; type: string; qty: number; batchNo: string; locationName: string; refType: string; refId: string; actorName: string | null }[] }
+export type RxStatus = 'ISSUED' | 'VERIFIED' | 'PARTIALLY_DISPENSED' | 'DISPENSED' | 'CLOSED';
+export interface PharmacyWorkItem { id: string; prescriptionNo: string; status: RxStatus; issuedAt: string; firstDispensedAt: string | null; reviewed: boolean;
+  reviewProblem: boolean; alertCount: number; encounterNo: string; encounterStatus: string; payerType: PayerType; patient: { id: string; name: string; mrn: string };
+  prescriberName: string; branchName: string; itemCount: number; pickupDeadline: string | null }
+export interface RxStockPlan { drugItemId: string; drugName: string; drugClass: DrugClass; restricted: boolean; need: number; unitPrice: string | null;
+  available: number | null; allocation: { batchId: string; qty: number }[]; batches: { batchId: string; batchNo: string; expiryDate: string; qtyOnHand: number }[] }
+export interface RxPharmacyItem { id: string; lineNo: number; kind: 'DRUG' | 'COMPOUND'; drugItemId: string | null; drugName: string | null; strength: string | null;
+  dosageForm: string | null; compoundName: string | null; compoundForm: string | null; dose: string | null; frequency: string; route: string;
+  durationDays: number | null; qty: number; uomName: string; instructions: string | null; qtyDispensed: number; qtyClosed: number; closeReason: string | null;
+  remaining: number; components: { drugItemId: string; drugName: string; qty: number; uomName: string }[]; stock: RxStockPlan[] }
+export interface DispenseLine { id: string; prescriptionItemId: string; drugItemId: string; drugName: string; batchNo: string; expiryDate: string; qtyBase: number;
+  uomName: string; unitPrice: string; amount: string; batchReason: string | null; billingStatus: 'UNBILLED' | 'BILLED' | 'VOID' }
+export interface ChecklistDef { key: string; group: 'ADMINISTRATIF' | 'FARMASETIK' | 'KLINIS'; label: string }
+export interface PharmacyPrescription { id: string; prescriptionNo: string; status: RxStatus; version: number; issuedAt: string; firstDispensedAt: string | null;
+  pickupDeadline: string | null; closedReason: string | null; notes: string | null; alerts: { key: string; type: string; message: string; reason?: string | null }[];
+  dispenseMethod: 'FEFO' | 'FIFO'; encounter: { id: string; encounterNo: string; status: string; payerType: PayerType; branchId: string; branchName: string };
+  patient: { id: string; name: string; mrn: string; birthDate: string; sex: string; allergies: { substance: string; reaction: string | null; severity: string | null }[] };
+  prescriber: { name: string; sipNumber: string | null };
+  review: { items: Record<string, { ok: boolean; note: string | null }>; result: 'OK' | 'PROBLEM'; reviewedAt: string; reviewerName: string | null } | null;
+  checklist: ChecklistDef[]; location: { id: string; name: string } | null; items: RxPharmacyItem[];
+  dispenses: { id: string; dispensedAt: string; dispensedByName: string; locationName: string; handedTo: string | null; lines: DispenseLine[] }[];
+  medicationHistory: { dispensedAt: string; prescriptionNo: string; drugName: string; qty: number; uomName: string }[] }
+export interface DispenseResult { dispenseId: string; prescriptionStatus: RxStatus; encounterStatus: string; lines: DispenseLine[] }
 export interface GoodsReceipt { id: string; receiptNo: string; supplierId: string; supplierName: string; locationId: string; locationName: string; branchName: string;
   invoiceNo: string; invoiceDate: string | null; notes: string | null; receivedAt: string; receivedByName: string | null; lineCount: number; total: string;
   lines?: { id: string; drugItemId: string; drugName: string; batchNo: string; expiryDate: string; qty: number; uomName: string; qtyBase: number;

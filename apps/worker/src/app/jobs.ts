@@ -7,6 +7,7 @@ import type { Pool } from 'pg';
 import { expireExports, runNextExport, type ExportOptions } from '@clinicrme/db/tenant-export';
 import { dispatchNotifications, type NotifyOptions, type SendMail } from '@clinicrme/db/notifications';
 import { markNoShows } from '@clinicrme/db/no-show';
+import { closeExpiredRemainders } from '@clinicrme/db/rx-remainder';
 import type { ObjectStorage } from '@clinicrme/storage';
 
 export interface JobDeps {
@@ -41,6 +42,7 @@ export const EXPORT_EXPIRE = 'tenant.export.expire';
 const EXPORTS_PER_RUN = 3;
 export const NOTIFY_DISPATCH = 'notify.outbox.dispatch';
 export const NO_SHOW = 'scheduling.no_show';
+export const RX_REMAINDER = 'pharmacy.rx_remainder_close';
 const AUDIT_MONTHS_AHEAD = 2;
 
 export const jobs: JobDefinition[] = [
@@ -134,6 +136,13 @@ export const jobs: JobDefinition[] = [
     retryLimit: 0,
     cron: '*/5 * * * *',
     handler: async (_data, deps) => markNoShows(deps.pool),
+  },
+  {
+    // OD-104: sisa resep parsial lewat batas ambil → ditutup "tidak diambil" (teraudit SYSTEM)
+    name: RX_REMAINDER,
+    retryLimit: 0,
+    cron: '7 * * * *',
+    handler: async (_data, deps) => closeExpiredRemainders(deps.pool),
   },
 ];
 

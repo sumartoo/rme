@@ -174,7 +174,7 @@ describe('Resep elektronik (CLN-FR-010–012; OD-033)', () => {
     expect(JSON.stringify(a)).not.toContain('moksisilin');            // nama obat tidak disalin ke audit
   });
 
-  test('C24 selesai konsultasi: wajib disahkan; peringatan tanpa alasan → 422; resep terbit & terkunci; ke Kasir (bawaan)', async () => {
+  test('C24 selesai konsultasi: wajib disahkan; peringatan tanpa alasan → 422; resep terbit & terkunci; ke Farmasi (bawaan, OD-103)', async () => {
     await post(`/api/v1/patients/${P[3]}/allergies`, dokter).send({ substance: 'Parasetamol', category: 'OBAT' });
     const id = await consult(P[3]);
     await rx(id, { items: [pct()] });
@@ -188,10 +188,10 @@ describe('Resep elektronik (CLN-FR-010–012; OD-033)', () => {
     expect(f1.body.alerts.map((a: { key: string }) => a.key)).toEqual(['ALLERGY:1:parasetamol']);
     await rx(id, { items: [pct()], overrides: [{ key: 'ALLERGY:1:parasetamol', reason: 'Riwayat alergi diragukan, sudah dikonfirmasi pasien' }] });
     const f2 = await post(`/api/v1/encounters/${id}/finish-consultation`, dokter).send();
-    expect(f2.body).toMatchObject({ id, status: 'BILLING', prescriptionNo: expect.stringMatching(/^RX/) });
+    expect(f2.body).toMatchObject({ id, status: 'PHARMACY', prescriptionNo: expect.stringMatching(/^RX/) });
     const [p] = await su(`select p.id, p.status, p.issued_at, p.alerts, e.status as enc, e.consult_ended_at from app.prescription p
                           join app.encounter e on e.id = p.encounter_id where p.encounter_id = $1`, [id]);
-    expect(p).toMatchObject({ status: 'ISSUED', enc: 'BILLING' });
+    expect(p).toMatchObject({ status: 'ISSUED', enc: 'PHARMACY' });
     expect(p.issued_at).not.toBeNull();
     expect(p.consult_ended_at).not.toBeNull();
     expect(p.alerts[0].reason).toBe('Riwayat alergi diragukan, sudah dikonfirmasi pasien');
@@ -204,11 +204,11 @@ describe('Resep elektronik (CLN-FR-010–012; OD-033)', () => {
                      select tenant_id, id, '${PCT}', 1, '${TAB}' from app.prescription_item where prescription_id = '${p.id}'`)).rejects.toThrow(/IMMUTABLE/);
   });
 
-  test('C25 pengaturan farmasi sebelum kasir → Farmasi; tanpa resep → Kasir & draft kosong dibatalkan; peringatan dihitung ulang saat selesai', async () => {
-    await su(`update app.tenant set settings = settings || '{"pharmacyBeforeCashier": true}' where id = $1`, [ids.tenantA]);
+  test('C25 pengaturan kasir dulu → Kasir; tanpa resep → Kasir & draft kosong dibatalkan; peringatan dihitung ulang saat selesai', async () => {
+    await su(`update app.tenant set settings = settings || '{"pharmacyBeforeCashier": false}' where id = $1`, [ids.tenantA]);
     const a = await consult(P[4], true);
     await rx(a, { items: [pct()] });
-    expect((await post(`/api/v1/encounters/${a}/finish-consultation`, dokter).send()).body).toMatchObject({ status: 'PHARMACY' });
+    expect((await post(`/api/v1/encounters/${a}/finish-consultation`, dokter).send()).body).toMatchObject({ status: 'BILLING' });
     const b = await consult(P[5], true);
     await rx(b, { items: [] });
     expect((await post(`/api/v1/encounters/${b}/finish-consultation`, dokter).send()).body).toEqual({ id: b, status: 'BILLING', prescriptionNo: null });

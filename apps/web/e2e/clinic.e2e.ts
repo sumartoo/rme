@@ -991,6 +991,52 @@ test('W26 farmasi: stok minimum & harga jual obat, terima barang dalam Box (konv
   expect(cspViolations).toEqual([]);
 });
 
+test('W27 farmasi: resep dari dokter masuk worklist, telaah checklist, serahkan obat FEFO dengan harga terkunci, etiket PDF, resep selesai (Stage 10 batch 2)', async ({ page }) => {
+  watchCsp(page);
+  await login(page, 'farmasi@klinik-web.test');
+  await page.getByTestId('side-menu').getByRole('link', { name: 'Resep masuk' }).click();
+  const row = page.getByTestId('rx-row').filter({ hasText: 'Siti Rahmawati' });
+  await expect(row).toContainText('Perlu telaah');
+  await expect(row).toContainText('1 peringatan dokter');
+  await row.getByRole('button', { name: 'Buka' }).click();
+  const dlg = page.getByTestId('rx-dialog');
+  await expect(dlg.getByTestId('rx-alerts')).toContainText('Alergi lama diragukan');
+  await expect(dlg.getByTestId('rx-item')).toContainText('Amoksisilin 500 mg');
+  await expect(dlg.getByRole('button', { name: 'Serahkan obat' })).toHaveCount(0);
+  await dlg.getByRole('button', { name: 'Telaah resep' }).click();
+  const rf = dlg.getByTestId('review-form');
+  await expect(rf.getByRole('button', { name: 'Simpan telaah' })).toBeDisabled();
+  await rf.getByRole('button', { name: 'Tandai semua sesuai' }).click();
+  await rf.getByRole('button', { name: 'Simpan telaah' }).click();
+  await expect(dlg.getByRole('status').filter({ hasText: 'siap diserahkan' })).toBeVisible();
+  await expect(dlg.getByTestId('review-summary')).toContainText('Telaah sesuai oleh Apoteker E2E');
+
+  await dlg.getByRole('button', { name: 'Serahkan obat' }).click();
+  const df = dlg.getByTestId('dispense-form');
+  await expect(df).toContainText('dari Apotek (FEFO)');
+  await expect(df.getByTestId('dispense-line')).toContainText('batch AMX-W1');
+  await expect(df.getByLabel('Jumlah diserahkan (Strip)')).toHaveValue('9');
+  await df.getByLabel('Diterima oleh (opsional)').fill('Pasien sendiri');
+  await expect(df).toContainText('Rp 112.500');
+  await df.getByRole('button', { name: 'Simpan penyerahan' }).click();
+  await expect(dlg.getByRole('status').filter({ hasText: 'Obat diserahkan. Resep selesai.' })).toBeVisible();
+  const card = dlg.getByTestId('dispense-card');
+  await expect(card).toContainText('AMX-W1');
+  await expect(card).toContainText('Rp 112.500');
+  const href = await card.getByRole('link', { name: 'Cetak etiket' }).getAttribute('href');
+  const pdf = await page.evaluate(async (u) => {
+    const r = await fetch(u!, { credentials: 'same-origin' });
+    return { status: r.status, type: r.headers.get('content-type'), head: new TextDecoder().decode((await r.arrayBuffer()).slice(0, 5)) };
+  }, href);
+  expect(pdf).toEqual({ status: 200, type: 'application/pdf', head: '%PDF-' });
+  await dlg.getByRole('button', { name: 'Tutup', exact: true }).click();
+  await page.getByRole('tab', { name: 'Selesai hari ini' }).click();
+  await expect(page.getByTestId('rx-row').filter({ hasText: 'Siti Rahmawati' })).toContainText('Selesai');
+  await page.getByTestId('side-menu').getByRole('link', { name: 'Stok obat' }).click();
+  await expect(page.getByTestId('stock-row').filter({ hasText: 'AMX500' })).toContainText('11 Strip');
+  expect(cspViolations).toEqual([]);
+});
+
 test('W06 keamanan: CSP bernonce, no-store; proxy hanya untuk klinik dari subdomain; tidak ada pelanggaran CSP', async ({ page }) => {
   const res = await page.goto('/login');
   const h = res!.headers();

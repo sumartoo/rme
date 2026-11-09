@@ -1,18 +1,20 @@
 'use client';
 import { useCallback, useEffect, useState } from 'react';
-import { Alert, Button, Card, CardContent, CardDescription, CardHeader, CardTitle, Field, Input, Switch, Textarea } from '@clinicrme/ui';
+import { Alert, Button, Card, CardContent, CardDescription, CardHeader, CardTitle, Field, Input, Select, Switch, Textarea } from '@clinicrme/ui';
 import { ApiError, TenantProfile, api, errorText } from '../../../../lib/api';
 import { can, useSession } from '../../../../lib/session';
 
 interface Form { displayName: string; name: string; address: string; phone: string; license: string;
-                 pharmacyBeforeCashier: boolean; discountLimitPercent: string; noShowMinutes: string; lateToleranceMinutes: string; mrnPrefix: string; queueDisplayInitials: boolean }
+                 pharmacyBeforeCashier: boolean; discountLimitPercent: string; noShowMinutes: string; lateToleranceMinutes: string; mrnPrefix: string; queueDisplayInitials: boolean;
+                 dispenseMethod: 'FEFO' | 'FIFO'; partialPickupDays: string }
 const toForm = (p: TenantProfile): Form => ({
   displayName: p.displayName, name: p.letterhead?.name ?? '', address: p.letterhead?.address ?? '', phone: p.letterhead?.phone ?? '',
-  license: p.letterhead?.license ?? '', pharmacyBeforeCashier: p.settings.pharmacyBeforeCashier ?? false,
+  license: p.letterhead?.license ?? '', pharmacyBeforeCashier: p.settings.pharmacyBeforeCashier ?? true,   // OD-103: bawaan farmasi dulu (DEC-013)
   discountLimitPercent: p.settings.discountLimitPercent?.toString() ?? '', noShowMinutes: p.settings.noShowMinutes?.toString() ?? '',
   lateToleranceMinutes: p.settings.lateToleranceMinutes?.toString() ?? '',
   mrnPrefix: p.settings.mrnPrefix ?? '',
   queueDisplayInitials: p.settings.queueDisplayInitials ?? false,
+  dispenseMethod: p.settings.dispenseMethod ?? 'FEFO', partialPickupDays: p.settings.partialPickupDays?.toString() ?? '',
 });
 
 /** PLT-FR-007: profil & kop klinik (dipakai di cetakan dokumen). Simpan dengan If-Match agar perubahan orang lain tidak tertimpa. */
@@ -39,9 +41,11 @@ export default function ProfilePage() {
   const discount = f ? num(f.discountLimitPercent) : undefined;
   const noShow = f ? num(f.noShowMinutes) : undefined;
   const late = f ? num(f.lateToleranceMinutes) : undefined;
+  const pickup = f ? num(f.partialPickupDays) : undefined;
+  const pickupBad = pickup !== undefined && !(Number.isInteger(pickup) && pickup >= 1 && pickup <= 30);
   const invalid = !f || f.displayName.trim().length < 2
     || (discount !== undefined && !(discount >= 0 && discount <= 100))
-    || (noShow !== undefined && !(Number.isInteger(noShow) && noShow >= 5 && noShow <= 240))
+    || (noShow !== undefined && !(Number.isInteger(noShow) && noShow >= 5 && noShow <= 240)) || pickupBad
     || (late !== undefined && !(Number.isInteger(late) && late >= 0 && late <= 120))
     || !/^[A-Za-z]{0,5}$/.test(f.mrnPrefix);
 
@@ -57,7 +61,8 @@ export default function ProfilePage() {
           displayName: f.displayName.trim(),
           letterhead: Object.values(letterhead).some(Boolean) ? letterhead : null,
           settings: { ...p.settings, pharmacyBeforeCashier: f.pharmacyBeforeCashier,
-                      ...(discount !== undefined ? { discountLimitPercent: discount } : {}), ...(noShow !== undefined ? { noShowMinutes: noShow } : {}), ...(late !== undefined ? { lateToleranceMinutes: late } : {}), mrnPrefix: f.mrnPrefix.toUpperCase(), queueDisplayInitials: f.queueDisplayInitials },
+                      ...(discount !== undefined ? { discountLimitPercent: discount } : {}), ...(noShow !== undefined ? { noShowMinutes: noShow } : {}), ...(late !== undefined ? { lateToleranceMinutes: late } : {}), mrnPrefix: f.mrnPrefix.toUpperCase(), queueDisplayInitials: f.queueDisplayInitials,
+                      dispenseMethod: f.dispenseMethod, ...(pickup !== undefined ? { partialPickupDays: pickup } : {}) },
         },
       });
       setP(r); setF(toForm(r)); setNotice('Profil klinik disimpan.');
@@ -122,6 +127,16 @@ export default function ProfilePage() {
             <Field id="late" label="Toleransi terlambat janji temu (menit)" hint="0–120; bawaan 15. Lewat dari ini pasien masuk antrean paling belakang (OD-087)."
                    error={late !== undefined && !(Number.isInteger(late) && late >= 0 && late <= 120) ? 'Bilangan bulat 0–120' : undefined}>
               <Input id="late" inputMode="numeric" value={f.lateToleranceMinutes} onChange={(e) => set('lateToleranceMinutes', e.target.value)} />
+            </Field>
+            <Field id="dispenseMethod" label="Urutan pengeluaran batch obat" hint="FEFO: kedaluwarsa terdekat dulu (bawaan). FIFO: yang diterima lebih dulu (OD-037).">
+              <Select id="dispenseMethod" value={f.dispenseMethod} onChange={(e) => set('dispenseMethod', e.target.value as 'FEFO' | 'FIFO')}>
+                <option value="FEFO">FEFO — kedaluwarsa terdekat dulu</option>
+                <option value="FIFO">FIFO — diterima lebih dulu</option>
+              </Select>
+            </Field>
+            <Field id="pickup" label="Batas ambil sisa resep (hari)" hint="1–30; bawaan 7. Lewat dari ini sisa resep ditutup otomatis (OD-104)."
+                   error={pickupBad ? 'Bilangan bulat 1–30' : undefined}>
+              <Input id="pickup" inputMode="numeric" value={f.partialPickupDays} onChange={(e) => set('partialPickupDays', e.target.value)} />
             </Field>
             <Field id="mrnPrefix" label="Awalan nomor rekam medis" hint="0–5 huruf, mis. RM → RM00000123. Berlaku untuk pasien baru (OD-081)."
                    error={!/^[A-Za-z]{0,5}$/.test(f.mrnPrefix) ? 'Maksimal 5 huruf, tanpa angka/simbol' : undefined}>

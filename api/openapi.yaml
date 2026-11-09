@@ -5542,6 +5542,208 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
+  /api/v1/pharmacy/worklist:
+    get:
+      operationId: pharmacyWorklist
+      tags:
+      - Pharmacy
+      summary: Worklist resep (menunggu, sebagian, selesai)
+      x-requirements:
+      - PHM-FR-005
+      x-permission: pharmacy.dispense
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PharmacyWorkItem'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /api/v1/pharmacy/prescriptions/{prescriptionId}:
+    get:
+      operationId: pharmacyPrescriptionGet
+      tags:
+      - Pharmacy
+      summary: Rincian resep untuk telaah & penyerahan (stok, harga, alokasi FEFO, riwayat obat)
+      x-requirements:
+      - PHM-FR-006
+      - PHM-FR-007
+      - PHM-FR-013
+      x-permission: pharmacy.dispense
+      parameters:
+      - $ref: '#/components/parameters/prescriptionId'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PharmacyPrescription'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /api/v1/pharmacy/prescriptions/{prescriptionId}/review:
+    post:
+      operationId: pharmacyPrescriptionReview
+      tags:
+      - Pharmacy
+      summary: Telaah resep dengan checklist (OD-098)
+      x-requirements:
+      - PHM-FR-006
+      x-permission: pharmacy.dispense
+      parameters:
+      - $ref: '#/components/parameters/prescriptionId'
+      - $ref: '#/components/parameters/IfMatch'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PrescriptionReviewInput'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PharmacyPrescription'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '412':
+          $ref: '#/components/responses/PreconditionFailed'
+  /api/v1/pharmacy/prescriptions/{prescriptionId}/dispense:
+    post:
+      operationId: pharmacyDispense
+      tags:
+      - Pharmacy
+      summary: Serahkan obat (FEFO/FIFO, sebagian, harga terkunci)
+      x-requirements:
+      - PHM-FR-007
+      - PHM-FR-008
+      - PHM-FR-009
+      - PHM-FR-011
+      x-permission: pharmacy.dispense
+      parameters:
+      - $ref: '#/components/parameters/prescriptionId'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - $ref: '#/components/parameters/IfMatch'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DispenseInput'
+      responses:
+        '201':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DispenseResult'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '412':
+          $ref: '#/components/responses/PreconditionFailed'
+        '422':
+          description: Validasi pengesahan gagal
+          content:
+            application/problem+json:
+              schema:
+                allOf:
+                - $ref: '#/components/schemas/Problem'
+                - $ref: '#/components/schemas/SignValidationError'
+  /api/v1/pharmacy/prescriptions/{prescriptionId}/close:
+    post:
+      operationId: pharmacyPrescriptionClose
+      tags:
+      - Pharmacy
+      summary: Tutup sisa resep (tidak ditebus/diambil, OD-104)
+      x-requirements:
+      - PHM-FR-008
+      x-permission: pharmacy.dispense
+      parameters:
+      - $ref: '#/components/parameters/prescriptionId'
+      - $ref: '#/components/parameters/IfMatch'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PrescriptionCloseInput'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PharmacyPrescription'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '412':
+          $ref: '#/components/responses/PreconditionFailed'
+  /api/v1/pharmacy/dispenses/{dispenseId}/labels:
+    get:
+      operationId: pharmacyDispenseLabels
+      tags:
+      - Pharmacy
+      summary: Etiket obat PDF 80×50 mm (OD-102)
+      x-requirements:
+      - PHM-FR-011
+      x-permission: pharmacy.dispense
+      parameters:
+      - $ref: '#/components/parameters/dispenseId'
+      responses:
+        '200':
+          description: Berkas PDF
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
   /api/v1/stock/{drugId}:
     get:
       operationId: stockDetail
@@ -5569,115 +5771,6 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
-  /api/v1/pharmacy/worklist:
-    get:
-      operationId: pharmacyWorklist
-      tags:
-      - Pharmacy
-      summary: Resep masuk untuk cabang aktif
-      x-requirements:
-      - PHM-FR-006
-      x-permission: pharmacy.dispense
-      parameters:
-      - $ref: '#/components/parameters/cursor'
-      - $ref: '#/components/parameters/limit'
-      responses:
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  data:
-                    type: array
-                    items:
-                      $ref: '#/components/schemas/Prescription'
-                  page:
-                    $ref: '#/components/schemas/PageInfo'
-                required:
-                - data
-                - page
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-  /api/v1/prescriptions/{prescriptionId}/review:
-    post:
-      operationId: prescriptionReview
-      tags:
-      - Pharmacy
-      summary: Simpan telaah resep
-      x-requirements:
-      - PHM-FR-007
-      x-permission: pharmacy.dispense
-      parameters:
-      - $ref: '#/components/parameters/prescriptionId'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/PrescriptionReview'
-      responses:
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Prescription'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '409':
-          $ref: '#/components/responses/Conflict'
-  /api/v1/prescriptions/{prescriptionId}/dispense:
-    post:
-      operationId: prescriptionDispense
-      tags:
-      - Pharmacy
-      summary: Dispensing (FEFO, parsial, tambah tagihan)
-      x-requirements:
-      - PHM-FR-005
-      - PHM-FR-008
-      - PHM-FR-009
-      - PHM-FR-011
-      - PHM-FR-013
-      - PHM-FR-019
-      x-permission: pharmacy.dispense
-      parameters:
-      - $ref: '#/components/parameters/prescriptionId'
-      - $ref: '#/components/parameters/IdempotencyKey'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/DispenseInput'
-      responses:
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Dispense'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '409':
-          $ref: '#/components/responses/Conflict'
   /api/v1/prescriptions/{prescriptionId}/substitutions:
     post:
       operationId: substitutionRequest
@@ -7021,6 +7114,12 @@ components:
       in: path
       required: true
       description: coverageId
+      schema: *id002
+    dispenseId:
+      name: dispenseId
+      in: path
+      required: true
+      description: dispenseId
       schema: *id002
     displayId:
       name: displayId
@@ -10328,64 +10427,6 @@ components:
       required:
       - id
       - receiptNo
-    PrescriptionReview:
-      type: object
-      properties:
-        administrative: *id001
-        pharmaceutical: *id001
-        clinical: *id001
-        notes:
-          type: string
-      required:
-      - administrative
-      - pharmaceutical
-      - clinical
-    DispenseInput:
-      type: object
-      properties:
-        locationId: *id002
-        handedTo:
-          type: string
-        lines:
-          type: array
-          items:
-            type: object
-            properties:
-              prescriptionItemId: *id002
-              qty: &id009
-                type: string
-                pattern: ^\d{1,14}(\.\d{1,4})?$
-                example: '10'
-              batchId:
-                type: string
-                format: uuid
-                description: Opsional; default FEFO
-            required:
-            - prescriptionItemId
-            - qty
-      required:
-      - locationId
-      - lines
-    Dispense:
-      type: object
-      properties:
-        id: *id002
-        prescriptionStatus:
-          type: string
-        lines:
-          type: array
-          items:
-            type: object
-            properties:
-              prescriptionItemId: *id002
-              batchId: *id002
-              qty: *id009
-        labelUrl:
-          type: string
-          format: uri
-      required:
-      - id
-      - prescriptionStatus
     SubstitutionRequest:
       type: object
       properties:
@@ -10422,7 +10463,10 @@ components:
             type: object
             properties:
               drugItemId: *id002
-              qty: *id009
+              qty: &id009
+                type: string
+                pattern: ^\d{1,14}(\.\d{1,4})?$
+                example: '10'
             required:
             - drugItemId
             - qty
@@ -10510,6 +10554,244 @@ components:
             - countedQty
       required:
       - lines
+    PharmacyWorkItem:
+      type: object
+      properties:
+        id: *id002
+        prescriptionNo:
+          type: string
+        status:
+          type: string
+        issuedAt: *id006
+        firstDispensedAt:
+          type:
+          - string
+          - 'null'
+          format: date-time
+        reviewed: *id001
+        reviewProblem: *id001
+        alertCount: *id005
+        encounterNo:
+          type: string
+        encounterStatus:
+          type: string
+        payerType:
+          type: string
+        patient:
+          type: object
+          properties:
+            id: *id002
+            name:
+              type: string
+            mrn:
+              type: string
+        prescriberName:
+          type: string
+        branchName:
+          type: string
+        itemCount: *id005
+        pickupDeadline:
+          type:
+          - string
+          - 'null'
+          format: date-time
+      required:
+      - id
+      - prescriptionNo
+      - status
+    DispenseLine:
+      type: object
+      properties:
+        id: *id002
+        prescriptionItemId: *id002
+        drugItemId: *id002
+        drugName:
+          type: string
+        batchNo:
+          type: string
+        expiryDate: *id004
+        qtyBase:
+          type: number
+        uomName:
+          type: string
+        unitPrice: *id007
+        amount: *id007
+        batchReason:
+          type:
+          - string
+          - 'null'
+        billingStatus:
+          type: string
+          enum:
+          - UNBILLED
+          - BILLED
+          - VOID
+    PharmacyPrescription:
+      type: object
+      properties:
+        id: *id002
+        prescriptionNo:
+          type: string
+        status:
+          type: string
+        version: *id005
+        issuedAt: *id006
+        firstDispensedAt:
+          type:
+          - string
+          - 'null'
+        pickupDeadline:
+          type:
+          - string
+          - 'null'
+        closedReason:
+          type:
+          - string
+          - 'null'
+        notes:
+          type:
+          - string
+          - 'null'
+        alerts:
+          type: array
+          items:
+            type: object
+        dispenseMethod:
+          type: string
+          enum:
+          - FEFO
+          - FIFO
+        encounter:
+          type: object
+        patient:
+          type: object
+          description: Identitas & alergi aktif
+        prescriber:
+          type: object
+        review:
+          type:
+          - object
+          - 'null'
+          description: 'Checklist OD-098: items{KEY:{ok,note}}, result OK|PROBLEM'
+        checklist:
+          type: array
+          items:
+            type: object
+        location:
+          type:
+          - object
+          - 'null'
+        items:
+          type: array
+          items:
+            type: object
+            description: Baris resep + sisa + stok/harga/alokasi FEFO per obat
+        dispenses:
+          type: array
+          items:
+            type: object
+        medicationHistory:
+          type: array
+          items:
+            type: object
+      required:
+      - id
+      - prescriptionNo
+      - status
+      - version
+      - items
+    PrescriptionReviewInput:
+      type: object
+      properties:
+        items:
+          type: object
+          description: Semua kunci checklist OD-098 → {ok, note}; ok=false wajib catatan
+          additionalProperties:
+            type: object
+            properties:
+              ok: *id001
+              note:
+                type:
+                - string
+                - 'null'
+            required:
+            - ok
+      required:
+      - items
+    DispenseInput:
+      type: object
+      properties:
+        locationId:
+          type:
+          - string
+          - 'null'
+          format: uuid
+        handedTo:
+          type:
+          - string
+          - 'null'
+        notes:
+          type:
+          - string
+          - 'null'
+        lines:
+          type: array
+          minItems: 1
+          maxItems: 30
+          items:
+            type: object
+            properties:
+              prescriptionItemId: *id002
+              qty:
+                type: number
+                exclusiveMinimum: 0
+                description: Satuan resep; racikan harus sama dengan sisa
+              batches:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    batchId: *id002
+                    qty:
+                      type: number
+                  required:
+                  - batchId
+                  - qty
+              batchReason:
+                type: string
+                minLength: 5
+            required:
+            - prescriptionItemId
+            - qty
+      required:
+      - lines
+    DispenseResult:
+      type: object
+      properties:
+        dispenseId: *id002
+        prescriptionStatus:
+          type: string
+        encounterStatus:
+          type: string
+        lines:
+          type: array
+          items:
+            $ref: '#/components/schemas/DispenseLine'
+      required:
+      - dispenseId
+      - prescriptionStatus
+    PrescriptionCloseInput:
+      type: object
+      properties:
+        reason:
+          type: string
+          minLength: 5
+          maxLength: 300
+        itemIds:
+          type: array
+          items: *id002
+      required:
+      - reason
     StockAlert:
       type: object
       properties:
@@ -11190,7 +11472,8 @@ components:
           description: Sama dengan ETag; kirim di If-Match
         settings:
           type: object
-          description: Mis. pharmacyBeforeCashier, discountLimit, noShowMinutes, mrnPrefix (0–5 huruf, OD-081)
+          description: Mis. pharmacyBeforeCashier (bawaan true, OD-103), dispenseMethod FEFO|FIFO (OD-037), partialPickupDays 1–30 (OD-104), discountLimit,
+            noShowMinutes, mrnPrefix (0–5 huruf, OD-081)
       required:
       - displayName
     SupportAccessInput:
