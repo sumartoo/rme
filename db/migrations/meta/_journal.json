@@ -176,6 +176,13 @@
       "when": 1795161600000,
       "tag": "0024_dispensing",
       "breakpoints": false
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1795248000000,
+      "tag": "0025_substitution_adjustment_opname",
+      "breakpoints": false
     }
   ]
 }

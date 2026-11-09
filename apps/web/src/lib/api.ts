@@ -244,7 +244,9 @@ export interface RxStockPlan { drugItemId: string; drugName: string; drugClass: 
 export interface RxPharmacyItem { id: string; lineNo: number; kind: 'DRUG' | 'COMPOUND'; drugItemId: string | null; drugName: string | null; strength: string | null;
   dosageForm: string | null; compoundName: string | null; compoundForm: string | null; dose: string | null; frequency: string; route: string;
   durationDays: number | null; qty: number; uomName: string; instructions: string | null; qtyDispensed: number; qtyClosed: number; closeReason: string | null;
-  remaining: number; components: { drugItemId: string; drugName: string; qty: number; uomName: string }[]; stock: RxStockPlan[] }
+  remaining: number; components: { drugItemId: string; drugName: string; qty: number; uomName: string }[]; stock: RxStockPlan[];
+  substitutedFromName: string | null; substitution: { id: string; status: Substitution['status']; toDrugName: string; reason: string; decisionNote: string | null;
+    requestedAt: string; decidedByName: string | null } | null }
 export interface DispenseLine { id: string; prescriptionItemId: string; drugItemId: string; drugName: string; batchNo: string; expiryDate: string; qtyBase: number;
   uomName: string; unitPrice: string; amount: string; batchReason: string | null; billingStatus: 'UNBILLED' | 'BILLED' | 'VOID' }
 export interface ChecklistDef { key: string; group: 'ADMINISTRATIF' | 'FARMASETIK' | 'KLINIS'; label: string }
@@ -257,6 +259,23 @@ export interface PharmacyPrescription { id: string; prescriptionNo: string; stat
   checklist: ChecklistDef[]; location: { id: string; name: string } | null; items: RxPharmacyItem[];
   dispenses: { id: string; dispensedAt: string; dispensedByName: string; locationName: string; handedTo: string | null; lines: DispenseLine[] }[];
   medicationHistory: { dispensedAt: string; prescriptionNo: string; drugName: string; qty: number; uomName: string }[] }
+export interface Substitution { id: string; status: 'REQUESTED' | 'APPROVED' | 'REJECTED' | 'CANCELLED'; reason: string; requestedAt: string; requestedByName: string;
+  decidedAt: string | null; decidedByName: string | null; decisionNote: string | null;
+  prescription: { id: string; prescriptionNo: string; encounterNo: string; branchName: string; prescriberName: string };
+  patient: { id: string; name: string; mrn: string }; item: { id: string; lineNo: number; qty: number; uomName: string; frequency: string };
+  fromDrug: { id: string; name: string }; toDrug: { id: string; name: string; strength: string | null; drugClass: DrugClass }; allergyWarnings: string[] }
+export interface StockAdjustment { id: string; status: 'REQUESTED' | 'APPROVED' | 'REJECTED'; qtyDelta: number; reason: string; createdAt: string;
+  decidedAt: string | null; decisionNote: string | null; requestedByName: string; approvedByName: string | null; mine: boolean;
+  batch: { id: string; batchNo: string; expiryDate: string }; drug: { id: string; name: string; drugClass: DrugClass; uomName: string };
+  location: { id: string; name: string }; qtyOnHand: number }
+export interface StockOpname { id: string; status: 'COUNTING' | 'SUBMITTED' | 'APPROVED' | 'CANCELLED'; version: number; location: { id: string; name: string; branchName: string };
+  notes: string | null; startedByName: string; startedAt: string; submittedAt: string | null; submittedByName: string | null; approvedAt: string | null;
+  approvedByName: string | null; decisionNote: string | null; mine: boolean; lineCount?: number; countedCount?: number; diffCount?: number;
+  lines?: { batchId: string; batchNo: string; expiryDate: string; drugItemId: string; drugName: string; drugClass: DrugClass; restricted: boolean; uomName: string;
+    systemQty: number; countedQty: number | null; difference: number | null; note: string | null; countedByName: string | null }[] }
+export interface ControlledReport { columns: { key: string; label: string; type: string }[]; month: string; branchName: string | null; note: string;
+  rows: { code: string; drugName: string; drugClass: DrugClass; uomName: string; opening: number; received: number; dispensed: number; otherOut: number;
+    adjusted: number; closing: number }[] }
 export interface DispenseResult { dispenseId: string; prescriptionStatus: RxStatus; encounterStatus: string; lines: DispenseLine[] }
 export interface GoodsReceipt { id: string; receiptNo: string; supplierId: string; supplierName: string; locationId: string; locationName: string; branchName: string;
   invoiceNo: string; invoiceDate: string | null; notes: string | null; receivedAt: string; receivedByName: string | null; lineCount: number; total: string;

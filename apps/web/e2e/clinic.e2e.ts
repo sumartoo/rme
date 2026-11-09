@@ -5,7 +5,7 @@ import { mkdtempSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { authenticator } from 'otplib';
-import { addClinicUser, seedClinic, setLinkToken } from '../../../tools/e2e/seed-clinic';
+import { addClinicRole, addClinicUser, seedClinic, setLinkToken } from '../../../tools/e2e/seed-clinic';
 import { CLINIC_URL, E2E_ENCRYPTION_KEY, STORAGE_DIR, USER_PASSWORD, dbUrl } from '../../../tools/e2e/config';
 
 /**
@@ -1034,6 +1034,79 @@ test('W27 farmasi: resep dari dokter masuk worklist, telaah checklist, serahkan 
   await expect(page.getByTestId('rx-row').filter({ hasText: 'Siti Rahmawati' })).toContainText('Selesai');
   await page.getByTestId('side-menu').getByRole('link', { name: 'Stok obat' }).click();
   await expect(page.getByTestId('stock-row').filter({ hasText: 'AMX500' })).toContainText('11 Strip');
+  expect(cspViolations).toEqual([]);
+});
+
+test('W28 kontrol stok: farmasi mengajukan penyesuaian, penyetuju lain menyetujui; stock opname dihitung, dikirim, disetujui; laporan obat terbatas (Stage 10 batch 3)', async ({ page, browser }) => {
+  watchCsp(page);
+  await addClinicRole('PENYETUJU_STOK', 'Penyetuju stok', ['pharmacy.stock.read', 'pharmacy.stock.approve', 'master.facility.read']);
+  await addClinicUser('penyetuju@klinik-web.test', 'Penyetuju E2E', 'PENYETUJU_STOK');
+  await login(page, 'farmasi@klinik-web.test');
+  const menu = page.getByTestId('side-menu');
+  await menu.getByRole('link', { name: 'Penyesuaian stok' }).click();
+  await page.getByRole('button', { name: 'Ajukan penyesuaian' }).click();
+  const ad = page.getByRole('dialog', { name: 'Ajukan penyesuaian stok' });
+  await ad.getByLabel('Obat *').fill('amoks');
+  await ad.getByRole('option', { name: /Amoksisilin 500 mg/ }).click();
+  const batchOpt = ad.getByLabel('Batch & lokasi *').locator('option', { hasText: 'AMX-W1' });
+  await expect(batchOpt).toContainText('saldo 11');
+  await ad.getByLabel('Batch & lokasi *').selectOption((await batchOpt.getAttribute('value'))!);
+  await ad.getByLabel('Jumlah (Strip) *').fill('1');
+  await ad.getByLabel('Alasan *').selectOption('Rusak / pecah');
+  await ad.getByLabel('Keterangan').fill('Strip robek saat dirapikan');
+  await ad.getByRole('button', { name: 'Ajukan', exact: true }).click();
+  await expect(page.getByRole('status').filter({ hasText: 'menunggu persetujuan' })).toBeVisible();
+  const row = page.getByTestId('adjustment-row').filter({ hasText: 'AMX-W1' });
+  await expect(row).toContainText('Menunggu orang lain');
+  await expect(row).toContainText(/[-−]1 Strip/);
+
+  const ctx = await browser.newContext();
+  const ap = await ctx.newPage();
+  watchCsp(ap);
+  await login(ap, 'penyetuju@klinik-web.test');
+  await ap.getByTestId('side-menu').getByRole('link', { name: 'Penyesuaian stok' }).click();
+  await ap.getByTestId('adjustment-row').filter({ hasText: 'AMX-W1' }).getByRole('button', { name: 'Putuskan' }).click();
+  await ap.getByRole('dialog', { name: 'Putuskan penyesuaian stok' }).getByRole('button', { name: 'Setujui' }).click();
+  await expect(ap.getByRole('status').filter({ hasText: 'Penyesuaian disetujui' })).toBeVisible();
+
+  await menu.getByRole('link', { name: 'Stock opname' }).click();
+  await page.getByRole('button', { name: 'Mulai opname' }).click();
+  const od = page.getByTestId('opname-dialog');
+  const line = od.getByTestId('opname-line').filter({ hasText: 'AMX-W1' });
+  await expect(line).toContainText('10');
+  await od.getByLabel('Hitung Amoksisilin 500 mg AMX-W1').fill('9');
+  await od.getByLabel('Catatan Amoksisilin 500 mg AMX-W1').fill('Satu strip tidak ditemukan');
+  await od.getByRole('button', { name: 'Simpan hitungan' }).click();
+  await expect(od.getByRole('status').filter({ hasText: 'Hasil hitung disimpan' })).toBeVisible();
+  await od.getByRole('button', { name: 'Kirim untuk disetujui' }).click();
+  await expect(od.getByRole('status').filter({ hasText: 'dikirim untuk disetujui' })).toBeVisible();
+
+  await ap.getByTestId('side-menu').getByRole('link', { name: 'Stock opname' }).click();
+  await ap.getByTestId('opname-row').filter({ hasText: 'Menunggu persetujuan' }).getByRole('button', { name: 'Buka' }).click();
+  const aod = ap.getByTestId('opname-dialog');
+  await expect(aod.getByTestId('opname-line').filter({ hasText: 'AMX-W1' })).toContainText(/[-−]1/);
+  await aod.getByRole('button', { name: 'Setujui' }).click();
+  await expect(aod.getByRole('status').filter({ hasText: 'Opname disetujui' })).toBeVisible();
+  await ctx.close();
+
+  await page.reload();
+  await menu.getByRole('link', { name: 'Stok obat' }).click();
+  await expect(page.getByTestId('stock-row').filter({ hasText: 'AMX500' })).toContainText('9 Strip');
+  await menu.getByRole('link', { name: 'Laporan obat terbatas' }).click();
+  await expect(page.getByText('Tidak ada obat golongan terbatas.')).toBeVisible();
+  const href = await page.getByTestId('controlled-csv').getAttribute('href');
+  const csv = await page.evaluate(async (u) => { const r = await fetch(u!, { credentials: 'same-origin' }); return { s: r.status, t: (await r.text()).slice(0, 40) }; }, href);
+  expect(csv.s).toBe(200);
+  expect(csv.t).toContain('Kode,Nama obat,Golongan');
+  expect(cspViolations).toEqual([]);
+});
+
+test('W29 dokter: halaman persetujuan substitusi tersedia di menu Pelayanan (Stage 10 batch 3)', async ({ page }) => {
+  watchCsp(page);
+  await login(page, 'dokter@klinik-web.test');
+  await page.getByTestId('side-menu').getByRole('link', { name: 'Persetujuan substitusi' }).click();
+  await expect(page.getByRole('heading', { name: 'Persetujuan substitusi' })).toBeVisible();
+  await expect(page.getByText('Tidak ada pengajuan.')).toBeVisible();
   expect(cspViolations).toEqual([]);
 });
 

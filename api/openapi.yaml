@@ -40,12 +40,12 @@ tags:
   description: Scheduling
 - name: Pharmacy
   description: Pharmacy
+- name: Report
+  description: Report
 - name: Billing
   description: Billing
 - name: Integration
   description: Integration
-- name: Report
-  description: Report
 paths:
   /api/v1/auth/google:
     get:
@@ -5771,12 +5771,12 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
-  /api/v1/prescriptions/{prescriptionId}/substitutions:
+  /api/v1/pharmacy/prescriptions/{prescriptionId}/substitutions:
     post:
       operationId: substitutionRequest
       tags:
       - Pharmacy
-      summary: Ajukan substitusi
+      summary: Ajukan substitusi obat (OD-099)
       x-requirements:
       - PHM-FR-010
       x-permission: pharmacy.dispense
@@ -5805,11 +5805,63 @@ paths:
           $ref: '#/components/responses/NotFound'
         '409':
           $ref: '#/components/responses/Conflict'
+  /api/v1/pharmacy/substitutions/{substitutionId}/cancel:
+    post:
+      operationId: substitutionCancel
+      tags:
+      - Pharmacy
+      summary: Batalkan pengajuan substitusi
+      x-requirements:
+      - PHM-FR-010
+      x-permission: pharmacy.dispense
+      parameters:
+      - $ref: '#/components/parameters/substitutionId'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Substitution'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /api/v1/substitutions:
+    get:
+      operationId: substitutionList
+      tags:
+      - Clinical
+      summary: Pengajuan substitusi untuk dokter (penulis resep / bertugas di cabang)
+      x-requirements:
+      - PHM-FR-010
+      x-permission: clinical.prescription.approve_substitution
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Substitution'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
   /api/v1/substitutions/{substitutionId}/decision:
     post:
       operationId: substitutionDecide
       tags:
-      - Pharmacy
+      - Clinical
       summary: Dokter setuju/tolak substitusi
       x-requirements:
       - PHM-FR-010
@@ -5839,39 +5891,30 @@ paths:
           $ref: '#/components/responses/NotFound'
         '409':
           $ref: '#/components/responses/Conflict'
-  /api/v1/otc-sales:
-    post:
-      operationId: otcSaleCreate
+  /api/v1/stock-adjustments:
+    get:
+      operationId: stockAdjustmentList
       tags:
       - Pharmacy
-      summary: Penjualan obat bebas
+      summary: Daftar penyesuaian stok
       x-requirements:
-      - PHM-FR-012
-      x-permission: pharmacy.otc.sell
-      parameters:
-      - $ref: '#/components/parameters/IdempotencyKey'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/OtcSaleInput'
+      - PHM-FR-016
+      x-permission: pharmacy.stock.read
       responses:
-        '201':
+        '200':
           description: OK
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/OtcSale'
+                type: array
+                items:
+                  $ref: '#/components/schemas/Adjustment'
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
-        '409':
-          $ref: '#/components/responses/Conflict'
-  /api/v1/stock-adjustments:
     post:
       operationId: stockAdjustmentRequest
       tags:
@@ -5906,7 +5949,7 @@ paths:
       operationId: stockAdjustmentDecide
       tags:
       - Pharmacy
-      summary: Setujui/tolak penyesuaian
+      summary: Setujui/tolak penyesuaian (≠ pengaju)
       x-requirements:
       - PHM-FR-016
       x-permission: pharmacy.stock.approve
@@ -5936,6 +5979,29 @@ paths:
         '409':
           $ref: '#/components/responses/Conflict'
   /api/v1/stock-opnames:
+    get:
+      operationId: opnameList
+      tags:
+      - Pharmacy
+      summary: Daftar stock opname
+      x-requirements:
+      - PHM-FR-017
+      x-permission: pharmacy.stock.read
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Opname'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
     post:
       operationId: opnameStart
       tags:
@@ -5952,6 +6018,10 @@ paths:
               type: object
               properties:
                 locationId: *id002
+                notes:
+                  type:
+                  - string
+                  - 'null'
               required:
               - locationId
       responses:
@@ -5969,6 +6039,32 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '409':
           $ref: '#/components/responses/Conflict'
+  /api/v1/stock-opnames/{opnameId}:
+    get:
+      operationId: opnameGet
+      tags:
+      - Pharmacy
+      summary: Rincian stock opname
+      x-requirements:
+      - PHM-FR-017
+      x-permission: pharmacy.stock.read
+      parameters:
+      - $ref: '#/components/parameters/opnameId'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Opname'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
   /api/v1/stock-opnames/{opnameId}/counts:
     put:
       operationId: opnameCount
@@ -5980,6 +6076,7 @@ paths:
       x-permission: pharmacy.stock.opname
       parameters:
       - $ref: '#/components/parameters/opnameId'
+      - $ref: '#/components/parameters/IfMatch'
       requestBody:
         required: true
         content:
@@ -6003,17 +6100,59 @@ paths:
           $ref: '#/components/responses/NotFound'
         '409':
           $ref: '#/components/responses/Conflict'
+        '412':
+          $ref: '#/components/responses/PreconditionFailed'
+  /api/v1/stock-opnames/{opnameId}/submit:
+    post:
+      operationId: opnameSubmit
+      tags:
+      - Pharmacy
+      summary: Kirim hasil opname untuk disetujui
+      x-requirements:
+      - PHM-FR-017
+      x-permission: pharmacy.stock.opname
+      parameters:
+      - $ref: '#/components/parameters/opnameId'
+      - $ref: '#/components/parameters/IfMatch'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Opname'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '412':
+          $ref: '#/components/responses/PreconditionFailed'
+        '422':
+          description: Validasi pengesahan gagal
+          content:
+            application/problem+json:
+              schema:
+                allOf:
+                - $ref: '#/components/schemas/Problem'
+                - $ref: '#/components/schemas/SignValidationError'
   /api/v1/stock-opnames/{opnameId}/decision:
     post:
       operationId: opnameDecide
       tags:
       - Pharmacy
-      summary: Setujui opname (selisih → mutasi)
+      summary: Setujui (selisih → mutasi OPNAME) / tolak (hitung ulang)
       x-requirements:
       - PHM-FR-017
       x-permission: pharmacy.stock.approve
       parameters:
       - $ref: '#/components/parameters/opnameId'
+      - $ref: '#/components/parameters/IfMatch'
       requestBody:
         required: true
         content:
@@ -6035,6 +6174,94 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '412':
+          $ref: '#/components/responses/PreconditionFailed'
+  /api/v1/stock-opnames/{opnameId}/cancel:
+    post:
+      operationId: opnameCancel
+      tags:
+      - Pharmacy
+      summary: Batalkan stock opname
+      x-requirements:
+      - PHM-FR-017
+      x-permission: pharmacy.stock.opname
+      parameters:
+      - $ref: '#/components/parameters/opnameId'
+      - $ref: '#/components/parameters/IfMatch'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Opname'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '412':
+          $ref: '#/components/responses/PreconditionFailed'
+  /api/v1/reports/controlled-drugs:
+    get:
+      operationId: reportControlledDrugs
+      tags:
+      - Report
+      summary: Pemakaian bulanan obat golongan terbatas (?month=YYYY-MM&format=json|csv, OD-100)
+      x-requirements:
+      - RPT-FR-006
+      - PHM-FR-019
+      x-permission: report.pharmacy.controlled
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReportResult'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /api/v1/otc-sales:
+    post:
+      operationId: otcSaleCreate
+      tags:
+      - Pharmacy
+      summary: Penjualan obat bebas
+      x-requirements:
+      - PHM-FR-012
+      x-permission: pharmacy.otc.sell
+      parameters:
+      - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OtcSaleInput'
+      responses:
+        '201':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OtcSale'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
         '409':
           $ref: '#/components/responses/Conflict'
   /api/v1/billing/worklist:
@@ -6935,29 +7162,6 @@ paths:
       x-requirements:
       - RPT-FR-005
       x-permission: report.pharmacy.read
-      responses:
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ReportResult'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-  /api/v1/reports/controlled-drugs:
-    get:
-      operationId: reportControlledDrugs
-      tags:
-      - Report
-      summary: Narkotika/psikotropika
-      x-requirements:
-      - RPT-FR-006
-      - PHM-FR-019
-      x-permission: report.pharmacy.controlled
       responses:
         '200':
           description: OK
@@ -10434,6 +10638,8 @@ components:
         newDrugItemId: *id002
         reason:
           type: string
+          minLength: 5
+          maxLength: 300
       required:
       - prescriptionItemId
       - newDrugItemId
@@ -10445,10 +10651,41 @@ components:
         status:
           type: string
           enum:
-          - PENDING
+          - REQUESTED
           - APPROVED
           - REJECTED
-        approvedBy: *id002
+          - CANCELLED
+        reason:
+          type: string
+        requestedAt: *id006
+        requestedByName:
+          type: string
+        decidedAt:
+          type:
+          - string
+          - 'null'
+        decidedByName:
+          type:
+          - string
+          - 'null'
+        decisionNote:
+          type:
+          - string
+          - 'null'
+        prescription:
+          type: object
+        patient:
+          type: object
+        item:
+          type: object
+        fromDrug:
+          type: object
+        toDrug:
+          type: object
+        allergyWarnings:
+          type: array
+          items:
+            type: string
       required:
       - id
       - status
@@ -10490,10 +10727,12 @@ components:
         batchId: *id002
         locationId: *id002
         qtyDelta:
-          type: string
-          pattern: ^-?\d+(\.\d{1,4})?$
+          type: number
+          description: ± satuan dasar, ≠ 0
         reason:
           type: string
+          minLength: 5
+          maxLength: 500
       required:
       - batchId
       - locationId
@@ -10509,6 +10748,34 @@ components:
           - REQUESTED
           - APPROVED
           - REJECTED
+        qtyDelta:
+          type: number
+        reason:
+          type: string
+        createdAt: *id006
+        decidedAt:
+          type:
+          - string
+          - 'null'
+        decisionNote:
+          type:
+          - string
+          - 'null'
+        requestedByName:
+          type: string
+        approvedByName:
+          type:
+          - string
+          - 'null'
+        mine: *id001
+        batch:
+          type: object
+        drug:
+          type: object
+        location:
+          type: object
+        qtyOnHand:
+          type: number
       required:
       - id
       - status
@@ -10516,7 +10783,6 @@ components:
       type: object
       properties:
         id: *id002
-        locationId: *id002
         status:
           type: string
           enum:
@@ -10524,31 +10790,93 @@ components:
           - SUBMITTED
           - APPROVED
           - CANCELLED
+        version: *id005
+        location:
+          type: object
+        notes:
+          type:
+          - string
+          - 'null'
+        startedByName:
+          type: string
+        startedAt: *id006
+        submittedAt:
+          type:
+          - string
+          - 'null'
+        approvedAt:
+          type:
+          - string
+          - 'null'
+        approvedByName:
+          type:
+          - string
+          - 'null'
+        decisionNote:
+          type:
+          - string
+          - 'null'
+        mine: *id001
+        lineCount: *id005
+        countedCount: *id005
+        diffCount: *id005
         lines:
           type: array
           items:
             type: object
             properties:
               batchId: *id002
-              systemQty: *id009
-              countedQty: *id009
-              note:
+              batchNo:
                 type: string
+              expiryDate: *id004
+              drugItemId: *id002
+              drugName:
+                type: string
+              drugClass:
+                type: string
+              restricted: *id001
+              uomName:
+                type: string
+              systemQty:
+                type: number
+              countedQty:
+                type:
+                - number
+                - 'null'
+              difference:
+                type:
+                - number
+                - 'null'
+              note:
+                type:
+                - string
+                - 'null'
+              countedByName:
+                type:
+                - string
+                - 'null'
       required:
       - id
       - status
+      - version
     OpnameCountInput:
       type: object
       properties:
         lines:
           type: array
+          minItems: 1
+          maxItems: 500
           items:
             type: object
             properties:
               batchId: *id002
-              countedQty: *id009
+              countedQty:
+                type: number
+                minimum: 0
               note:
-                type: string
+                type:
+                - string
+                - 'null'
             required:
             - batchId
             - countedQty

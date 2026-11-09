@@ -1,9 +1,10 @@
 'use client';
 import { useCallback, useEffect, useState } from 'react';
 import { Alert, Badge, Button, Card, CardContent, Dialog, Field, Input, Select, TBody, TD, TH, THead, TR, Table, Textarea } from '@clinicrme/ui';
-import { ApiError, DispenseResult, PharmacyPrescription, PharmacyWorkItem, RxPharmacyItem, RxStatus, api, errorText } from '../../../../lib/api';
+import { ApiError, DispenseResult, Drug, PharmacyPrescription, PharmacyWorkItem, RxPharmacyItem, RxStatus, api, errorText } from '../../../../lib/api';
 import { PAYER_TYPE_LABEL, fmtDate, fmtDateTime, fmtRupiah } from '../../../../lib/format';
 import { useSession } from '../../../../lib/session';
+import { DrugPicker } from '../drug-picker';
 
 type Tab = 'PENDING' | 'PARTIAL' | 'DONE';
 const TAB_LABEL: Record<Tab, string> = { PENDING: 'Menunggu', PARTIAL: 'Sisa belum diambil', DONE: 'Selesai hari ini' };
@@ -86,12 +87,18 @@ function RxDialog({ id, onClose }: { id: string; onClose: () => void }) {
   const [error, setError] = useState<string>();
   const [notice, setNotice] = useState<string>();
   const [mode, setMode] = useState<'view' | 'review' | 'dispense' | 'close'>('view');
+  const [subFor, setSubFor] = useState<RxPharmacyItem>();
   const load = useCallback(async () => {
     try { setRx(await api<PharmacyPrescription>(`/pharmacy/prescriptions/${id}`)); } catch (e) { setError(errorText(e, 'Gagal memuat resep')); }
   }, [id]);
   useEffect(() => { void load(); }, [load]);
   const done = async (msg: string, next?: PharmacyPrescription) => { setMode('view'); setNotice(msg); if (next) setRx(next); else await load(); };
   const openRx = rx && ['ISSUED', 'VERIFIED', 'PARTIALLY_DISPENSED'].includes(rx.status);
+  async function cancelSub(subId: string) {
+    setError(undefined);
+    try { await api(`/pharmacy/substitutions/${subId}/cancel`, { method: 'POST' }); await done('Pengajuan substitusi dibatalkan.'); }
+    catch (e) { setError(errorText(e, 'Gagal membatalkan substitusi')); }
+  }
   return (
     <Dialog open onClose={onClose} title={rx ? `Resep ${rx.prescriptionNo}` : 'Resep'}>
       <div className="grid gap-4" data-testid="rx-dialog">
@@ -122,7 +129,19 @@ function RxDialog({ id, onClose }: { id: string; onClose: () => void }) {
                     <TD><span className="font-medium">{itemName(i)}</span>
                       {i.components.length ? <span className="block text-xs text-muted-foreground">{i.components.map((c) => `${c.drugName} ${qty(c.qty)} ${c.uomName}`).join(' + ')}</span> : null}
                       <span className="block text-xs">{i.frequency}{i.dose ? ` @ ${i.dose}` : ''}{i.durationDays ? ` · ${i.durationDays} hari` : ''}{i.instructions ? ` · ${i.instructions}` : ''}</span>
-                      {i.closeReason ? <span className="block text-xs text-muted-foreground">Ditutup: {i.closeReason}</span> : null}</TD>
+                      {i.closeReason ? <span className="block text-xs text-muted-foreground">Ditutup: {i.closeReason}</span> : null}
+                      {i.substitutedFromName ? <span className="block text-xs text-muted-foreground">Pengganti dari {i.substitutedFromName} (disetujui dokter)</span> : null}
+                      {i.substitution?.status === 'REQUESTED' ? (
+                        <span className="mt-1 flex flex-wrap items-center gap-2 text-xs" data-testid="sub-pending">
+                          <Badge tone="warning">Menunggu dokter: → {i.substitution.toDrugName}</Badge>
+                          <Button size="sm" variant="ghost" onClick={() => void cancelSub(i.substitution!.id)}>Batalkan substitusi</Button>
+                        </span>
+                      ) : i.substitution?.status === 'REJECTED' ? (
+                        <span className="block text-xs text-destructive">Substitusi ke {i.substitution.toDrugName} ditolak{i.substitution.decisionNote ? `: ${i.substitution.decisionNote}` : ''}</span>
+                      ) : null}
+                      {openRx && mode === 'view' && i.kind === 'DRUG' && i.qtyDispensed === 0 && i.remaining > 0 && i.substitution?.status !== 'REQUESTED' ? (
+                        <Button size="sm" variant="ghost" className="mt-1" onClick={() => setSubFor(i)}>Ajukan substitusi</Button>
+                      ) : null}</TD>
                     <TD className="text-right tabular-nums">{qty(i.qty)} {i.uomName}</TD>
                     <TD className="text-right tabular-nums">{qty(i.qtyDispensed)}</TD>
                     <TD className="text-right tabular-nums">{qty(i.remaining)}</TD>
@@ -142,6 +161,8 @@ function RxDialog({ id, onClose }: { id: string; onClose: () => void }) {
                   .map(([k, x]) => `${rx.checklist.find((c) => c.key === k)?.label}: ${x.note}`).join('; ')}` : ''}
               </p>
             ) : null}
+            {subFor ? <SubstitutionForm rxId={rx.id} item={subFor} onCancel={() => setSubFor(undefined)}
+                                        onDone={() => { setSubFor(undefined); void done('Pengajuan substitusi dikirim ke dokter.'); }} /> : null}
             {mode === 'review' ? <ReviewForm rx={rx} onCancel={() => setMode('view')} onDone={(r) => void done(r.status === 'VERIFIED' ? 'Telaah sesuai — resep siap diserahkan.' : 'Masalah telaah dicatat. Hubungi dokter penulis resep.', r)} /> : null}
             {mode === 'dispense' ? <DispenseForm rx={rx} onCancel={() => setMode('view')} onDone={(r) => void done(
               r.prescriptionStatus === 'DISPENSED' ? 'Obat diserahkan. Resep selesai.' : 'Obat diserahkan sebagian; sisa tercatat.')} /> : null}
@@ -333,6 +354,32 @@ function CloseForm({ rx, onCancel, onDone }: { rx: PharmacyPrescription; onCance
       <div className="flex justify-end gap-2">
         <Button type="button" variant="outline" onClick={onCancel}>Batal</Button>
         <Button type="submit" disabled={text.length < 5}>Tutup sisa</Button>
+      </div>
+    </form>
+  );
+}
+
+function SubstitutionForm({ rxId, item, onCancel, onDone }: { rxId: string; item: RxPharmacyItem; onCancel: () => void; onDone: () => void }) {
+  const [drug, setDrug] = useState<Drug>();
+  const [reason, setReason] = useState('');
+  const [error, setError] = useState<string>();
+  async function submit(e: React.FormEvent) {
+    e.preventDefault(); setError(undefined);
+    try {
+      await api(`/pharmacy/prescriptions/${rxId}/substitutions`, { method: 'POST', body: { prescriptionItemId: item.id, newDrugItemId: drug!.id, reason: reason.trim() } });
+      onDone();
+    } catch (err) { setError(errorText(err, 'Gagal mengajukan substitusi')); }
+  }
+  return (
+    <form className="grid gap-3 rounded-md border p-3" onSubmit={submit} noValidate data-testid="substitution-form">
+      <h3 className="text-sm font-medium">Ajukan substitusi — baris {item.lineNo}: {item.drugName}</h3>
+      {error ? <Alert tone="error">{error}</Alert> : null}
+      <DrugPicker id="sub-drug" value={drug} onChange={setDrug} />
+      <Field id="sub-reason" label="Alasan"><Input id="sub-reason" maxLength={300} value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Mis. stok kosong" /></Field>
+      <p className="text-xs text-muted-foreground">Pengganti harus bersatuan dasar sama. Dokter penulis resep atau dokter yang bertugas di cabang ini memutuskan di aplikasi; selama menunggu, baris ini tidak dapat diserahkan.</p>
+      <div className="flex justify-end gap-2">
+        <Button type="button" variant="outline" onClick={onCancel}>Batal</Button>
+        <Button type="submit" disabled={!drug || reason.trim().length < 5}>Kirim ke dokter</Button>
       </div>
     </form>
   );

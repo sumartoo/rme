@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Uji mutasi kontrol keamanan (Stage 3 M1–M4 diulang di monorepo — RSK-020; M5 Stage 4; M6–M14 Stage 5; M15–M17 Stage 6; M18–M22 Stage 7; M23–M38 Stage 8; M39–M59 Stage 9; M60–M74 Stage 10).
+# Uji mutasi kontrol keamanan (Stage 3 M1–M4 diulang di monorepo — RSK-020; M5 Stage 4; M6–M14 Stage 5; M15–M17 Stage 6; M18–M22 Stage 7; M23–M38 Stage 8; M39–M59 Stage 9; M60–M83 Stage 10).
 # Setiap mutasi sengaja merusak satu kontrol, menjalankan suite integrasi API, dan LULUS hanya bila
 # uji yang menjaga kontrol itu GAGAL. Kode selalu dikembalikan (trap), juga bila skrip dihentikan.
 #
@@ -55,7 +55,11 @@ LOCS=libs/pharmacy/src/lib/locations.controller.ts
 DISP=libs/pharmacy/src/lib/dispense.controller.ts
 DREPO=libs/pharmacy/src/lib/dispense.repo.ts
 RXREM=libs/db/src/lib/rx-remainder.ts
-FILES=("$AUTH" "$SESSION" "$MIG2" "$MIG3" "$GUARD" "$PGUARD" "$LAYOUT" "$EXPORT" "$MIG5" "$MIG6" "$TOTP" "$IAMUSERS" "$ACCOUNT" "$AUDITCHG" "$PRACT" "$MIG12" "$TERM" "$IMPORTS" "$PATIENT" "$MIG15" "$IDEM" "$MIG16" "$BOOK" "$SCHED" "$NOSHOW" "$ENCREPO" "$ENCCTL" "$QDISP" "$CHART" "$CHARTREPO" "$MIG19" "$SIGNCTL" "$REAUTH" "$MIG20" "$RXREPO" "$RXCTL" "$MIG21" "$LABCTL" "$DOCCTL" "$MIG22" "$RECV" "$PRICE" "$LOCS" "$DISP" "$DREPO" "$RXREM")
+SUBC=libs/pharmacy/src/lib/substitution.controller.ts
+ADJC=libs/pharmacy/src/lib/adjustments.controller.ts
+OPNC=libs/pharmacy/src/lib/opname.controller.ts
+CRPT=libs/pharmacy/src/lib/controlled-report.controller.ts
+FILES=("$AUTH" "$SESSION" "$MIG2" "$MIG3" "$GUARD" "$PGUARD" "$LAYOUT" "$EXPORT" "$MIG5" "$MIG6" "$TOTP" "$IAMUSERS" "$ACCOUNT" "$AUDITCHG" "$PRACT" "$MIG12" "$TERM" "$IMPORTS" "$PATIENT" "$MIG15" "$IDEM" "$MIG16" "$BOOK" "$SCHED" "$NOSHOW" "$ENCREPO" "$ENCCTL" "$QDISP" "$CHART" "$CHARTREPO" "$MIG19" "$SIGNCTL" "$REAUTH" "$MIG20" "$RXREPO" "$RXCTL" "$MIG21" "$LABCTL" "$DOCCTL" "$MIG22" "$RECV" "$PRICE" "$LOCS" "$DISP" "$DREPO" "$RXREM" "$SUBC" "$ADJC" "$OPNC" "$CRPT")
 BACKUP=$(mktemp -d)
 cp "${FILES[@]}" "$BACKUP"/
 restore() { for f in "${FILES[@]}"; do cp "$BACKUP/$(basename "$f")" "$f"; done; }
@@ -234,6 +238,25 @@ mutate M73 "sisa resep lewat batas ambil tidak ditutup otomatis" 'D04' \
   "sed -i \"s/     where p.status = 'PARTIALLY_DISPENSED'/     where false and p.status = 'PARTIALLY_DISPENSED'/\" $RXREM && grep -q 'where false and p.status' $RXREM" ""
 mutate M74 "sisa resep tetap dapat diambil setelah batas waktu" 'D04' \
   "sed -i 's/      if (h.first_dispensed_at \&\& Date.parse/      if (false \&\& Date.parse/' $DISP && grep -q 'if (false && Date.parse' $DISP" ""
+
+mutate M75 "substitusi dapat diputuskan dokter yang bukan penulis resep dan tidak bertugas" 'S02' \
+  "sed -i 's/      if (!s.eligible) throw/      if (false) throw/' $SUBC && grep -q '      if (false) throw' $SUBC" ""
+mutate M76 "obat asli tidak tercatat saat substitusi disetujui" 'S02' \
+  "sed -i 's/substituted_from_drug_id = coalesce(substituted_from_drug_id, \${s.from_drug_id})/substituted_from_drug_id = null/' $SUBC && grep -q 'substituted_from_drug_id = null' $SUBC" ""
+mutate M77 "baris yang menunggu substitusi tetap dapat diserahkan" 'S01' \
+  "sed -i 's/        if (held.has(it.id)) {/        if (false) {/' $DISP && grep -q '        if (false) {' $DISP" ""
+mutate M78 "pengaju dapat menyetujui penyesuaian stoknya sendiri" 'S03' \
+  "sed -i 's/      if (cur.requested_by === ctx().userId) throw/      if (false) throw/' $ADJC && grep -q '      if (false) throw' $ADJC" ""
+mutate M79 "penyesuaian disetujui walau saldo sekarang tidak cukup" 'S03' \
+  "sed -i 's/        if (Number(q) + Number(cur.qty_delta) < 0) throw/        if (false) throw/' $ADJC && grep -q '        if (false) throw' $ADJC" ""
+mutate M80 "yang memulai stock opname dapat menyetujuinya sendiri" 'S05' \
+  "sed -i 's/      if (h.started_by === ctx().userId) throw/      if (false) throw/' $OPNC && grep -q '      if (false) throw' $OPNC" ""
+mutate M81 "hasil opname dapat dikirim tanpa catatan untuk selisih" 'S04' \
+  "sed -i 's/ or (x.counted_qty <> x.system_qty and coalesce(length(trim(x.note)), 0) < 3))/ or false)/' $OPNC && grep -q ' or false)' $OPNC" ""
+mutate M82 "batch obat golongan terbatas dapat dihitung tanpa izin khusus" 'S04' \
+  "sed -i 's/        if (RESTRICTED.includes(bt.drug_class) \&\& !ctx/        if (false \&\& !ctx/' $OPNC && grep -q 'if (false && !ctx' $OPNC" ""
+mutate M83 "laporan obat terbatas tidak menghitung pengeluaran resep" 'S06' \
+  "sed -i \"s/and mv.movement_type = 'DISPENSE'), 0))::text as dispensed/and mv.movement_type = 'OTC_SALE'), 0))::text as dispensed/\" $CRPT && grep -q \"'OTC_SALE'), 0))::text as dispensed\" $CRPT" ""
 
 # Mutasi UI: suite Playwright (U##) sebagai detektor
 if [ "${MUTATION_E2E:-0}" = "1" ]; then

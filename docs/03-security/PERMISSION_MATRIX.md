@@ -63,7 +63,7 @@
 | `clinical.note.addendum` |  | ✓ |  |  |  |  |  |  | addendumCreate |
 | `clinical.note.sign` |  | ✓ |  |  |  |  |  |  | encounterSign |
 | `clinical.note.write` |  | ✓ |  |  |  |  |  |  | consultationFinish; consultationStart; diagnosesSet; noteSave; procedureAdd; procedureRemove |
-| `clinical.prescription.approve_substitution` |  | ✓ |  |  |  |  |  |  | substitutionDecide |
+| `clinical.prescription.approve_substitution` |  | ✓ |  |  |  |  |  |  | substitutionDecide; substitutionList |
 | `clinical.prescription.write` |  | ✓ |  |  |  |  |  |  | prescriptionSave |
 | `clinical.record.read` |  | ✓ | ✓ |  | ✓ |  |  |  | allergyList; clinicalNoteVerify; clinicalTemplates; clinicalWorklist; encounterChart; historyList; labOrderList; labResultFile; medicalDocumentFile; medicalDocumentGet; medicalDocumentList; patientEncounterHistory; patientMedicalRecords; prescriptionGet |
 | `clinical.record.write` |  | ✓ | ✓ |  |  |  |  |  | allergyCreate; allergyStatus; historyCreate; historyStatus |
@@ -105,15 +105,15 @@
 | `patient.read` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |  |  | consentDocumentList; patientGet; patientSearch |
 | `patient.update` |  |  |  | ✓ |  |  |  |  | patientConsentRecord; patientConsentRevoke; patientCoverageCreate; patientCoverageUpdate; patientRestrictionSet; patientUpdate |
 | **pharmacy** | | | | | | | | | |
-| `pharmacy.dispense` |  |  |  |  | ✓ |  |  |  | pharmacyDispense; pharmacyDispenseLabels; pharmacyPrescriptionClose; pharmacyPrescriptionGet; pharmacyPrescriptionReview; pharmacyWorklist; substitutionRequest |
+| `pharmacy.dispense` |  |  |  |  | ✓ |  |  |  | pharmacyDispense; pharmacyDispenseLabels; pharmacyPrescriptionClose; pharmacyPrescriptionGet; pharmacyPrescriptionReview; pharmacyWorklist; substitutionCancel; substitutionRequest |
 | `pharmacy.drug.manage` |  |  |  |  | ✓ |  |  |  | drugCreate; drugPriceCreate; drugPriceEnd; drugUpdate |
 | `pharmacy.drug.read` |  | ✓ |  |  | ✓ |  |  |  | drugList; drugPriceList |
 | `pharmacy.otc.sell` |  |  |  |  | ✓ | ✓ |  |  | otcSaleCreate |
 | `pharmacy.restricted.dispense` |  |  |  |  | ✓ |  |  |  | (di handler) Terima/keluarkan obat narkotika, psikotropika & prekursor (OD-100) |
 | `pharmacy.stock.adjust` |  |  |  |  | ✓ |  |  |  | stockAdjustmentRequest |
 | `pharmacy.stock.approve` |  |  |  |  |  |  | ✓ |  | opnameDecide; stockAdjustmentDecide |
-| `pharmacy.stock.opname` |  |  |  |  | ✓ |  |  |  | opnameCount; opnameStart |
-| `pharmacy.stock.read` |  |  |  |  | ✓ |  | ✓ | ✓ | goodsReceiptGet; goodsReceiptList; stockAlerts; stockDetail; stockList |
+| `pharmacy.stock.opname` |  |  |  |  | ✓ |  |  |  | opnameCancel; opnameCount; opnameStart; opnameSubmit |
+| `pharmacy.stock.read` |  |  |  |  | ✓ |  | ✓ | ✓ | goodsReceiptGet; goodsReceiptList; opnameGet; opnameList; stockAdjustmentList; stockAlerts; stockDetail; stockList |
 | `pharmacy.stock.receive` |  |  |  |  | ✓ |  |  |  | goodsReceiptCreate |
 | **queue** | | | | | | | | | |
 | `queue.call` |  | ✓ | ✓ | ✓ |  |  |  |  | queueCall; queueCallNext; queueList; queueSkip |

@@ -136,6 +136,9 @@ export class DispenseController {
       const loc = await dispenseLocation(tx, h.branch_id, b.locationId);
       const { items, comps } = await rxItems(tx, id, true);
       const byId = new Map(items.map((i) => [i.id, i]));
+      const held = new Set((await rows<{ id: string }>(tx, sql`
+        select s.prescription_item_id as id from prescription_substitution s join prescription_item i on i.id = s.prescription_item_id
+         where i.prescription_id = ${id} and s.status = 'REQUESTED'`)).map((x) => x.id));
       const errors: { field: string; message: string }[] = [];
       const seen = new Set<string>();
       type Alloc = { item: ItemRow; itemQty: number; drugItemId: string; batchId: string; qty: number; price: { id: string; sellPrice: string }; reason: string | null };
@@ -149,6 +152,7 @@ export class DispenseController {
         if (!it) { errors.push({ field: `lines.${n}.prescriptionItemId`, message: 'Baris resep tidak ditemukan' }); continue; }
         if (seen.has(it.id)) { errors.push({ field: `lines.${n}.prescriptionItemId`, message: 'Baris resep ganda' }); continue; }
         seen.add(it.id);
+        if (held.has(it.id)) { errors.push({ field: `lines.${n}.prescriptionItemId`, message: 'Baris ini menunggu persetujuan substitusi dokter' }); continue; }
         const rem = remainingOf(it);
         if (rem <= 0) { errors.push({ field: `lines.${n}.qty`, message: 'Baris ini sudah selesai' }); continue; }
         if (round4(l.qty) > rem) { errors.push({ field: `lines.${n}.qty`, message: `Melebihi sisa resep (${rem} ${it.uom_name})` }); continue; }
@@ -297,6 +301,16 @@ export class DispenseController {
       return { unitPrice: price?.sellPrice ?? null, available, allocation: allocate(avail, Math.min(need, available)) ?? [],
         batches: avail.map((a) => ({ batchId: a.batch_id, batchNo: a.batch_no, expiryDate: a.expiry_date, qtyOnHand: Number(a.qty_on_hand) })) };
     };
+    const subs = await rows<{ prescription_item_id: string; id: string; status: string; to_name: string; reason: string; decision_note: string | null;
+                              requested_at: string; decider: string | null }>(tx, sql`
+      select distinct on (s.prescription_item_id) s.prescription_item_id, s.id, s.status, d.generic_name as to_name, s.reason, s.decision_note,
+             s.requested_at, pr.full_name as decider
+        from prescription_substitution s join prescription_item i on i.id = s.prescription_item_id join drug_item d on d.id = s.to_drug_id
+        left join practitioner pr on pr.id = s.decided_by_practitioner
+       where i.prescription_id = ${h.id} order by s.prescription_item_id, s.requested_at desc`);
+    const original = new Map((await rows<{ id: string; name: string }>(tx, sql`
+      select i.id, d.generic_name as name from prescription_item i join drug_item d on d.id = i.substituted_from_drug_id
+       where i.prescription_id = ${h.id}`)).map((x) => [x.id, x.name]));
     const outItems = [];
     for (const i of items) {
       const remaining = remainingOf(i);
@@ -308,7 +322,9 @@ export class DispenseController {
         id: i.id, lineNo: i.line_no, kind: i.is_compound ? 'COMPOUND' : 'DRUG', drugItemId: i.drug_item_id, drugName: i.drug_name, strength: i.strength,
         dosageForm: i.dosage_form, compoundName: i.compound_name, compoundForm: i.compound_form, dose: i.dose, frequency: i.frequency, route: i.route,
         durationDays: i.duration_days, qty: Number(i.qty), uomName: i.uom_name, instructions: i.instructions, qtyDispensed: Number(i.qty_dispensed),
-        qtyClosed: Number(i.qty_closed), closeReason: i.close_reason, remaining,
+        qtyClosed: Number(i.qty_closed), closeReason: i.close_reason, remaining, substitutedFromName: original.get(i.id) ?? null,
+        substitution: ((x) => (x ? { id: x.id, status: x.status, toDrugName: x.to_name, reason: x.reason, decisionNote: x.decision_note,
+          requestedAt: x.requested_at, decidedByName: x.decider } : null))(subs.find((x) => x.prescription_item_id === i.id)),
         components: comps.filter((c) => c.prescription_item_id === i.id).map((c) => ({ drugItemId: c.drug_item_id, drugName: c.drug_name, qty: Number(c.qty), uomName: c.uom_name })),
         stock,
       });

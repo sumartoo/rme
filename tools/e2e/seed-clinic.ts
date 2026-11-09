@@ -45,6 +45,21 @@ export async function seedClinic(): Promise<void> {
 
 /** User sintetis tambahan untuk uji tahap berikutnya (Stage 8+); ditambah saat uji itu mulai agar jumlah user uji lama tidak berubah. */
 /** `practitionerName`: tautkan akun ke data tenaga kesehatan (dokter yang mengisi & mengesahkan rekam medis). */
+/** Role kustom klinik (tanpa MFA) untuk skenario E2E, mis. penyetuju stok terpisah dari petugas farmasi. */
+export async function addClinicRole(code: string, name: string, permissions: string[]): Promise<void> {
+  const c = new Client({ connectionString: dbUrl() });
+  await c.connect();
+  try {
+    const { rows: [t] } = await c.query(`SELECT id FROM app.tenant WHERE code = $1`, [CLINIC_CODE]);
+    const { rows: [r] } = await c.query(`INSERT INTO app.role(tenant_id, code, name, requires_mfa) VALUES ($1, $2, $3, false)
+                                         ON CONFLICT DO NOTHING RETURNING id`, [t.id, code, name]);
+    if (!r) return;
+    await c.query(`INSERT INTO app.role_permission(tenant_id, role_id, permission_code) SELECT $1, $2, unnest($3::text[])`, [t.id, r.id, permissions]);
+  } finally {
+    await c.end();
+  }
+}
+
 export async function addClinicUser(email: string, name: string, role: string, practitionerName?: string): Promise<void> {
   const c = new Client({ connectionString: dbUrl() });
   await c.connect();
