@@ -6367,47 +6367,36 @@ paths:
       operationId: billingWorklist
       tags:
       - Billing
-      summary: Kunjungan siap bayar
+      summary: 'Worklist kasir: kunjungan di kasir, obat susulan, penjualan bebas menunggu bayar'
       x-requirements:
       - BIL-FR-001
       x-permission: billing.invoice.read
-      parameters:
-      - $ref: '#/components/parameters/cursor'
-      - $ref: '#/components/parameters/limit'
       responses:
         '200':
           description: OK
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  data:
-                    type: array
-                    items:
-                      $ref: '#/components/schemas/Encounter'
-                  page:
-                    $ref: '#/components/schemas/PageInfo'
-                required:
-                - data
-                - page
+                type: array
+                items:
+                  $ref: '#/components/schemas/BillingWorkItem'
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
-  /api/v1/encounters/{encounterId}/invoice:
-    get:
+  /api/v1/billing/encounters/{encounterId}/invoice:
+    post:
       operationId: invoiceForEncounter
       tags:
       - Billing
-      summary: Draft/invoice kunjungan (harga snapshot)
+      summary: Buat/bangun ulang draf tagihan kunjungan (harga snapshot; obat susulan OD-107)
       x-requirements:
       - BIL-FR-001
       - BIL-FR-002
       - BIL-FR-004
-      x-permission: billing.invoice.read
+      x-permission: billing.invoice.issue
       parameters:
       - $ref: '#/components/parameters/encounterId'
       responses:
@@ -6425,15 +6414,130 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
-  /api/v1/invoices/{invoiceId}/discounts:
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          description: Validasi pengesahan gagal
+          content:
+            application/problem+json:
+              schema:
+                allOf:
+                - $ref: '#/components/schemas/Problem'
+                - $ref: '#/components/schemas/SignValidationError'
+  /api/v1/billing/otc-sales/{otcSaleId}/invoice:
     post:
-      operationId: invoiceDiscount
+      operationId: invoiceForOtc
       tags:
       - Billing
-      summary: Diskon baris (approval bila melebihi batas)
+      summary: Buat draf tagihan penjualan obat bebas (OD-113)
       x-requirements:
+      - BIL-FR-001
+      x-permission: billing.invoice.issue
+      parameters:
+      - $ref: '#/components/parameters/otcSaleId'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Invoice'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /api/v1/invoices:
+    get:
+      operationId: invoiceList
+      tags:
+      - Billing
+      summary: Daftar tagihan (status, tanggal, diskon menunggu persetujuan)
+      x-requirements:
+      - BIL-FR-001
       - BIL-FR-003
-      x-permission: billing.invoice.discount
+      x-permission: billing.invoice.read
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Invoice'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /api/v1/invoices/{invoiceId}:
+    get:
+      operationId: invoiceGet
+      tags:
+      - Billing
+      summary: Rincian tagihan
+      x-requirements:
+      - BIL-FR-001
+      - BIL-FR-004
+      x-permission: billing.invoice.read
+      parameters:
+      - $ref: '#/components/parameters/invoiceId'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Invoice'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      operationId: invoiceDraftDelete
+      tags:
+      - Billing
+      summary: Hapus draf tagihan
+      x-requirements:
+      - BIL-FR-001
+      x-permission: billing.invoice.issue
+      parameters:
+      - $ref: '#/components/parameters/invoiceId'
+      - $ref: '#/components/parameters/IfMatch'
+      responses:
+        '200':
+          description: Diterima
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '412':
+          $ref: '#/components/responses/PreconditionFailed'
+  /api/v1/invoices/{invoiceId}/lines:
+    post:
+      operationId: invoiceLineAdd
+      tags:
+      - Billing
+      summary: Tambah layanan ke draf (tarif berlaku)
+      x-requirements:
+      - BIL-FR-001
+      - BIL-FR-002
+      x-permission: billing.invoice.issue
       parameters:
       - $ref: '#/components/parameters/invoiceId'
       - $ref: '#/components/parameters/IfMatch'
@@ -6442,7 +6546,54 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/DiscountInput'
+              $ref: '#/components/schemas/InvoiceLineAdd'
+      responses:
+        '201':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Invoice'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '412':
+          $ref: '#/components/responses/PreconditionFailed'
+        '422':
+          description: Validasi pengesahan gagal
+          content:
+            application/problem+json:
+              schema:
+                allOf:
+                - $ref: '#/components/schemas/Problem'
+                - $ref: '#/components/schemas/SignValidationError'
+  /api/v1/invoices/{invoiceId}/lines/{lineId}:
+    put:
+      operationId: invoiceDiscount
+      tags:
+      - Billing
+      summary: 'Ubah baris draf: jumlah, layanan, diskon (persetujuan di atas batas), pembagian penjamin'
+      x-requirements:
+      - BIL-FR-003
+      - BIL-FR-004
+      x-permission: billing.invoice.issue
+      parameters:
+      - $ref: '#/components/parameters/invoiceId'
+      - $ref: '#/components/parameters/lineId'
+      - $ref: '#/components/parameters/IfMatch'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InvoiceLineUpdate'
       responses:
         '200':
           description: OK
@@ -6462,19 +6613,90 @@ paths:
           $ref: '#/components/responses/Conflict'
         '412':
           $ref: '#/components/responses/PreconditionFailed'
+        '422':
+          description: Validasi pengesahan gagal
+          content:
+            application/problem+json:
+              schema:
+                allOf:
+                - $ref: '#/components/schemas/Problem'
+                - $ref: '#/components/schemas/SignValidationError'
+    delete:
+      operationId: invoiceLineDelete
+      tags:
+      - Billing
+      summary: Hapus baris tambahan dari draf
+      x-requirements:
+      - BIL-FR-001
+      x-permission: billing.invoice.issue
+      parameters:
+      - $ref: '#/components/parameters/invoiceId'
+      - $ref: '#/components/parameters/lineId'
+      - $ref: '#/components/parameters/IfMatch'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Invoice'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '412':
+          $ref: '#/components/responses/PreconditionFailed'
+  /api/v1/invoices/{invoiceId}/lines/{lineId}/discount-decision:
+    post:
+      operationId: invoiceDiscountDecide
+      tags:
+      - Billing
+      summary: Setujui/tolak diskon di atas batas (≠ pengaju, OD-041)
+      x-requirements:
+      - BIL-FR-003
+      x-permission: billing.invoice.void.approve
+      parameters:
+      - $ref: '#/components/parameters/invoiceId'
+      - $ref: '#/components/parameters/lineId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ApprovalDecision'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Invoice'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
   /api/v1/invoices/{invoiceId}/issue:
     post:
       operationId: invoiceIssue
       tags:
       - Billing
-      summary: Terbitkan invoice
+      summary: Terbitkan tagihan (nomor INV, terkunci)
       x-requirements:
       - BIL-FR-001
       - BIL-FR-002
       x-permission: billing.invoice.issue
       parameters:
       - $ref: '#/components/parameters/invoiceId'
-      - $ref: '#/components/parameters/IdempotencyKey'
       - $ref: '#/components/parameters/IfMatch'
       responses:
         '200':
@@ -6495,6 +6717,33 @@ paths:
           $ref: '#/components/responses/Conflict'
         '412':
           $ref: '#/components/responses/PreconditionFailed'
+  /api/v1/invoices/{invoiceId}/pdf:
+    get:
+      operationId: invoicePdf
+      tags:
+      - Billing
+      summary: Rincian tagihan PDF A4 (OD-109)
+      x-requirements:
+      - BIL-FR-001
+      x-permission: billing.invoice.read
+      parameters:
+      - $ref: '#/components/parameters/invoiceId'
+      responses:
+        '200':
+          description: Berkas PDF
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
   /api/v1/invoices/{invoiceId}/payments:
     post:
       operationId: paymentCreate
@@ -7533,6 +7782,12 @@ components:
       required: true
       description: labResultId
       schema: *id002
+    lineId:
+      name: lineId
+      in: path
+      required: true
+      description: lineId
+      schema: *id002
     locationId:
       name: locationId
       in: path
@@ -8139,6 +8394,12 @@ components:
           - Asia/Jakarta
           - Asia/Makassar
           - Asia/Jayapura
+        adminServiceId:
+          type:
+          - string
+          - 'null'
+          format: uuid
+          description: Layanan biaya administrasi tagihan kunjungan (OD-105)
         isActive: *id001
         version: *id005
       required:
@@ -8171,6 +8432,12 @@ components:
           - 'null'
           pattern: ^[A-Z]{1,3}$
           description: Awalan nomor antrean (OD-086); kosong = huruf pertama kode
+        consultServiceId:
+          type:
+          - string
+          - 'null'
+          format: uuid
+          description: Layanan konsultasi bawaan untuk tagihan (OD-105)
         defaultTemplate:
           type:
           - string
@@ -11348,8 +11615,16 @@ components:
       type: object
       properties:
         id: *id002
-        invoiceNo:
+        kind:
           type: string
+          enum:
+          - ENCOUNTER
+          - DRUG
+          - OTC
+        invoiceNo:
+          type:
+          - string
+          - 'null'
         status:
           type: string
           enum:
@@ -11358,57 +11633,195 @@ components:
           - PARTIALLY_PAID
           - PAID
           - VOID
+        branchName:
+          type: string
+        payerType:
+          type: string
+        payerName:
+          type:
+          - string
+          - 'null'
+        contract:
+          type:
+          - object
+          - 'null'
+        patient:
+          type:
+          - object
+          - 'null'
+        customerName:
+          type:
+          - string
+          - 'null'
+        encounterId:
+          type:
+          - string
+          - 'null'
+        encounterNo:
+          type:
+          - string
+          - 'null'
+        otcSaleId:
+          type:
+          - string
+          - 'null'
+        saleNo:
+          type:
+          - string
+          - 'null'
         grossAmount: *id007
         discountAmount: *id007
         netAmount: *id007
         payerPortion: *id007
         patientPortion: *id007
         paidAmount: *id007
-        outstanding: *id007
+        issuedAt:
+          type:
+          - string
+          - 'null'
+        issuedByName:
+          type:
+          - string
+          - 'null'
+        createdAt: *id006
+        warnings:
+          type: array
+          items:
+            type: string
         lines:
           type: array
           items:
             $ref: '#/components/schemas/InvoiceLine'
-        payments:
-          type: array
-          items:
-            $ref: '#/components/schemas/Payment'
         version: *id005
       required:
       - id
       - status
       - netAmount
       - lines
+      - version
     InvoiceLine:
       type: object
       properties:
+        id: *id002
         lineNo: *id005
         sourceType:
           type: string
         description:
           type: string
-        qty: *id009
+        qty:
+          type: number
         unitPrice: *id007
         discountAmount: *id007
         lineTotal: *id007
         payerPortion: *id007
         patientPortion: *id007
+        isManual: *id001
+        serviceItemId:
+          type:
+          - string
+          - 'null'
+        discountReason:
+          type:
+          - string
+          - 'null'
+        discountStatus:
+          type: string
+          enum:
+          - NONE
+          - WITHIN_LIMIT
+          - PENDING
+          - APPROVED
+        discountRequestedByName:
+          type:
+          - string
+          - 'null'
+        discountMine: *id001
+        discountApprovedByName:
+          type:
+          - string
+          - 'null'
+        splitReason:
+          type:
+          - string
+          - 'null'
       required:
+      - id
       - lineNo
       - description
       - qty
       - unitPrice
       - lineTotal
-    DiscountInput:
+    BillingWorkItem:
       type: object
       properties:
-        lineNo: *id005
-        amount: *id007
-        reason:
+        type:
           type: string
+          enum:
+          - ENCOUNTER
+          - DRUG
+          - OTC
+        refId: *id002
+        refNo:
+          type: string
+        refStatus:
+          type: string
+        at: *id006
+        patient:
+          type:
+          - object
+          - 'null'
+        customerName:
+          type:
+          - string
+          - 'null'
+        payerType:
+          type: string
+        payerName:
+          type:
+          - string
+          - 'null'
+        unitName:
+          type:
+          - string
+          - 'null'
+        invoice:
+          type:
+          - object
+          - 'null'
       required:
-      - lineNo
-      - amount
+      - type
+      - refId
+    InvoiceLineAdd:
+      type: object
+      properties:
+        serviceItemId: *id002
+        qty:
+          type: number
+          exclusiveMinimum: 0
+      required:
+      - serviceItemId
+    InvoiceLineUpdate:
+      type: object
+      properties:
+        qty:
+          type: number
+        serviceItemId: *id002
+        discountAmount:
+          type: number
+          minimum: 0
+        discountReason:
+          type:
+          - string
+          - 'null'
+        payerPortion:
+          type:
+          - number
+          - 'null'
+          minimum: 0
+        splitReason:
+          type:
+          - string
+          - 'null'
     PaymentInput:
       type: object
       properties:

@@ -93,12 +93,13 @@
     ]
   },
   "dependencies": {
+    "@clinicrme/billing": "workspace:*",
     "@clinicrme/clinical": "workspace:*",
-    "@clinicrme/pharmacy": "workspace:*",
     "@clinicrme/db": "workspace:*",
     "@clinicrme/iam": "workspace:*",
     "@clinicrme/masterdata": "workspace:*",
     "@clinicrme/patient": "workspace:*",
+    "@clinicrme/pharmacy": "workspace:*",
     "@clinicrme/platform": "workspace:*",
     "@clinicrme/scheduling": "workspace:*",
     "@clinicrme/shared": "workspace:*",

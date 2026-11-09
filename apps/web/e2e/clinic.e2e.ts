@@ -5,7 +5,7 @@ import { mkdtempSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { authenticator } from 'otplib';
-import { addClinicDrugStock, addClinicRole, addClinicUser, seedClinic, setLinkToken } from '../../../tools/e2e/seed-clinic';
+import { addClinicDrugStock, addClinicRole, addClinicTariffs, addClinicUser, seedClinic, setLinkToken } from '../../../tools/e2e/seed-clinic';
 import { CLINIC_URL, E2E_ENCRYPTION_KEY, STORAGE_DIR, USER_PASSWORD, dbUrl } from '../../../tools/e2e/config';
 
 /**
@@ -1153,6 +1153,55 @@ test('W30 farmasi: penjualan obat bebas (keras ditolak), batal mengembalikan sto
   expect(csv.t).toMatch(/OTC_SALE,PCT500/);
   expect(csv.t).toMatch(/RETURN_IN,PCT500/);
   expect(cspViolations).toEqual([]);
+});
+
+test('W31 kasir: admin mengatur layanan konsultasi poli; kasir membuat tagihan kunjungan, memberi diskon beralasan, menerbitkan, PDF (Stage 11 batch 1)', async ({ page, browser }) => {
+  watchCsp(page);
+  await addClinicTariffs(50000);
+  await signInAdmin(page);
+  await page.getByTestId('side-menu').getByRole('link', { name: 'Fasilitas & cabang' }).click();
+  await page.getByTestId('unit-row').filter({ hasText: 'Poli Gigi' }).getByRole('button', { name: 'Ubah' }).click();
+  const ud = page.getByRole('dialog', { name: 'Ubah poli/unit' });
+  await ud.getByLabel('Layanan konsultasi (tagihan)').selectOption({ label: 'Konsultasi dokter gigi (KONS-GIGI)' });
+  await ud.getByRole('button', { name: 'Simpan' }).click();
+  await expect(ud).toBeHidden();
+
+  const kasir = await browser.newPage();
+  watchCsp(kasir);
+  // Password kasir sudah diganti di W11 (lupa password)
+  await kasir.goto('/login');
+  await kasir.getByLabel('Email').fill('kasir@klinik-web.test');
+  await kasir.getByLabel('Password').fill('sepeda-hijau-pagi-45');   // pragma: allowlist secret gitleaks:allow — password uji sintetis
+  await kasir.getByRole('button', { name: 'Masuk', exact: true }).click();
+  await kasir.getByTestId('side-menu').getByRole('link', { name: 'Tagihan' }).click();
+  const row = kasir.getByTestId('billing-row').filter({ hasText: 'Siti Rahmawati' });
+  await expect(row).toContainText('Kunjungan');
+  await expect(row).toContainText('Belum dibuat');
+  await row.getByRole('button', { name: 'Buat tagihan' }).click();
+  await expect(kasir).toHaveURL(/\/billing\/invoices\/[0-9a-f-]{36}$/);
+  await expect(kasir.getByTestId('invoice-status')).toHaveText('Draf');
+  const consult = kasir.getByTestId('invoice-line').filter({ hasText: 'Konsultasi dokter gigi' });
+  await expect(consult).toContainText('Rp 50.000');
+  await expect(kasir.getByTestId('invoice-line').filter({ hasText: 'Amoksisilin' })).toHaveCount(1);
+  await consult.getByRole('button', { name: /^Ubah/ }).click();
+  const ed = kasir.getByRole('dialog', { name: /Ubah baris/ });
+  await ed.getByLabel('Diskon (Rp)').fill('5000');
+  await ed.getByLabel('Alasan diskon').fill('Pasien lansia');
+  await ed.getByRole('button', { name: 'Simpan' }).click();
+  await expect(ed).toBeHidden();
+  await expect(consult).toContainText('Rp 45.000');
+  await expect(consult).toContainText('Pasien lansia');
+  await kasir.getByRole('button', { name: 'Terbitkan tagihan' }).click();
+  await expect(kasir.getByTestId('invoice-status')).toHaveText('Terbit');
+  await expect(kasir.getByRole('heading', { level: 1 })).toHaveText(/^INV\d{12}$/);
+  await expect(kasir.getByRole('button', { name: 'Terbitkan tagihan' })).toHaveCount(0);
+  const href = await kasir.getByRole('link', { name: 'Rincian PDF' }).getAttribute('href');
+  const pdf = await kasir.evaluate(async (u) => { const r = await fetch(u!, { credentials: 'same-origin' }); return { s: r.status, t: r.headers.get('content-type') }; }, href);
+  expect(pdf).toEqual({ s: 200, t: 'application/pdf' });
+  await kasir.getByRole('link', { name: '← Tagihan' }).click();
+  await expect(kasir.getByTestId('billing-row').filter({ hasText: 'Siti Rahmawati' })).toContainText('Terbit');
+  expect(cspViolations).toEqual([]);
+  await kasir.close();
 });
 
 test('W06 keamanan: CSP bernonce, no-store; proxy hanya untuk klinik dari subdomain; tidak ada pelanggaran CSP', async ({ page }) => {

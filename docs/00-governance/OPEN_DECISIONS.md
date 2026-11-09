@@ -129,3 +129,15 @@ Lihat `docs/APP_DESIGN.md` §13 dan masing-masing `docs/stages/STAGE_XX_*.md` (O
 | OD-102 | Etiket PDF 80 × 50 mm | DEC-039 |
 | OD-103 | Bawaan alur farmasi → kasir (perbaikan sesuai DEC-013) | DEC-039 |
 | OD-104 | Sisa resep parsial hingga 7 hari | DEC-039 |
+| OD-039 | Adapter payment gateway + simulator; penyedia QRIS dipilih sebelum pilot | DEC-042 |
+| OD-040 | Tanpa baris pajak di MVP (BIL-FR-017 LJT) | DEC-042 |
+| OD-041 | Diskon > 10% perlu persetujuan; void/refund selalu disetujui; aturan anomali dapat diatur | DEC-042 |
+| OD-105 | Layanan konsultasi bawaan per poli; biaya administrasi opsional per cabang | DEC-042 |
+| OD-106 | Urutan tarif penjamin+cabang → … → umum | DEC-042 |
+| OD-107 | Kasir-dulu: tagihan jasa, obat di tagihan susulan | DEC-042 |
+| OD-108 | Pembagian penjamin/pasien sesuai kontrak; porsi penjamin → piutang | DEC-042 |
+| OD-109 | Kwitansi PDF 80 mm, rincian PDF A4 | DEC-042 |
+| OD-110 | Nomor INV/KW/RF per bulan per tenant | DEC-042 |
+| OD-111 | Shift kasir wajib terbuka untuk pembayaran; selisih kas beralasan | DEC-042 |
+| OD-112 | Refund ≤ pembayaran asal, tanpa retur stok | DEC-042 |
+| OD-113 | Tagihan penjualan obat bebas di kasir | DEC-042 |

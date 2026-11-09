@@ -7,6 +7,7 @@
 # Permission yang diperiksa di dalam handler, bukan sebagai x-permission endpoint.
 code_permissions:
   pharmacy.restricted.dispense: "Terima/keluarkan obat narkotika, psikotropika & prekursor (OD-100)"
+  billing.invoice.discount: "Memberi diskon pada baris tagihan (di atas batas klinik perlu persetujuan, OD-041)"
 segregation_of_duties:
   # Pasangan permission yang tidak boleh dimiliki satu role template sekaligus (maker–checker)
   - [billing.refund.request, billing.refund.approve]

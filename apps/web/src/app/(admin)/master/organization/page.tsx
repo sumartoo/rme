@@ -3,7 +3,7 @@ import { useCallback, useEffect, useState } from 'react';
 import {
   Alert, Badge, Button, Card, CardContent, CardDescription, CardHeader, CardTitle, Dialog, Field, Input, Select, Switch, TBody, TD, TH, THead, TR, Table,
 } from '@clinicrme/ui';
-import { BranchItem, Facility, FacilityType, ServiceUnit, Timezone, UnitType, api, errorText } from '../../../../lib/api';
+import { BranchItem, Facility, FacilityType, Page, ServiceItem, ServiceUnit, Timezone, UnitType, api, errorText } from '../../../../lib/api';
 import { FACILITY_TYPE_LABEL, TIMEZONE_LABEL, UNIT_TYPE_LABEL } from '../../../../lib/format';
 import { can, useSession } from '../../../../lib/session';
 import { RegionPicker } from '../../../../components/region-picker';
@@ -139,9 +139,11 @@ function initial(e: Editing, facilities: Facility[], branches: BranchItem[], def
   const i = e.item as Partial<Facility & BranchItem & ServiceUnit> | undefined;
   if (e.kind === 'facility') return { name: i?.name ?? '', facilityType: i?.facilityType ?? 'KLINIK_PRATAMA', licenseNumber: i?.licenseNumber ?? '', isActive: i?.isActive ?? true };
   if (e.kind === 'branch') return { facilityId: i?.facilityId ?? facilities.find((f) => f.isActive)?.id ?? '', code: i?.code ?? '', name: i?.name ?? '',
-    address: i?.address ?? '', regionCode: i?.regionCode ?? '', phone: i?.phone ?? '', timezone: i?.timezone ?? 'Asia/Jakarta', isActive: i?.isActive ?? true };
+    address: i?.address ?? '', regionCode: i?.regionCode ?? '', phone: i?.phone ?? '', timezone: i?.timezone ?? 'Asia/Jakarta', adminServiceId: i?.adminServiceId ?? '',
+    isActive: i?.isActive ?? true };
   return { branchId: i?.branchId ?? (defaultBranch || branches.find((b) => b.isActive)?.id || ''), code: i?.code ?? '', name: i?.name ?? '',
-    unitType: i?.unitType ?? 'POLI', specialty: i?.specialty ?? '', queuePrefix: i?.queuePrefix ?? '', defaultTemplate: i?.defaultTemplate ?? '', isActive: i?.isActive ?? true };
+    unitType: i?.unitType ?? 'POLI', specialty: i?.specialty ?? '', queuePrefix: i?.queuePrefix ?? '', defaultTemplate: i?.defaultTemplate ?? '',
+    consultServiceId: i?.consultServiceId ?? '', isActive: i?.isActive ?? true };
 }
 
 function EditDialog({ editing, facilities, branches, defaultBranch, onClose, onSaved }: {
@@ -153,6 +155,11 @@ function EditDialog({ editing, facilities, branches, defaultBranch, onClose, onS
   const set = (k: string, v: string | boolean) => setF((x) => ({ ...x, [k]: v }));
   const str = (k: string) => String(f[k] ?? '');
   const isNew = !editing.item;
+  const [services, setServices] = useState<ServiceItem[]>([]);
+  useEffect(() => {
+    if (editing.kind === 'facility') return;
+    void api<Page<ServiceItem>>('/service-items?limit=200').then((p) => setServices(p.data)).catch(() => undefined);
+  }, [editing.kind]);
   const codeOk = editing.kind === 'facility' || /^[A-Za-z0-9][A-Za-z0-9_-]{1,19}$/.test(str('code').trim());
   const ok = str('name').trim().length >= 2 && codeOk && (editing.kind !== 'branch' || !!f.facilityId) && (editing.kind !== 'unit' || (!!f.branchId && (!str('queuePrefix') || /^[A-Za-z]{1,3}$/.test(str('queuePrefix')))));
 
@@ -161,7 +168,8 @@ function EditDialog({ editing, facilities, branches, defaultBranch, onClose, onS
     if (!ok) return;
     setBusy(true); setError(undefined);
     const body: Record<string, string | boolean | null> = Object.fromEntries(Object.entries(f).map(([k, v]) => [k, typeof v === 'string' ? v.trim() : v]));
-    if (editing.kind === 'branch') body.regionCode = body.regionCode || null;
+    if (editing.kind === 'branch') { body.regionCode = body.regionCode || null; body.adminServiceId = body.adminServiceId || null; }
+    if (editing.kind === 'unit') body.consultServiceId = body.consultServiceId || null;
     if (editing.kind === 'unit') body.queuePrefix = typeof body.queuePrefix === 'string' && body.queuePrefix ? body.queuePrefix.toUpperCase() : null;
     if (editing.kind === 'unit') body.defaultTemplate = body.defaultTemplate || null;
     try {
@@ -211,6 +219,13 @@ function EditDialog({ editing, facilities, branches, defaultBranch, onClose, onS
           <Field id="md-address" label="Alamat"><Input id="md-address" value={str('address')} maxLength={500} onChange={(e) => set('address', e.target.value)} /></Field>
           <RegionPicker value={str('regionCode')} onChange={(v) => set('regionCode', v)} />
           <Field id="md-phone" label="Telepon"><Input id="md-phone" value={str('phone')} maxLength={30} onChange={(e) => set('phone', e.target.value)} /></Field>
+          <Field id="md-admin" label="Biaya administrasi tagihan" hint="Opsional — ditambahkan ke setiap tagihan kunjungan di cabang ini.">
+            <Select id="md-admin" value={str('adminServiceId')} onChange={(e) => set('adminServiceId', e.target.value)}>
+              <option value="">Tidak ada</option>
+              {services.filter((x) => (x.isActive && ['ADMINISTRASI', 'LAINNYA'].includes(x.serviceType)) || x.id === f.adminServiceId)
+                .map((x) => <option key={x.id} value={x.id}>{x.name} ({x.code})</option>)}
+            </Select>
+          </Field>
           <Field id="md-tz" label="Zona waktu">
             <Select id="md-tz" value={str('timezone')} onChange={(e) => set('timezone', e.target.value as Timezone)}>
               {Object.entries(TIMEZONE_LABEL).map(([k, v]) => <option key={k} value={k}>{v} ({k})</option>)}
@@ -227,6 +242,13 @@ function EditDialog({ editing, facilities, branches, defaultBranch, onClose, onS
           <Field id="md-qprefix" label="Awalan nomor antrean" hint="1–3 huruf, mis. A → A-001. Kosong = huruf pertama kode."
                  error={str('queuePrefix') && !/^[A-Za-z]{1,3}$/.test(str('queuePrefix')) ? 'Hanya 1–3 huruf' : undefined}>
             <Input id="md-qprefix" value={str('queuePrefix')} maxLength={3} onChange={(e) => set('queuePrefix', e.target.value.toUpperCase())} />
+          </Field>
+          <Field id="md-consult" label="Layanan konsultasi (tagihan)" hint="Ditagihkan otomatis untuk setiap kunjungan di unit ini; kasir dapat menggantinya.">
+            <Select id="md-consult" value={str('consultServiceId')} onChange={(e) => set('consultServiceId', e.target.value)}>
+              <option value="">Belum diatur</option>
+              {services.filter((x) => (x.isActive && x.serviceType === 'KONSULTASI') || x.id === f.consultServiceId)
+                .map((x) => <option key={x.id} value={x.id}>{x.name} ({x.code})</option>)}
+            </Select>
           </Field>
           <Field id="md-template" label="Template rekam medis" hint="Template SOAP bawaan untuk kunjungan di unit ini; dokter tetap dapat menggantinya.">
             <Select id="md-template" value={str('defaultTemplate')} onChange={(e) => set('defaultTemplate', e.target.value)}>

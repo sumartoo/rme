@@ -101,3 +101,19 @@ export async function addClinicUser(email: string, name: string, role: string, p
     await c.end();
   }
 }
+
+/** Tarif umum (berlaku semua cabang & penjamin) untuk layanan yang belum bertarif + satu layanan konsultasi (uji kasir, Stage 11). */
+export async function addClinicTariffs(price: number): Promise<void> {
+  const c = new Client({ connectionString: dbUrl() });
+  await c.connect();
+  try {
+    const { rows: [t] } = await c.query(`SELECT id FROM app.tenant WHERE code = $1`, [CLINIC_CODE]);
+    await c.query(`INSERT INTO app.service_item(tenant_id, code, name, service_type) VALUES ($1, 'KONS-GIGI', 'Konsultasi dokter gigi', 'KONSULTASI')
+                   ON CONFLICT DO NOTHING`, [t.id]);
+    await c.query(`INSERT INTO app.tariff(tenant_id, service_item_id, price, valid_from)
+                   SELECT $1, s.id, $2, current_date - 30 FROM app.service_item s
+                    WHERE s.tenant_id = $1 AND NOT EXISTS (SELECT 1 FROM app.tariff x WHERE x.service_item_id = s.id)`, [t.id, price]);
+  } finally {
+    await c.end();
+  }
+}

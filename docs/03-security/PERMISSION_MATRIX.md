@@ -44,10 +44,10 @@
 | **audit** | | | | | | | | | |
 | `audit.log.read` | ✓ |  |  |  |  |  | ✓ | ✓ | auditSearch |
 | **billing** | | | | | | | | | |
-| `billing.invoice.discount` |  |  |  |  |  | ✓ |  |  | invoiceDiscount |
-| `billing.invoice.issue` |  |  |  |  |  | ✓ |  |  | invoiceIssue |
-| `billing.invoice.read` |  |  |  |  |  | ✓ | ✓ | ✓ | billingWorklist; invoiceForEncounter |
-| `billing.invoice.void.approve` |  |  |  |  |  |  | ✓ |  | invoiceVoidDecide |
+| `billing.invoice.discount` |  |  |  |  |  | ✓ |  |  | (di handler) Memberi diskon pada baris tagihan (di atas batas klinik perlu persetujuan, OD-041) |
+| `billing.invoice.issue` |  |  |  |  |  | ✓ |  |  | invoiceDiscount; invoiceDraftDelete; invoiceForEncounter; invoiceForOtc; invoiceIssue; invoiceLineAdd; invoiceLineDelete |
+| `billing.invoice.read` |  |  |  |  |  | ✓ | ✓ | ✓ | billingWorklist; invoiceGet; invoiceList; invoicePdf |
+| `billing.invoice.void.approve` |  |  |  |  |  |  | ✓ |  | invoiceDiscountDecide; invoiceVoidDecide |
 | `billing.invoice.void.request` |  |  |  |  |  | ✓ |  |  | invoiceVoidRequest |
 | `billing.payment.create` |  |  |  |  |  | ✓ |  |  | paymentCreate; qrisChargeCreate; qrisChargeGet |
 | `billing.receivable.manage` |  |  |  |  |  |  | ✓ |  | receivablePay |

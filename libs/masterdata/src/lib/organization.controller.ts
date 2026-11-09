@@ -28,13 +28,15 @@ const BranchBody = z.object({
   regionCode: z.string().regex(/^\d{2}(\.\d{2}(\.\d{2}(\.\d{4})?)?)?$/).nullable().optional(),
   phone: optText(30),
   timezone: TZ.optional(),   // tanpa .default: pada PUT parsial nilai lama harus tetap
+  /** OD-105: layanan biaya administrasi opsional yang ditambahkan ke setiap tagihan kunjungan di cabang ini. */
+  adminServiceId: Uuid.nullable().optional(),
   isActive: z.boolean().optional(),
 }).strict();
 interface BranchRow { id: string; facility_id: string; code: string; name: string; address: string | null; region_code: string | null;
-  phone: string | null; timezone: string; is_active: boolean; version: number }
+  phone: string | null; timezone: string; admin_service_id: string | null; is_active: boolean; version: number }
 const branchDto = (r: BranchRow) => ({ id: r.id, facilityId: r.facility_id, code: r.code, name: r.name, address: r.address,
-  regionCode: r.region_code, phone: r.phone, timezone: r.timezone, isActive: r.is_active, version: r.version });
-const BRANCH = sql`select id, facility_id, code, name, address, region_code, phone, timezone, is_active, version from branch`;
+  regionCode: r.region_code, phone: r.phone, timezone: r.timezone, adminServiceId: r.admin_service_id, isActive: r.is_active, version: r.version });
+const BRANCH = sql`select id, facility_id, code, name, address, region_code, phone, timezone, admin_service_id, is_active, version from branch`;
 
 // ---------------------------------------------------------------------------------------------- Poli / unit
 export const UnitBody = z.object({
@@ -45,12 +47,13 @@ export const UnitBody = z.object({
   specialty: optText(100),
   queuePrefix: z.string().trim().toUpperCase().regex(/^[A-Z]{1,3}$/, 'Awalan antrean 1–3 huruf').nullable().optional(),   // OD-086
   defaultTemplate: z.enum(['UMUM', 'GIGI', 'ANAK', 'KEBIDANAN']).nullable().optional(),   // OD-035
+  consultServiceId: Uuid.nullable().optional(),   // OD-105: layanan konsultasi bawaan untuk tagihan kunjungan
   isActive: z.boolean().optional(),
 }).strict();
-interface UnitRow { id: string; branch_id: string; code: string; name: string; unit_type: string; specialty: string | null; queue_prefix: string | null; default_template: string | null; is_active: boolean; version: number }
+interface UnitRow { id: string; branch_id: string; code: string; name: string; unit_type: string; specialty: string | null; queue_prefix: string | null; default_template: string | null; consult_service_id: string | null; is_active: boolean; version: number }
 const unitDto = (r: UnitRow) => ({ id: r.id, branchId: r.branch_id, code: r.code, name: r.name, unitType: r.unit_type,
-  specialty: r.specialty, queuePrefix: r.queue_prefix, defaultTemplate: r.default_template, isActive: r.is_active, version: r.version });
-const UNIT = sql`select id, branch_id, code, name, unit_type, specialty, queue_prefix, default_template, is_active, version from service_unit`;
+  specialty: r.specialty, queuePrefix: r.queue_prefix, defaultTemplate: r.default_template, consultServiceId: r.consult_service_id, isActive: r.is_active, version: r.version });
+const UNIT = sql`select id, branch_id, code, name, unit_type, specialty, queue_prefix, default_template, consult_service_id, is_active, version from service_unit`;
 
 const ListQuery = z.object({
   includeInactive: z.enum(['true', 'false']).optional(),
@@ -69,6 +72,13 @@ async function assertFacility(tx: Tx, id: string) {
 async function assertBranch(tx: Tx, id: string) {
   const [b] = await rows(tx, sql`select 1 from branch where id = ${id}`);
   if (!b) throw problem(400, 'MST-400-BRANCH', 'Cabang tidak ditemukan');
+}
+async function assertService(tx: Tx, id: string | null | undefined, field: string, types: string[]) {
+  if (!id) return;
+  const [r] = await rows<{ service_type: string; is_active: boolean }>(tx, sql`select service_type, is_active from service_item where id = ${id}`);
+  if (!r?.is_active || !types.includes(r.service_type)) {
+    throw problem(400, 'MST-400-SERVICE', `Layanan ${field === 'consultServiceId' ? 'konsultasi' : 'administrasi'} tidak ditemukan, tidak aktif, atau jenisnya tidak sesuai`);
+  }
 }
 async function assertRegion(tx: Tx, code: string | null | undefined) {
   if (!code) return;
@@ -142,13 +152,14 @@ export class OrganizationController {
     return this.db.withTenantTx(async (tx) => {
       await assertFacility(tx, b.facilityId);
       await assertRegion(tx, b.regionCode);
+      await assertService(tx, b.adminServiceId, 'adminServiceId', ['ADMINISTRASI', 'LAINNYA']);
       const [dup] = await rows(tx, sql`select 1 from branch where code = ${b.code}`);
       if (dup) throw problem(409, 'MST-409-CODE', 'Kode cabang sudah dipakai');
       const [r] = await rows<BranchRow>(tx, sql`
-        insert into branch(tenant_id, facility_id, code, name, address, region_code, phone, timezone, is_active, updated_by)
+        insert into branch(tenant_id, facility_id, code, name, address, region_code, phone, timezone, admin_service_id, is_active, updated_by)
         values (app.current_tenant_id(), ${b.facilityId}, ${b.code}, ${b.name}, ${b.address ?? null}, ${b.regionCode ?? null},
-                ${b.phone ?? null}, ${b.timezone ?? 'Asia/Jakarta'}, ${b.isActive ?? true}, ${ctx().userId})
-        returning id, facility_id, code, name, address, region_code, phone, timezone, is_active, version`);
+                ${b.phone ?? null}, ${b.timezone ?? 'Asia/Jakarta'}, ${b.adminServiceId ?? null}, ${b.isActive ?? true}, ${ctx().userId})
+        returning id, facility_id, code, name, address, region_code, phone, timezone, admin_service_id, is_active, version`);
       const d = branchDto(r);
       await auditChange(tx, 'BRANCH_CREATED', 'branch', r.id, null, d);
       return d;
@@ -168,15 +179,16 @@ export class OrganizationController {
       const n = merge(before, b);
       if (n.facilityId !== cur.facility_id) await assertFacility(tx, n.facilityId);
       if (n.regionCode !== cur.region_code) await assertRegion(tx, n.regionCode);
+      if (n.adminServiceId !== cur.admin_service_id) await assertService(tx, n.adminServiceId, 'adminServiceId', ['ADMINISTRASI', 'LAINNYA']);
       if (n.code !== cur.code) {
         const [dup] = await rows(tx, sql`select 1 from branch where code = ${n.code} and id <> ${id}`);
         if (dup) throw problem(409, 'MST-409-CODE', 'Kode cabang sudah dipakai');
       }
       const [r] = await rows<BranchRow>(tx, sql`
         update branch set facility_id = ${n.facilityId}, code = ${n.code}, name = ${n.name}, address = ${n.address},
-               region_code = ${n.regionCode}, phone = ${n.phone}, timezone = ${n.timezone}, is_active = ${n.isActive},
+               region_code = ${n.regionCode}, phone = ${n.phone}, timezone = ${n.timezone}, admin_service_id = ${n.adminServiceId}, is_active = ${n.isActive},
                updated_by = ${ctx().userId}
-         where id = ${id} returning id, facility_id, code, name, address, region_code, phone, timezone, is_active, version`);
+         where id = ${id} returning id, facility_id, code, name, address, region_code, phone, timezone, admin_service_id, is_active, version`);
       const after = branchDto(r);
       await auditChange(tx, 'BRANCH_UPDATED', 'branch', id, before, after);
       return after;
@@ -198,13 +210,14 @@ export class OrganizationController {
   async createUnit(@Body() b: z.infer<typeof UnitBody>) {
     return this.db.withTenantTx(async (tx) => {
       await assertBranch(tx, b.branchId);
+      await assertService(tx, b.consultServiceId, 'consultServiceId', ['KONSULTASI']);
       const [dup] = await rows(tx, sql`select 1 from service_unit where branch_id = ${b.branchId} and code = ${b.code}`);
       if (dup) throw problem(409, 'MST-409-CODE', 'Kode unit sudah dipakai di cabang ini');
       const [r] = await rows<UnitRow>(tx, sql`
-        insert into service_unit(tenant_id, branch_id, code, name, unit_type, specialty, queue_prefix, default_template, is_active, updated_by)
+        insert into service_unit(tenant_id, branch_id, code, name, unit_type, specialty, queue_prefix, default_template, consult_service_id, is_active, updated_by)
         values (app.current_tenant_id(), ${b.branchId}, ${b.code}, ${b.name}, ${b.unitType}, ${b.specialty ?? null},
-                ${b.queuePrefix ?? null}, ${b.defaultTemplate ?? null}, ${b.isActive ?? true}, ${ctx().userId})
-        returning id, branch_id, code, name, unit_type, specialty, queue_prefix, default_template, is_active, version`);
+                ${b.queuePrefix ?? null}, ${b.defaultTemplate ?? null}, ${b.consultServiceId ?? null}, ${b.isActive ?? true}, ${ctx().userId})
+        returning id, branch_id, code, name, unit_type, specialty, queue_prefix, default_template, consult_service_id, is_active, version`);
       const d = unitDto(r);
       await auditChange(tx, 'SERVICE_UNIT_CREATED', 'service_unit', r.id, null, d);
       return d;
@@ -223,14 +236,15 @@ export class OrganizationController {
       const before = unitDto(cur);
       const n = merge(before, b);
       if (n.branchId !== cur.branch_id) await assertBranch(tx, n.branchId);
+      if (n.consultServiceId !== cur.consult_service_id) await assertService(tx, n.consultServiceId, 'consultServiceId', ['KONSULTASI']);
       if (n.code !== cur.code || n.branchId !== cur.branch_id) {
         const [dup] = await rows(tx, sql`select 1 from service_unit where branch_id = ${n.branchId} and code = ${n.code} and id <> ${id}`);
         if (dup) throw problem(409, 'MST-409-CODE', 'Kode unit sudah dipakai di cabang ini');
       }
       const [r] = await rows<UnitRow>(tx, sql`
         update service_unit set branch_id = ${n.branchId}, code = ${n.code}, name = ${n.name}, unit_type = ${n.unitType},
-               specialty = ${n.specialty}, queue_prefix = ${n.queuePrefix}, default_template = ${n.defaultTemplate}, is_active = ${n.isActive}, updated_by = ${ctx().userId}
-         where id = ${id} returning id, branch_id, code, name, unit_type, specialty, queue_prefix, default_template, is_active, version`);
+               specialty = ${n.specialty}, queue_prefix = ${n.queuePrefix}, default_template = ${n.defaultTemplate}, consult_service_id = ${n.consultServiceId}, is_active = ${n.isActive}, updated_by = ${ctx().userId}
+         where id = ${id} returning id, branch_id, code, name, unit_type, specialty, queue_prefix, default_template, consult_service_id, is_active, version`);
       const after = unitDto(r);
       await auditChange(tx, 'SERVICE_UNIT_UPDATED', 'service_unit', id, before, after);
       return after;

@@ -50,6 +50,9 @@
     },
     {
       "path": "./libs/pharmacy"
+    },
+    {
+      "path": "./libs/billing"
     }
   ],
   "compilerOptions": {}

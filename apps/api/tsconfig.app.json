@@ -37,19 +37,16 @@
       "path": "../../libs/shared/tsconfig.lib.json"
     },
     {
-      "path": "../../libs/platform/tsconfig.lib.json"
-    },
-    {
-      "path": "../../libs/patient/tsconfig.lib.json"
-    },
-    {
       "path": "../../libs/scheduling/tsconfig.lib.json"
     },
     {
-      "path": "../../libs/clinical/tsconfig.lib.json"
+      "path": "../../libs/platform/tsconfig.lib.json"
     },
     {
       "path": "../../libs/pharmacy/tsconfig.lib.json"
+    },
+    {
+      "path": "../../libs/patient/tsconfig.lib.json"
     },
     {
       "path": "../../libs/masterdata/tsconfig.lib.json"
@@ -59,6 +56,12 @@
     },
     {
       "path": "../../libs/db/tsconfig.lib.json"
+    },
+    {
+      "path": "../../libs/clinical/tsconfig.lib.json"
+    },
+    {
+      "path": "../../libs/billing/tsconfig.lib.json"
     }
   ]
 }

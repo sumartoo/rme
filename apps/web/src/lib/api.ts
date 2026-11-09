@@ -86,10 +86,10 @@ export interface Facility { id: string; name: string; facilityType: FacilityType
 export type Timezone = 'Asia/Jakarta' | 'Asia/Makassar' | 'Asia/Jayapura';
 export interface BranchItem {
   id: string; facilityId: string; code: string; name: string; address: string | null; regionCode: string | null; phone: string | null;
-  timezone: Timezone; isActive: boolean; version: number;
+  timezone: Timezone; adminServiceId: string | null; isActive: boolean; version: number;
 }
 export type UnitType = 'POLI' | 'RUANG' | 'FARMASI' | 'KASIR' | 'LAB' | 'LAINNYA';
-export interface ServiceUnit { id: string; branchId: string; code: string; name: string; unitType: UnitType; specialty: string | null; queuePrefix: string | null; defaultTemplate: TemplateCode | null; isActive: boolean; version: number }
+export interface ServiceUnit { id: string; branchId: string; code: string; name: string; unitType: UnitType; specialty: string | null; queuePrefix: string | null; defaultTemplate: TemplateCode | null; consultServiceId: string | null; isActive: boolean; version: number }
 export type PractitionerType = 'DOKTER' | 'DOKTER_GIGI' | 'DOKTER_SPESIALIS' | 'PERAWAT' | 'BIDAN' | 'APOTEKER' | 'TTK' | 'ANALIS' | 'LAINNYA';
 export interface Practitioner {
   id: string; fullName: string; nikMasked: string | null; practitionerType: PractitionerType; specialty: string | null;
@@ -297,3 +297,18 @@ export interface PrescriptionItem { id: string; lineNo: number; kind: 'DRUG' | '
 export interface Prescription { id: string; prescriptionNo: string; status: string; issuedAt: string | null; prescriberName: string; notes: string | null;
   alerts: RxAlert[]; items: PrescriptionItem[]; version: number }
 
+
+// Kasir & tagihan (Stage 11)
+export type InvoiceStatus = 'DRAFT' | 'ISSUED' | 'PARTIALLY_PAID' | 'PAID' | 'VOID';
+export interface BillingWorkItem { type: 'ENCOUNTER' | 'DRUG' | 'OTC'; refId: string; refNo: string; refStatus: string; at: string;
+  patient: { name: string; mrn: string } | null; customerName: string | null; payerType: PayerType; payerName: string | null; unitName: string | null;
+  invoice: { id: string; status: InvoiceStatus; invoiceNo: string | null; netAmount: string; patientPortion: string } | null }
+export interface InvoiceLine { id: string; lineNo: number; sourceType: 'KONSULTASI' | 'TINDAKAN' | 'OBAT' | 'LAB' | 'ADMINISTRASI' | 'LAINNYA'; description: string;
+  qty: number; unitPrice: string; discountAmount: string; lineTotal: string; payerPortion: string; patientPortion: string; isManual: boolean;
+  serviceItemId: string | null; discountReason: string | null; discountStatus: 'NONE' | 'WITHIN_LIMIT' | 'PENDING' | 'APPROVED';
+  discountRequestedByName: string | null; discountMine: boolean; discountApprovedByName: string | null; splitReason: string | null }
+export interface Invoice { id: string; kind: 'ENCOUNTER' | 'DRUG' | 'OTC'; status: InvoiceStatus; invoiceNo: string | null; branchName: string; payerType: PayerType;
+  payerName: string | null; contract: { copayPercent: number; plafon: string | number | null; validUntil: string | null } | null;
+  patient: { id: string; name: string; mrn: string } | null; customerName: string | null; encounterId: string | null; encounterNo: string | null;
+  otcSaleId: string | null; saleNo: string | null; grossAmount: string; discountAmount: string; netAmount: string; payerPortion: string; patientPortion: string;
+  paidAmount: string; issuedAt: string | null; issuedByName: string | null; createdAt: string; version: number; warnings: string[]; lines: InvoiceLine[] }

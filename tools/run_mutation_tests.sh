@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Uji mutasi kontrol keamanan (Stage 3 M1–M4 diulang di monorepo — RSK-020; M5 Stage 4; M6–M14 Stage 5; M15–M17 Stage 6; M18–M22 Stage 7; M23–M38 Stage 8; M39–M59 Stage 9; M60–M89 Stage 10).
+# Uji mutasi kontrol keamanan (Stage 3 M1–M4 diulang di monorepo — RSK-020; M5 Stage 4; M6–M14 Stage 5; M15–M17 Stage 6; M18–M22 Stage 7; M23–M38 Stage 8; M39–M59 Stage 9; M60–M89 Stage 10; M90+ Stage 11).
 # Setiap mutasi sengaja merusak satu kontrol, menjalankan suite integrasi API, dan LULUS hanya bila
 # uji yang menjaga kontrol itu GAGAL. Kode selalu dikembalikan (trap), juga bila skrip dihentikan.
 #
@@ -61,7 +61,9 @@ OPNC=libs/pharmacy/src/lib/opname.controller.ts
 CRPT=libs/pharmacy/src/lib/controlled-report.controller.ts
 OTCC=libs/pharmacy/src/lib/otc.controller.ts
 SRPT=libs/pharmacy/src/lib/stock-report.controller.ts
-FILES=("$AUTH" "$SESSION" "$MIG2" "$MIG3" "$GUARD" "$PGUARD" "$LAYOUT" "$EXPORT" "$MIG5" "$MIG6" "$TOTP" "$IAMUSERS" "$ACCOUNT" "$AUDITCHG" "$PRACT" "$MIG12" "$TERM" "$IMPORTS" "$PATIENT" "$MIG15" "$IDEM" "$MIG16" "$BOOK" "$SCHED" "$NOSHOW" "$ENCREPO" "$ENCCTL" "$QDISP" "$CHART" "$CHARTREPO" "$MIG19" "$SIGNCTL" "$REAUTH" "$MIG20" "$RXREPO" "$RXCTL" "$MIG21" "$LABCTL" "$DOCCTL" "$MIG22" "$RECV" "$PRICE" "$LOCS" "$DISP" "$DREPO" "$RXREM" "$SUBC" "$ADJC" "$OPNC" "$CRPT" "$OTCC" "$SRPT")
+INVREPO=libs/billing/src/lib/invoice.repo.ts
+INVCTL=libs/billing/src/lib/invoice.controller.ts
+FILES=("$AUTH" "$SESSION" "$MIG2" "$MIG3" "$GUARD" "$PGUARD" "$LAYOUT" "$EXPORT" "$MIG5" "$MIG6" "$TOTP" "$IAMUSERS" "$ACCOUNT" "$AUDITCHG" "$PRACT" "$MIG12" "$TERM" "$IMPORTS" "$PATIENT" "$MIG15" "$IDEM" "$MIG16" "$BOOK" "$SCHED" "$NOSHOW" "$ENCREPO" "$ENCCTL" "$QDISP" "$CHART" "$CHARTREPO" "$MIG19" "$SIGNCTL" "$REAUTH" "$MIG20" "$RXREPO" "$RXCTL" "$MIG21" "$LABCTL" "$DOCCTL" "$MIG22" "$RECV" "$PRICE" "$LOCS" "$DISP" "$DREPO" "$RXREM" "$SUBC" "$ADJC" "$OPNC" "$CRPT" "$OTCC" "$SRPT" "$INVREPO" "$INVCTL")
 BACKUP=$(mktemp -d)
 cp "${FILES[@]}" "$BACKUP"/
 restore() { for f in "${FILES[@]}"; do cp "$BACKUP/$(basename "$f")" "$f"; done; }
@@ -272,6 +274,27 @@ mutate M88 "laporan stok menghitung retur masuk sebagai penerimaan" 'G02' \
   "sed -i \"s/\\['RETURN_IN'\\])} as returned_in/['RECEIPT'])} as returned_in/\" $SRPT && grep -q \"'RECEIPT'\\])} as returned_in\" $SRPT" ""
 mutate M89 "laporan stok tidak menghitung saldo awal" 'G02' \
   "sed -i 's/filter (where mv.occurred_at < \${b.t0}::timestamptz), 0))::text as opening/filter (where false), 0))::text as opening/' $SRPT && grep -q 'filter (where false), 0))::text as opening' $SRPT" ""
+
+mutate M90 "tarif khusus penjamin tidak diprioritaskan di atas tarif umum" 'B05' \
+  "sed -i 's/     order by (payer_id is not null) desc, (payer_type is not null) desc,/     order by (payer_id is not null) asc, (payer_type is not null) asc,/' $INVREPO && grep -q 'order by (payer_id is not null) asc' $INVREPO" ""
+mutate M91 "co-pay penjamin diabaikan (pasien tidak menanggung bagiannya)" 'B05' \
+  "sed -i 's/  const copay = Number(c.contract?.copayPercent ?? 0);/  const copay = 0;/' $INVREPO && grep -q '  const copay = 0;' $INVREPO" ""
+mutate M92 "plafon penjamin per kunjungan diabaikan" 'B05' \
+  "sed -i 's/  let cap = c.contract?.plafon !== undefined .*/  let cap = Infinity;/' $INVREPO && grep -q '  let cap = Infinity;' $INVREPO" ""
+mutate M93 "diskon di atas batas klinik tidak perlu persetujuan" 'B04' \
+  "sed -i \"s/pct > lim + 1e-9 ? 'PENDING'/false ? 'PENDING'/\" $INVCTL && grep -q \"false ? 'PENDING'\" $INVCTL" ""
+mutate M94 "peminta diskon dapat menyetujui diskonnya sendiri" 'B04' \
+  "sed -i 's/      if (l.discountRequestedBy === ctx().userId) throw/      if (false) throw/' $INVCTL && grep -q '      if (false) throw' $INVCTL" ""
+mutate M95 "tagihan dapat terbit walau diskon masih menunggu persetujuan" 'B04' \
+  "sed -i 's/      if (s.pending) throw/      if (false) throw/' $INVCTL && grep -q '      if (false) throw' $INVCTL" ""
+mutate M96 "obat yang ditagih tidak ditandai BILLED saat terbit (dapat ditagih dua kali)" 'B03' \
+  "sed -i \"s/update dispense_line set billing_status = 'BILLED'/update dispense_line set billing_status = 'UNBILLED'/\" $INVCTL && grep -q \"set billing_status = 'UNBILLED'\" $INVCTL" ""
+mutate M97 "tagihan terbit masih dapat diubah lewat API" 'B03' \
+  "sed -i \"s/    if (h.status !== 'DRAFT') throw problem(409, 'BIL-409-NOT-DRAFT', 'Tagihan sudah diterbitkan dan tidak dapat diubah');/    void h.status;/\" $INVCTL && grep -q '    void h.status;' $INVCTL" ""
+mutate M98 "diskon dapat diberikan tanpa alasan" 'B04' \
+  "sed -i \"s/        if (b.discountAmount > 0 \&\& (b.discountReason ?? '').length < 3) throw/        if (false) throw/\" $INVCTL && grep -q '        if (false) throw' $INVCTL" ""
+mutate M99 "layanan tanpa tarif berlaku dilewati diam-diam saat membuat draf" 'B02' \
+  "sed -i 's/  if (missing.length) throw/  if (false) throw/' $INVREPO && grep -q '  if (false) throw' $INVREPO" ""
 
 # Mutasi UI: suite Playwright (U##) sebagai detektor
 if [ "${MUTATION_E2E:-0}" = "1" ]; then
