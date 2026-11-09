@@ -60,6 +60,28 @@ export async function addClinicRole(code: string, name: string, permissions: str
   }
 }
 
+/** Obat + harga jual + stok satu batch di lokasi bawaan cabang pertama klinik E2E (data sintetis). */
+export async function addClinicDrugStock(o: { code: string; name: string; drugClass: string; uomCode: string; price: number; qty: number; batchNo: string }): Promise<string> {
+  const c = new Client({ connectionString: dbUrl() });
+  await c.connect();
+  try {
+    const { rows: [t] } = await c.query(`SELECT id FROM app.tenant WHERE code = $1`, [CLINIC_CODE]);
+    const { rows: [d] } = await c.query(`INSERT INTO app.drug_item(tenant_id, code, generic_name, dosage_form, base_uom_id, drug_class, ingredients)
+      SELECT $1, $2, $3, 'Tablet', u.id, $4, ARRAY[lower($3)] FROM app.uom u WHERE u.tenant_id = $1 AND u.code = $5 RETURNING id`,
+      [t.id, o.code, o.name, o.drugClass, o.uomCode]);
+    await c.query(`INSERT INTO app.drug_price(tenant_id, drug_item_id, sell_price, valid_from) VALUES ($1, $2, $3, current_date - 1)`, [t.id, d.id, o.price]);
+    const { rows: [b] } = await c.query(`INSERT INTO app.stock_batch(tenant_id, drug_item_id, batch_no, expiry_date, unit_cost)
+      VALUES ($1, $2, $3, current_date + 365, $4) RETURNING id`, [t.id, d.id, o.batchNo, Math.round(o.price / 2)]);
+    const { rows: [l] } = await c.query(`SELECT l.id, br.name FROM app.stock_location l JOIN app.branch br ON br.id = l.branch_id
+       WHERE l.tenant_id = $1 AND l.is_default AND br.is_active ORDER BY br.code LIMIT 1`, [t.id]);
+    await c.query(`INSERT INTO app.stock_movement(tenant_id, batch_id, location_id, movement_type, qty, ref_type, ref_id)
+      VALUES ($1, $2, $3, 'RECEIPT', $4, 'goods_receipt', gen_random_uuid())`, [t.id, b.id, l.id, o.qty]);
+    return l.name as string;
+  } finally {
+    await c.end();
+  }
+}
+
 export async function addClinicUser(email: string, name: string, role: string, practitionerName?: string): Promise<void> {
   const c = new Client({ connectionString: dbUrl() });
   await c.connect();

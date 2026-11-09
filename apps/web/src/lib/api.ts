@@ -276,6 +276,13 @@ export interface StockOpname { id: string; status: 'COUNTING' | 'SUBMITTED' | 'A
 export interface ControlledReport { columns: { key: string; label: string; type: string }[]; month: string; branchName: string | null; note: string;
   rows: { code: string; drugName: string; drugClass: DrugClass; uomName: string; opening: number; received: number; dispensed: number; otherOut: number;
     adjusted: number; closing: number }[] }
+export interface OtcSale { id: string; saleNo: string; status: 'AWAITING_PAYMENT' | 'PAID' | 'CANCELLED'; branchName: string; locationName: string;
+  customerName: string | null; patient: { name: string; mrn: string } | null; soldAt: string; soldByName: string; total: string; notes: string | null;
+  cancelReason: string | null; cancelledAt: string | null;
+  lines: { id: string; drugItemId: string; drugName: string; batchNo: string; expiryDate: string; qtyBase: number; uomName: string; unitPrice: string; amount: string }[] }
+export interface StockReportRow { code: string; drugName: string; drugClass: DrugClass; uomName: string; opening: number; received: number; returnedIn: number;
+  dispensed: number; otcSold: number; otherOut: number; adjusted: number; closing: number; closingValue: string }
+export interface StockReport { rows: StockReportRow[]; from: string; to: string; totals: { closingValue: string } }
 export interface DispenseResult { dispenseId: string; prescriptionStatus: RxStatus; encounterStatus: string; lines: DispenseLine[] }
 export interface GoodsReceipt { id: string; receiptNo: string; supplierId: string; supplierName: string; locationId: string; locationName: string; branchName: string;
   invoiceNo: string; invoiceDate: string | null; notes: string | null; receivedAt: string; receivedByName: string | null; lineCount: number; total: string;

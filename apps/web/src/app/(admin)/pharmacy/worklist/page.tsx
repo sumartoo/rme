@@ -39,6 +39,12 @@ export default function PharmacyWorklistPage() {
     } catch (e) { setError(errorText(e, 'Gagal memuat resep')); }
   }, [tab, branchId, q]);
   useEffect(() => { const t = setTimeout(() => void load(), 250); return () => clearTimeout(t); }, [load]);
+  // AC-PHM-FR-006-1: resep baru muncul ≤ 5 detik — muat ulang berkala selama dialog resep tertutup
+  useEffect(() => {
+    if (open || tab === 'DONE') return;
+    const t = setInterval(() => { if (document.visibilityState === 'visible') void load(); }, 5000);
+    return () => clearInterval(t);
+  }, [load, open, tab]);
   return (
     <div className="grid gap-4">
       <div className="flex flex-wrap items-center gap-3">

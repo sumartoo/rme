@@ -3,10 +3,10 @@
 | | |
 |---|---|
 | Stage | 10 — Pharmacy & Inventory |
-| Status | **BERJALAN** — OD diputuskan (DEC-039); dimulai 9 Nov 2026 (DEC-040) |
+| Status | **SELESAI — MENUNGGU PERSETUJUAN PO** (laporan: [STAGE_COMPLETION_REPORT.md](STAGE_COMPLETION_REPORT.md)); OD diputuskan DEC-039, dimulai 9 Nov 2026 (DEC-040) |
 | Project Owner | Sumarto |
 | Requirement | **MVP saja** (DEC-010): PHM-FR-001–014, 016, 017, 019. Di luar stage ini (LJT): PHM-FR-015 retur, PHM-FR-018 transfer antar lokasi/cabang, PHM-FR-020 valuasi HPP |
-| Mode verifikasi | Lokal + GitHub Actions `sumartoo/rme` (CI & deploy otomatis) |
+| Mode verifikasi | Lokal penuh, digabung ke `AtoAIs/atoai-rme-v2` tanpa CI (DEC-036; Actions aktif lagi 1 Des) |
 
 ## 1. Tujuan
 
@@ -54,12 +54,12 @@ Perkiraan: ±1 hari kerja per batch.
 
 ## 5. Gate Stage 10
 
-- [ ] Saldo stok = jumlah ledger untuk setiap batch dan lokasi (uji rekonsiliasi)
-- [ ] Uji konkurensi penyerahan pada batch yang sama (tidak ada stok negatif atau penyerahan ganda)
-- [ ] Resep ↔ penyerahan ↔ calon baris tagihan terekonsiliasi (termasuk parsial & substitusi)
-- [ ] Kontrol golongan obat terbatas teruji
-- [ ] Matriks permission X01 mencakup semua endpoint baru
-- [ ] Uji mutasi untuk kontrol baru terdeteksi
+- [x] Saldo stok = jumlah ledger untuk setiap batch dan lokasi (uji rekonsiliasi)
+- [x] Uji konkurensi penyerahan pada batch yang sama (tidak ada stok negatif atau penyerahan ganda)
+- [x] Resep ↔ penyerahan ↔ calon baris tagihan terekonsiliasi (termasuk parsial & substitusi)
+- [x] Kontrol golongan obat terbatas teruji
+- [x] Matriks permission X01 mencakup semua endpoint baru
+- [x] Uji mutasi untuk kontrol baru terdeteksi (M60–M89, lokal; run lengkap di Actions setelah 1 Des)
 - [ ] PO menyetujui Stage 10
 
 ## 6. Progres
@@ -72,3 +72,4 @@ Perkiraan: ±1 hari kerja per batch.
 | 9 Nov 2026 | **Batch 1 selesai** — migrasi 0023 (lokasi bawaan "Apotek" per cabang via trigger, kolom versi lokasi, audit harga, penerimaan & batch immutable, permission `pharmacy.restricted.dispense`, menu Farmasi). Lib `libs/pharmacy`: lokasi stok, harga jual berperiode (tumpang tindih 409, HET), penerimaan barang (konversi ke satuan dasar, harga beli per satuan dasar di batch, faktur ganda 409, ED & golongan terbatas divalidasi, idempoten), posisi stok + peringatan minimum/kedaluwarsa (`expiryWarningDays`, bawaan 90), rincian batch & ledger. Master obat: kode KFA & stok minimum (termasuk impor/ekspor). Web: Stok obat, Penerimaan barang, harga di dialog obat | Integrasi P01–P05, E2E W26, mutasi M60–M65 (lokal, DEC-036) |
 | 9 Nov 2026 | **Batch 2 selesai** — migrasi 0024 (status resep CLOSED, sisa ditutup per baris, harga jual terkunci & status tagih di baris penyerahan, penyerahan immutable kecuali status tagih, menu Resep masuk). API farmasi: worklist per cabang, rincian resep (alergi, peringatan dokter, sisa, stok & alokasi FEFO/FIFO, harga, riwayat obat 90 hari, akses diaudit), telaah checklist OD-098 (masalah → tetap ISSUED), penyerahan FEFO/FIFO dengan kunci stok (advisory lock), sebagian bila stok kurang, racikan utuh mengurangi stok komponen, batch manual beralasan, obat terbatas butuh izin, tanpa harga ditolak; tutup sisa resep; job `pharmacy.rx_remainder_close` menutup sisa lewat `partialPickupDays` (bawaan 7); etiket PDF 80×50 mm. **OD-103**: bawaan farmasi → kasir (Profil klinik & selesai konsultasi). Profil klinik: urutan batch FEFO/FIFO & batas ambil sisa resep. Renderer PDF dipindah ke `@clinicrme/shared/pdf` | Integrasi D01–D08 (+C24/C25 diperbarui), E2E W27, mutasi M66–M74 (lokal, DEC-036) |
 | 9 Nov 2026 | **Batch 3 selesai** — migrasi 0025 (tabel `prescription_substitution` dengan RLS & immutable setelah diputuskan, catatan keputusan penyesuaian, opname: dihitung oleh/kapan, satu sesi aktif per lokasi, immutable setelah disetujui/dibatalkan, menu Persetujuan substitusi/Penyesuaian stok/Stock opname/Laporan obat terbatas). Substitusi OD-099: apoteker mengajukan (satuan dasar sama, baris belum diserahkan) → dokter penulis resep atau dokter bertugas di cabang hari ini menyetujui/menolak (alasan wajib) dengan peringatan alergi; baris tertahan selama menunggu; disetujui → baris resep diganti, obat asli tercatat. Penyesuaian stok maker–checker (saldo tidak boleh negatif, dicek ulang saat disetujui). Stock opname: hitung → kirim (lengkap, selisih beralasan) → disetujui orang lain (≠ yang memulai) atau dikembalikan → mutasi OPNAME; saldo sistem dicatat saat dihitung. Obat golongan terbatas (+ prekursor) butuh izin khusus untuk penyesuaian & opname. Laporan pemakaian bulanan obat terbatas (JSON/CSV, format resmi belum diverifikasi REG-10) | Integrasi S01–S06, E2E W28–W29, mutasi M75–M83 (lokal, DEC-036) |
+| 9 Nov 2026 | **Batch 4 selesai** — migrasi 0026 (penjualan bebas: status menunggu bayar/lunas/batal, total, pembatalan; baris immutable; menu Penjualan obat bebas & Laporan stok). Penjualan obat bebas (hanya Bebas/Bebas terbatas, harga Umum, FEFO/FIFO dengan kunci stok yang sama, batal → RETURN_IN). Laporan stok (ringkasan per obat + nilai harga beli) & mutasi ledger (JSON/CSV). Worklist farmasi muat ulang tiap 5 detik (AC-PHM-FR-006-1). Uji gate G02–G04. Completion report | Integrasi G01–G04, E2E W30, mutasi M84–M89 (lokal, DEC-036) |

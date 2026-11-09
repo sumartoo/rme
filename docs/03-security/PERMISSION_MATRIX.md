@@ -108,7 +108,7 @@
 | `pharmacy.dispense` |  |  |  |  | ✓ |  |  |  | pharmacyDispense; pharmacyDispenseLabels; pharmacyPrescriptionClose; pharmacyPrescriptionGet; pharmacyPrescriptionReview; pharmacyWorklist; substitutionCancel; substitutionRequest |
 | `pharmacy.drug.manage` |  |  |  |  | ✓ |  |  |  | drugCreate; drugPriceCreate; drugPriceEnd; drugUpdate |
 | `pharmacy.drug.read` |  | ✓ |  |  | ✓ |  |  |  | drugList; drugPriceList |
-| `pharmacy.otc.sell` |  |  |  |  | ✓ | ✓ |  |  | otcSaleCreate |
+| `pharmacy.otc.sell` |  |  |  |  | ✓ | ✓ |  |  | otcSaleCancel; otcSaleCreate; otcSaleGet; otcSaleList |
 | `pharmacy.restricted.dispense` |  |  |  |  | ✓ |  |  |  | (di handler) Terima/keluarkan obat narkotika, psikotropika & prekursor (OD-100) |
 | `pharmacy.stock.adjust` |  |  |  |  | ✓ |  |  |  | stockAdjustmentRequest |
 | `pharmacy.stock.approve` |  |  |  |  |  |  | ✓ |  | opnameDecide; stockAdjustmentDecide |
@@ -126,7 +126,7 @@
 | `report.finance.read` |  |  |  |  |  |  | ✓ | ✓ | reportCashierClosing; reportReceivables; reportRevenue |
 | `report.operational.read` | ✓ |  |  |  |  |  | ✓ | ✓ | reportVisits |
 | `report.pharmacy.controlled` |  |  |  |  | ✓ |  | ✓ | ✓ | reportControlledDrugs |
-| `report.pharmacy.read` |  |  |  |  | ✓ |  | ✓ | ✓ | reportStock |
+| `report.pharmacy.read` |  |  |  |  | ✓ |  | ✓ | ✓ | reportStock; reportStockMovements |
 | **schedule** | | | | | | | | | |
 | `schedule.manage` | ✓ |  |  |  |  |  |  |  | scheduleCreate; scheduleExceptionCreate; scheduleExceptionDelete; scheduleUpdate |
 | `schedule.read` | ✓ |  |  | ✓ |  |  |  |  | scheduleExceptionList; scheduleList |

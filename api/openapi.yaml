@@ -6233,11 +6233,34 @@ paths:
         '403':
           $ref: '#/components/responses/Forbidden'
   /api/v1/otc-sales:
+    get:
+      operationId: otcSaleList
+      tags:
+      - Pharmacy
+      summary: Penjualan obat bebas per hari/cabang/status
+      x-requirements:
+      - PHM-FR-012
+      x-permission: pharmacy.otc.sell
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/OtcSale'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
     post:
       operationId: otcSaleCreate
       tags:
       - Pharmacy
-      summary: Penjualan obat bebas
+      summary: Penjualan obat bebas (Bebas/Bebas terbatas, menunggu bayar, OD-101)
       x-requirements:
       - PHM-FR-012
       x-permission: pharmacy.otc.sell
@@ -6262,6 +6285,81 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          description: Validasi pengesahan gagal
+          content:
+            application/problem+json:
+              schema:
+                allOf:
+                - $ref: '#/components/schemas/Problem'
+                - $ref: '#/components/schemas/SignValidationError'
+  /api/v1/otc-sales/{otcSaleId}:
+    get:
+      operationId: otcSaleGet
+      tags:
+      - Pharmacy
+      summary: Rincian penjualan obat bebas
+      x-requirements:
+      - PHM-FR-012
+      x-permission: pharmacy.otc.sell
+      parameters:
+      - $ref: '#/components/parameters/otcSaleId'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OtcSale'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /api/v1/otc-sales/{otcSaleId}/cancel:
+    post:
+      operationId: otcSaleCancel
+      tags:
+      - Pharmacy
+      summary: Batalkan penjualan belum dibayar (stok kembali)
+      x-requirements:
+      - PHM-FR-012
+      x-permission: pharmacy.otc.sell
+      parameters:
+      - $ref: '#/components/parameters/otcSaleId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reason:
+                  type: string
+                  minLength: 5
+                  maxLength: 300
+              required:
+              - reason
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OtcSale'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
         '409':
           $ref: '#/components/responses/Conflict'
   /api/v1/billing/worklist:
@@ -7158,9 +7256,33 @@ paths:
       operationId: reportStock
       tags:
       - Report
-      summary: Stok & mutasi
+      summary: Ringkasan stok per obat (?from&to YYYY-MM-DD, format=json|csv)
       x-requirements:
       - RPT-FR-005
+      - PHM-FR-004
+      x-permission: report.pharmacy.read
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReportResult'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /api/v1/reports/stock-movements:
+    get:
+      operationId: reportStockMovements
+      tags:
+      - Report
+      summary: Daftar mutasi ledger stok (?from&to, drugId, type, format=json|csv)
+      x-requirements:
+      - RPT-FR-005
+      - PHM-FR-004
       x-permission: report.pharmacy.read
       responses:
         '200':
@@ -7428,6 +7550,12 @@ components:
       in: path
       required: true
       description: opnameId
+      schema: *id002
+    otcSaleId:
+      name: otcSaleId
+      in: path
+      required: true
+      description: otcSaleId
       schema: *id002
     patientId:
       name: patientId
@@ -10692,23 +10820,42 @@ components:
     OtcSaleInput:
       type: object
       properties:
-        locationId: *id002
-        patientId: *id002
+        branchId: *id002
+        locationId:
+          type:
+          - string
+          - 'null'
+          format: uuid
+        patientId:
+          type:
+          - string
+          - 'null'
+          format: uuid
+        customerName:
+          type:
+          - string
+          - 'null'
+        notes:
+          type:
+          - string
+          - 'null'
         lines:
           type: array
+          minItems: 1
+          maxItems: 30
           items:
             type: object
             properties:
               drugItemId: *id002
-              qty: &id009
-                type: string
-                pattern: ^\d{1,14}(\.\d{1,4})?$
-                example: '10'
+              qty:
+                type: number
+                exclusiveMinimum: 0
+                description: Satuan dasar
             required:
             - drugItemId
             - qty
       required:
-      - locationId
+      - branchId
       - lines
     OtcSale:
       type: object
@@ -10716,11 +10863,62 @@ components:
         id: *id002
         saleNo:
           type: string
-        invoiceId: *id002
+        status:
+          type: string
+          enum:
+          - AWAITING_PAYMENT
+          - PAID
+          - CANCELLED
+        branchName:
+          type: string
+        locationName:
+          type: string
+        customerName:
+          type:
+          - string
+          - 'null'
+        patient:
+          type:
+          - object
+          - 'null'
+        soldAt: *id006
+        soldByName:
+          type: string
+        total: *id007
+        notes:
+          type:
+          - string
+          - 'null'
+        cancelReason:
+          type:
+          - string
+          - 'null'
+        cancelledAt:
+          type:
+          - string
+          - 'null'
+        lines:
+          type: array
+          items:
+            type: object
+            properties:
+              id: *id002
+              drugItemId: *id002
+              drugName:
+                type: string
+              batchNo:
+                type: string
+              expiryDate: *id004
+              qtyBase:
+                type: number
+              uomName:
+                type: string
+              unitPrice: *id007
+              amount: *id007
       required:
       - id
       - saleNo
-      - invoiceId
+      - status
     AdjustmentInput:
       type: object
       properties:
@@ -11138,7 +11336,10 @@ components:
         expiryDate: *id004
         locationName:
           type: string
-        qtyOnHand: *id009
+        qtyOnHand: &id009
+          type: string
+          pattern: ^\d{1,14}(\.\d{1,4})?$
+          example: '10'
         minStock: *id009
       required:
       - type

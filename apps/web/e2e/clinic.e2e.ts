@@ -5,7 +5,7 @@ import { mkdtempSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { authenticator } from 'otplib';
-import { addClinicRole, addClinicUser, seedClinic, setLinkToken } from '../../../tools/e2e/seed-clinic';
+import { addClinicDrugStock, addClinicRole, addClinicUser, seedClinic, setLinkToken } from '../../../tools/e2e/seed-clinic';
 import { CLINIC_URL, E2E_ENCRYPTION_KEY, STORAGE_DIR, USER_PASSWORD, dbUrl } from '../../../tools/e2e/config';
 
 /**
@@ -1107,6 +1107,51 @@ test('W29 dokter: halaman persetujuan substitusi tersedia di menu Pelayanan (Sta
   await page.getByTestId('side-menu').getByRole('link', { name: 'Persetujuan substitusi' }).click();
   await expect(page.getByRole('heading', { name: 'Persetujuan substitusi' })).toBeVisible();
   await expect(page.getByText('Tidak ada pengajuan.')).toBeVisible();
+  expect(cspViolations).toEqual([]);
+});
+
+test('W30 farmasi: penjualan obat bebas (keras ditolak), batal mengembalikan stok, laporan stok & CSV mutasi (Stage 10 batch 4)', async ({ page }) => {
+  watchCsp(page);
+  const branchName = await addClinicDrugStock({ code: 'PCT500', name: 'Parasetamol 500 mg', drugClass: 'BEBAS', uomCode: 'STRIP', price: 5000, qty: 10, batchNo: 'PCT-W1' });
+  await login(page, 'farmasi@klinik-web.test');
+  const menu = page.getByTestId('side-menu');
+  await menu.getByRole('link', { name: 'Penjualan obat bebas' }).click();
+  await expect(page.getByRole('button', { name: 'Penjualan baru' })).toBeDisabled();
+  await page.getByLabel('Cabang', { exact: true }).selectOption({ label: branchName });
+  await page.getByRole('button', { name: 'Penjualan baru' }).click();
+  const sd = page.getByRole('dialog', { name: 'Penjualan obat bebas' });
+  await sd.getByLabel('Obat *').fill('amoks');
+  await sd.getByRole('option', { name: /Amoksisilin 500 mg/ }).click();
+  await expect(sd.getByRole('alert')).toContainText('hanya dengan resep');
+  await expect(sd.getByRole('button', { name: 'Simpan penjualan' })).toBeDisabled();
+  await sd.getByRole('button', { name: 'Ganti' }).click();
+  await sd.getByLabel('Obat *').fill('parase');
+  await sd.getByRole('option', { name: /Parasetamol 500 mg/ }).click();
+  await sd.getByLabel('Jumlah (Strip)').fill('3');
+  await sd.getByLabel('Nama pembeli (opsional)').fill('Pembeli E2E');
+  await sd.getByRole('button', { name: 'Simpan penjualan' }).click();
+  await expect(page.getByRole('status').filter({ hasText: /Penjualan OTC\d+ tersimpan \(Rp 15\.000\)/ })).toBeVisible();
+  const row = page.getByTestId('otc-row').filter({ hasText: 'Pembeli E2E' });
+  await expect(row).toContainText('Menunggu bayar');
+  await row.getByRole('button', { name: 'Lihat' }).click();
+  const od = page.getByTestId('otc-dialog');
+  await expect(od).toContainText('PCT-W1');
+  await od.getByLabel('Batalkan penjualan — alasan').selectOption('Pembeli batal membeli');
+  await od.getByRole('button', { name: 'Batalkan penjualan' }).click();
+  await expect(page.getByRole('status').filter({ hasText: 'dibatalkan; stok dikembalikan' })).toBeVisible();
+  await expect(row).toContainText('Dibatalkan');
+
+  await menu.getByRole('link', { name: 'Laporan stok' }).click();
+  const rr = page.getByTestId('report-row').filter({ hasText: 'PCT500' });
+  await expect(rr).toContainText('10');
+  const amx = page.getByTestId('report-row').filter({ hasText: 'AMX500' });
+  await expect(amx).toContainText('9');
+  const href = await page.getByTestId('movements-csv').getAttribute('href');
+  const csv = await page.evaluate(async (u) => { const r = await fetch(u!, { credentials: 'same-origin' }); return { s: r.status, t: await r.text() }; }, href);
+  expect(csv.s).toBe(200);
+  expect(csv.t).toContain('Waktu,Jenis,Kode,Nama obat');
+  expect(csv.t).toMatch(/OTC_SALE,PCT500/);
+  expect(csv.t).toMatch(/RETURN_IN,PCT500/);
   expect(cspViolations).toEqual([]);
 });
 

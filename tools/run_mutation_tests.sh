@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Uji mutasi kontrol keamanan (Stage 3 M1–M4 diulang di monorepo — RSK-020; M5 Stage 4; M6–M14 Stage 5; M15–M17 Stage 6; M18–M22 Stage 7; M23–M38 Stage 8; M39–M59 Stage 9; M60–M83 Stage 10).
+# Uji mutasi kontrol keamanan (Stage 3 M1–M4 diulang di monorepo — RSK-020; M5 Stage 4; M6–M14 Stage 5; M15–M17 Stage 6; M18–M22 Stage 7; M23–M38 Stage 8; M39–M59 Stage 9; M60–M89 Stage 10).
 # Setiap mutasi sengaja merusak satu kontrol, menjalankan suite integrasi API, dan LULUS hanya bila
 # uji yang menjaga kontrol itu GAGAL. Kode selalu dikembalikan (trap), juga bila skrip dihentikan.
 #
@@ -59,7 +59,9 @@ SUBC=libs/pharmacy/src/lib/substitution.controller.ts
 ADJC=libs/pharmacy/src/lib/adjustments.controller.ts
 OPNC=libs/pharmacy/src/lib/opname.controller.ts
 CRPT=libs/pharmacy/src/lib/controlled-report.controller.ts
-FILES=("$AUTH" "$SESSION" "$MIG2" "$MIG3" "$GUARD" "$PGUARD" "$LAYOUT" "$EXPORT" "$MIG5" "$MIG6" "$TOTP" "$IAMUSERS" "$ACCOUNT" "$AUDITCHG" "$PRACT" "$MIG12" "$TERM" "$IMPORTS" "$PATIENT" "$MIG15" "$IDEM" "$MIG16" "$BOOK" "$SCHED" "$NOSHOW" "$ENCREPO" "$ENCCTL" "$QDISP" "$CHART" "$CHARTREPO" "$MIG19" "$SIGNCTL" "$REAUTH" "$MIG20" "$RXREPO" "$RXCTL" "$MIG21" "$LABCTL" "$DOCCTL" "$MIG22" "$RECV" "$PRICE" "$LOCS" "$DISP" "$DREPO" "$RXREM" "$SUBC" "$ADJC" "$OPNC" "$CRPT")
+OTCC=libs/pharmacy/src/lib/otc.controller.ts
+SRPT=libs/pharmacy/src/lib/stock-report.controller.ts
+FILES=("$AUTH" "$SESSION" "$MIG2" "$MIG3" "$GUARD" "$PGUARD" "$LAYOUT" "$EXPORT" "$MIG5" "$MIG6" "$TOTP" "$IAMUSERS" "$ACCOUNT" "$AUDITCHG" "$PRACT" "$MIG12" "$TERM" "$IMPORTS" "$PATIENT" "$MIG15" "$IDEM" "$MIG16" "$BOOK" "$SCHED" "$NOSHOW" "$ENCREPO" "$ENCCTL" "$QDISP" "$CHART" "$CHARTREPO" "$MIG19" "$SIGNCTL" "$REAUTH" "$MIG20" "$RXREPO" "$RXCTL" "$MIG21" "$LABCTL" "$DOCCTL" "$MIG22" "$RECV" "$PRICE" "$LOCS" "$DISP" "$DREPO" "$RXREM" "$SUBC" "$ADJC" "$OPNC" "$CRPT" "$OTCC" "$SRPT")
 BACKUP=$(mktemp -d)
 cp "${FILES[@]}" "$BACKUP"/
 restore() { for f in "${FILES[@]}"; do cp "$BACKUP/$(basename "$f")" "$f"; done; }
@@ -257,6 +259,19 @@ mutate M82 "batch obat golongan terbatas dapat dihitung tanpa izin khusus" 'S04'
   "sed -i 's/        if (RESTRICTED.includes(bt.drug_class) \&\& !ctx/        if (false \&\& !ctx/' $OPNC && grep -q 'if (false && !ctx' $OPNC" ""
 mutate M83 "laporan obat terbatas tidak menghitung pengeluaran resep" 'S06' \
   "sed -i \"s/and mv.movement_type = 'DISPENSE'), 0))::text as dispensed/and mv.movement_type = 'OTC_SALE'), 0))::text as dispensed/\" $CRPT && grep -q \"'OTC_SALE'), 0))::text as dispensed\" $CRPT" ""
+
+mutate M84 "obat keras dapat dijual bebas tanpa resep" 'G01' \
+  "sed -i 's/        if (!OTC_CLASSES.includes(d.drug_class)) {/        if (false) {/' $OTCC && grep -q '        if (false) {' $OTCC" ""
+mutate M85 "penjualan bebas memakai harga penjamin selain Umum" 'G01' \
+  "sed -i \"s/currentPrice(tx, d.id, b.branchId, 'UMUM', br.today)/currentPrice(tx, d.id, b.branchId, 'BPJS', br.today)/\" $OTCC && grep -q \"'BPJS', br.today\" $OTCC" ""
+mutate M86 "penjualan yang sudah dibayar/dibatalkan dapat dibatalkan lagi" 'G01' \
+  "sed -i \"s/      if (s.status !== 'AWAITING_PAYMENT') throw/      if (false) throw/\" $OTCC && grep -q '      if (false) throw' $OTCC" ""
+mutate M87 "stok tidak dikunci saat penjualan bebas" 'G04' \
+  "sed -i 's/      await lockStock(tx, loc.id, ids);/      void ids;/' $OTCC && grep -q '      void ids;' $OTCC" ""
+mutate M88 "laporan stok menghitung retur masuk sebagai penerimaan" 'G02' \
+  "sed -i \"s/\\['RETURN_IN'\\])} as returned_in/['RECEIPT'])} as returned_in/\" $SRPT && grep -q \"'RECEIPT'\\])} as returned_in\" $SRPT" ""
+mutate M89 "laporan stok tidak menghitung saldo awal" 'G02' \
+  "sed -i 's/filter (where mv.occurred_at < \${b.t0}::timestamptz), 0))::text as opening/filter (where false), 0))::text as opening/' $SRPT && grep -q 'filter (where false), 0))::text as opening' $SRPT" ""
 
 # Mutasi UI: suite Playwright (U##) sebagai detektor
 if [ "${MUTATION_E2E:-0}" = "1" ]; then

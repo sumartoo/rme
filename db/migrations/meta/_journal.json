@@ -183,6 +183,13 @@
       "when": 1795248000000,
       "tag": "0025_substitution_adjustment_opname",
       "breakpoints": false
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1795334400000,
+      "tag": "0026_otc_sale",
+      "breakpoints": false
     }
   ]
 }
