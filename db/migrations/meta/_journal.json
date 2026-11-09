@@ -197,6 +197,13 @@
       "when": 1795420800000,
       "tag": "0027_invoice",
       "breakpoints": false
+    },
+    {
+      "idx": 28,
+      "version": "7",
+      "when": 1795507200000,
+      "tag": "0028_payment_shift",
+      "breakpoints": false
     }
   ]
 }

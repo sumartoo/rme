@@ -6749,7 +6749,7 @@ paths:
       operationId: paymentCreate
       tags:
       - Billing
-      summary: Bayar tunai/debit/kartu/transfer (butuh shift terbuka)
+      summary: Bayar tunai/debit/kartu/transfer (butuh shift terbuka; sebagian & multi-metode)
       x-requirements:
       - BIL-FR-005
       - BIL-FR-007
@@ -6782,6 +6782,33 @@ paths:
           $ref: '#/components/responses/NotFound'
         '409':
           $ref: '#/components/responses/Conflict'
+  /api/v1/payments/{paymentId}/receipt:
+    get:
+      operationId: paymentReceipt
+      tags:
+      - Billing
+      summary: Kwitansi PDF 80 mm (OD-109)
+      x-requirements:
+      - BIL-FR-008
+      x-permission: billing.invoice.read
+      parameters:
+      - $ref: '#/components/parameters/paymentId'
+      responses:
+        '200':
+          description: Berkas PDF
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
   /api/v1/invoices/{invoiceId}/qris:
     post:
       operationId: qrisChargeCreate
@@ -7035,7 +7062,7 @@ paths:
       operationId: shiftCurrent
       tags:
       - Billing
-      summary: Shift aktif & total per metode
+      summary: Shift terbuka saya & total per metode (null bila tidak ada)
       x-requirements:
       - BIL-FR-011
       x-permission: billing.shift.manage
@@ -7045,7 +7072,14 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Shift'
+                type: object
+                properties:
+                  shift:
+                    oneOf:
+                    - $ref: '#/components/schemas/Shift'
+                    - type: 'null'
+                required:
+                - shift
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -7091,30 +7125,19 @@ paths:
       operationId: receivableList
       tags:
       - Billing
-      summary: Piutang penjamin
+      summary: Piutang penjamin (status, penjamin, cabang, terlambat)
       x-requirements:
       - BIL-FR-013
       x-permission: billing.receivable.read
-      parameters:
-      - $ref: '#/components/parameters/cursor'
-      - $ref: '#/components/parameters/limit'
       responses:
         '200':
           description: OK
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  data:
-                    type: array
-                    items:
-                      $ref: '#/components/schemas/Receivable'
-                  page:
-                    $ref: '#/components/schemas/PageInfo'
-                required:
-                - data
-                - page
+                type: array
+                items:
+                  $ref: '#/components/schemas/Receivable'
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -7823,6 +7846,12 @@ components:
       in: path
       required: true
       description: payerId
+      schema: *id002
+    paymentId:
+      name: paymentId
+      in: path
+      required: true
+      description: paymentId
       schema: *id002
     practitionerId:
       name: practitionerId
@@ -11688,6 +11717,15 @@ components:
           type: array
           items:
             type: string
+        outstanding: *id007
+        payments:
+          type: array
+          items:
+            $ref: '#/components/schemas/Payment'
+        receivable:
+          type:
+          - object
+          - 'null'
         lines:
           type: array
           items:
@@ -11848,11 +11886,25 @@ components:
         method:
           type: string
         amount: *id007
-        change: *id007
+        cashTendered:
+          type:
+          - string
+          - 'null'
+        change:
+          type:
+          - string
+          - 'null'
+        reference:
+          type:
+          - string
+          - 'null'
         receivedAt: *id006
+        receivedByName:
+          type: string
         receiptUrl:
           type: string
-          format: uri
+        invoiceStatus:
+          type: string
       required:
       - id
       - receiptNo
@@ -11966,6 +12018,7 @@ components:
     ShiftOpenInput:
       type: object
       properties:
+        branchId: *id002
         openingCash: *id007
       required:
       - openingCash
@@ -11990,15 +12043,44 @@ components:
           - OPEN
           - CLOSED
           - VERIFIED
+        branchId: *id002
+        branchName:
+          type: string
+        cashierName:
+          type: string
         openedAt: *id006
-        closedAt: *id006
+        closedAt:
+          type:
+          - string
+          - 'null'
         openingCash: *id007
         expectedCash: *id007
-        countedCash: *id007
-        variance: *id007
-        totalsByMethod:
-          type: object
-          additionalProperties: *id007
+        countedCash:
+          type:
+          - string
+          - 'null'
+        variance:
+          type:
+          - string
+          - 'null'
+        varianceNote:
+          type:
+          - string
+          - 'null'
+        paymentCount: *id005
+        totals:
+          type: array
+          items:
+            type: object
+            properties:
+              method:
+                type: string
+              count: *id005
+              total: *id007
+            required:
+            - method
+            - count
+            - total
       required:
       - id
       - status
@@ -12008,14 +12090,30 @@ components:
       properties:
         id: *id002
         invoiceId: *id002
+        invoiceNo:
+          type: string
+        branchName:
+          type: string
+        patient:
+          type:
+          - object
+          - 'null'
         payerId: *id002
         payerName:
           type: string
         amount: *id007
         paidAmount: *id007
+        balance: *id007
         dueDate: *id004
         status:
           type: string
+          enum:
+          - OPEN
+          - PARTIAL
+          - PAID
+          - WRITTEN_OFF
+        overdue: *id001
+        createdAt: *id006
       required:
       - id
       - payerId

@@ -17,12 +17,12 @@ pdfmake.setLocalAccessPolicy((p) => STANDARD.has(p));     // hanya font standar 
 export type Content = string | Record<string, unknown> | Content[];
 
 /** PDF deterministik (tanggal pembuatan tetap = waktu terbit) dengan font standar. */
-export function renderPdf(content: Content[], meta: { title: string; issuedAt: Date; pageSize?: string | { width: number; height: number };
-  pageMargins?: [number, number, number, number] }): Promise<Buffer> {
+export function renderPdf(content: Content[], meta: { title: string; issuedAt: Date; pageSize?: string | { width: number; height: number | 'auto' };
+  pageMargins?: [number, number, number, number]; fontSize?: number }): Promise<Buffer> {
   return pdfmake.createPdf({
     info: { title: meta.title, creator: 'ClinicRME', producer: 'ClinicRME', creationDate: meta.issuedAt },
     pageSize: meta.pageSize ?? 'A4', pageMargins: meta.pageMargins ?? [48, 40, 48, 48],
-    defaultStyle: { font: 'Helvetica', fontSize: 10, lineHeight: 1.25 },
+    defaultStyle: { font: 'Helvetica', fontSize: meta.fontSize ?? 10, lineHeight: 1.25 },
     styles: { title: { fontSize: 13, bold: true, alignment: 'center', margin: [0, 8, 0, 2] }, small: { fontSize: 8, color: '#555555' },
       label: { bold: true }, clinic: { fontSize: 12, bold: true } },
     content,

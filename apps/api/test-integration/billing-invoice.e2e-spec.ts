@@ -300,7 +300,9 @@ describe('Obat susulan & penjualan bebas (OD-107, OD-113)', () => {
     expect(sup.lines.map((l) => [l.sourceType, l.qty, l.lineTotal])).toEqual([['OBAT', 6, '3000.00']]);
     expect((await post(`/api/v1/invoices/${sup.id}/issue`, kasir, sup.version).send()).body.status).toBe('ISSUED');
     expect((await draft(enc)).body.code).toBe('BIL-409-NOTHING');
-    expect((await get(`/api/v1/billing/worklist`, kasir)).body.find((x: { refId: string; type: string }) => x.refId === enc && x.type === 'DRUG')).toBeUndefined();
+    // Tagihan obat susulan yang terbit tetap di worklist sampai lunas (batch 2)
+    expect((await get(`/api/v1/billing/worklist`, kasir)).body.find((x: { refId: string; type: string }) => x.refId === enc && x.type === 'DRUG'))
+      .toMatchObject({ invoice: { id: sup.id, status: 'ISSUED' } });
   });
 
   test('B08 penjualan bebas menunggu bayar → tagihan OTC berisi obat yang dijual; tidak dapat ditambah layanan', async () => {

@@ -89,3 +89,4 @@ export const TICKET_STATUS = {
 } as const;
 /** Penjamin yang wajib verifikasi kepesertaan manual saat kunjungan (OD-032). */
 export const NEEDS_ELIGIBILITY = (t: string) => t === 'ASURANSI' || t === 'PERUSAHAAN' || t === 'BPJS';
+export const PAYMENT_METHOD_LABEL = { TUNAI: 'Tunai', DEBIT: 'Kartu debit', KARTU_KREDIT: 'Kartu kredit', TRANSFER: 'Transfer', QRIS: 'QRIS' } as const;

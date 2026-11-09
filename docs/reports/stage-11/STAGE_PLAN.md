@@ -61,7 +61,7 @@ Perkiraan: ±1 hari kerja per batch.
 - [ ] Callback dengan signature salah ditolak dan dicatat
 - [ ] Total terbayar = Σ pembayaran − Σ refund untuk seluruh data uji; porsi penjamin = piutang
 - [x] Harga tagihan tidak berubah saat tarif/harga obat diubah sesudahnya (snapshot) — B03
-- [ ] Closing shift & rekonsiliasi teruji
+- [ ] Closing shift & rekonsiliasi teruji — closing shift L03 ✅; rekonsiliasi QRIS batch 3
 - [ ] Aturan anomali menghasilkan tanda yang benar
 - [ ] Matriks permission X01 mencakup semua endpoint baru; uji mutasi kontrol baru terdeteksi
 - [ ] PO menyetujui Stage 11
@@ -73,3 +73,4 @@ Perkiraan: ±1 hari kerja per batch.
 | 9 Nov 2026 | Stage 10 disetujui bersyarat (DEC-041). Rencana & OD Stage 11 disusun | — |
 | 9 Nov 2026 | PO menyetujui semua usulan OD Stage 11 (DEC-042); batch 1 dimulai | — |
 | 9 Nov 2026 | **Batch 1 selesai** — tagihan: migrasi 0027 (`invoice.kind`, baris tagihan berdiskon/berpembagian, tautan obat ↔ baris tagihan), layanan konsultasi bawaan poli & biaya administrasi cabang, draf otomatis (konsultasi, administrasi, tindakan, lab, obat diserahkan dengan harga terkunci), tarif berprioritas (OD-106), co-pay & plafon penjamin (OD-108), diskon beralasan dengan persetujuan manajer di atas batas (OD-041), tagihan obat susulan (OD-107) & obat bebas (OD-113), terbit bernomor `INV…` lalu terkunci, rincian PDF A4 (OD-109); halaman Kasir › Tagihan & editor tagihan | Integrasi B01–B08, E2E W31, mutasi M90–M99 |
+| 9 Nov 2026 | **Batch 2 selesai** — shift & pembayaran: migrasi 0028 (penutup shift & pecahan uang, trigger pembayaran hanya ke shift terbuka, satu piutang per tagihan, menu Piutang penjamin). Buka/tutup shift dengan kas awal & kas fisik; selisih di atas toleransi (bawaan Rp 10.000) wajib keterangan (OD-111). Pembayaran tunai (kembalian), debit, kartu, transfer (wajib referensi), sebagian & multi-metode, idempoten (`Idempotency-Key`), kwitansi `KW…` PDF 80 mm (OD-109/110). Lunas → kunjungan selesai, atau ke farmasi pada alur kasir-dulu bila resep masih terbuka (OD-107); obat bebas → `PAID` (OD-113). Porsi penjamin → piutang dengan jatuh tempo kontrak (OD-108); ditanggung penuh → lunas saat terbit. Obat susulan terbit tetap di antrean kasir sampai lunas | Integrasi L01–L06, E2E W32, mutasi M100–M110 |

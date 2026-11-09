@@ -5,6 +5,7 @@ import { Alert, Badge, Button, Card, CardContent, Select, TBody, TD, TH, THead, 
 import { BillingWorkItem, Invoice, InvoiceStatus, api, errorText } from '../../../lib/api';
 import { PAYER_TYPE_LABEL, fmtDateTime, fmtRupiah } from '../../../lib/format';
 import { can, useSession } from '../../../lib/session';
+import { ShiftPanel } from './shift-panel';
 
 const INVOICE_STATUS_LABEL: Record<InvoiceStatus, string> = { DRAFT: 'Draf', ISSUED: 'Terbit', PARTIALLY_PAID: 'Dibayar sebagian', PAID: 'Lunas', VOID: 'Void' };
 const TYPE_LABEL: Record<BillingWorkItem['type'], string> = { ENCOUNTER: 'Kunjungan', DRUG: 'Obat susulan', OTC: 'Obat bebas' };
@@ -19,6 +20,7 @@ export default function BillingPage() {
   const branchId = s.me.activeBranchId ?? '';
   const canIssue = can(s, 'billing.invoice.issue');
   const canApprove = can(s, 'billing.invoice.void.approve');
+  const canShift = can(s, 'billing.shift.manage');
   const [items, setItems] = useState<BillingWorkItem[]>();
   const [pending, setPending] = useState<Invoice[]>([]);
   const [filter, setFilter] = useState<'' | BillingWorkItem['type']>('');
@@ -37,7 +39,8 @@ export default function BillingPage() {
     return () => clearInterval(t);
   }, [load]);
   async function open(x: BillingWorkItem) {
-    if (x.invoice && x.type !== 'DRUG') { router.push(`/billing/invoices/${x.invoice.id}`); return; }
+    // Draf obat susulan dibangun ulang agar obat yang baru diserahkan ikut; tagihan lain/terbit langsung dibuka
+    if (x.invoice && (x.type !== 'DRUG' || x.invoice.status !== 'DRAFT')) { router.push(`/billing/invoices/${x.invoice.id}`); return; }
     setBusy(x.refId); setError(undefined);
     try {
       const inv = await api<Invoice>(x.type === 'OTC' ? `/billing/otc-sales/${x.refId}/invoice` : `/billing/encounters/${x.refId}/invoice`, { method: 'POST' });
@@ -55,6 +58,7 @@ export default function BillingPage() {
         </Select>
         <Button size="sm" variant="ghost" onClick={() => void load()}>Muat ulang</Button>
       </div>
+      {canShift ? <ShiftPanel /> : null}
       {error ? <Alert tone="error">{error}</Alert> : null}
       {canApprove && pending.length ? (
         <Card data-testid="discount-pending">
@@ -86,7 +90,7 @@ export default function BillingPage() {
                     <TD className="text-xs">{x.invoice ? <>{INVOICE_STATUS_LABEL[x.invoice.status]}{x.invoice.invoiceNo ? ` · ${x.invoice.invoiceNo}` : ''}</> : 'Belum dibuat'}</TD>
                     <TD className="text-right tabular-nums">{x.invoice ? fmtRupiah(x.invoice.patientPortion) : '—'}</TD>
                     <TD className="text-right">
-                      {x.invoice && x.type !== 'DRUG' ? <Button size="sm" variant="outline" onClick={() => void open(x)}>Buka</Button>
+                      {x.invoice && (x.type !== 'DRUG' || x.invoice.status !== 'DRAFT') ? <Button size="sm" variant="outline" onClick={() => void open(x)}>Buka</Button>
                         : canIssue ? <Button size="sm" disabled={busy === x.refId} onClick={() => void open(x)}>Buat tagihan</Button> : null}
                     </TD>
                   </TR>

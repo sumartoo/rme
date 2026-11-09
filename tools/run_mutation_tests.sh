@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Uji mutasi kontrol keamanan (Stage 3 M1–M4 diulang di monorepo — RSK-020; M5 Stage 4; M6–M14 Stage 5; M15–M17 Stage 6; M18–M22 Stage 7; M23–M38 Stage 8; M39–M59 Stage 9; M60–M89 Stage 10; M90+ Stage 11).
+# Uji mutasi kontrol keamanan (Stage 3 M1–M4 diulang di monorepo — RSK-020; M5 Stage 4; M6–M14 Stage 5; M15–M17 Stage 6; M18–M22 Stage 7; M23–M38 Stage 8; M39–M59 Stage 9; M60–M89 Stage 10; M90–M110 Stage 11).
 # Setiap mutasi sengaja merusak satu kontrol, menjalankan suite integrasi API, dan LULUS hanya bila
 # uji yang menjaga kontrol itu GAGAL. Kode selalu dikembalikan (trap), juga bila skrip dihentikan.
 #
@@ -63,7 +63,9 @@ OTCC=libs/pharmacy/src/lib/otc.controller.ts
 SRPT=libs/pharmacy/src/lib/stock-report.controller.ts
 INVREPO=libs/billing/src/lib/invoice.repo.ts
 INVCTL=libs/billing/src/lib/invoice.controller.ts
-FILES=("$AUTH" "$SESSION" "$MIG2" "$MIG3" "$GUARD" "$PGUARD" "$LAYOUT" "$EXPORT" "$MIG5" "$MIG6" "$TOTP" "$IAMUSERS" "$ACCOUNT" "$AUDITCHG" "$PRACT" "$MIG12" "$TERM" "$IMPORTS" "$PATIENT" "$MIG15" "$IDEM" "$MIG16" "$BOOK" "$SCHED" "$NOSHOW" "$ENCREPO" "$ENCCTL" "$QDISP" "$CHART" "$CHARTREPO" "$MIG19" "$SIGNCTL" "$REAUTH" "$MIG20" "$RXREPO" "$RXCTL" "$MIG21" "$LABCTL" "$DOCCTL" "$MIG22" "$RECV" "$PRICE" "$LOCS" "$DISP" "$DREPO" "$RXREM" "$SUBC" "$ADJC" "$OPNC" "$CRPT" "$OTCC" "$SRPT" "$INVREPO" "$INVCTL")
+PAYCTL=libs/billing/src/lib/payment.controller.ts
+PAYREPO=libs/billing/src/lib/payment.repo.ts
+FILES=("$AUTH" "$SESSION" "$MIG2" "$MIG3" "$GUARD" "$PGUARD" "$LAYOUT" "$EXPORT" "$MIG5" "$MIG6" "$TOTP" "$IAMUSERS" "$ACCOUNT" "$AUDITCHG" "$PRACT" "$MIG12" "$TERM" "$IMPORTS" "$PATIENT" "$MIG15" "$IDEM" "$MIG16" "$BOOK" "$SCHED" "$NOSHOW" "$ENCREPO" "$ENCCTL" "$QDISP" "$CHART" "$CHARTREPO" "$MIG19" "$SIGNCTL" "$REAUTH" "$MIG20" "$RXREPO" "$RXCTL" "$MIG21" "$LABCTL" "$DOCCTL" "$MIG22" "$RECV" "$PRICE" "$LOCS" "$DISP" "$DREPO" "$RXREM" "$SUBC" "$ADJC" "$OPNC" "$CRPT" "$OTCC" "$SRPT" "$INVREPO" "$INVCTL" "$PAYCTL" "$PAYREPO")
 BACKUP=$(mktemp -d)
 cp "${FILES[@]}" "$BACKUP"/
 restore() { for f in "${FILES[@]}"; do cp "$BACKUP/$(basename "$f")" "$f"; done; }
@@ -295,6 +297,29 @@ mutate M98 "diskon dapat diberikan tanpa alasan" 'B04' \
   "sed -i \"s/        if (b.discountAmount > 0 \&\& (b.discountReason ?? '').length < 3) throw/        if (false) throw/\" $INVCTL && grep -q '        if (false) throw' $INVCTL" ""
 mutate M99 "layanan tanpa tarif berlaku dilewati diam-diam saat membuat draf" 'B02' \
   "sed -i 's/  if (missing.length) throw/  if (false) throw/' $INVREPO && grep -q '  if (false) throw' $INVREPO" ""
+
+mutate M100 "pembayaran dapat dicatat tanpa shift kasir terbuka" 'L01' \
+  "sed -i 's/      if (!s) throw problem(409, .BIL-409-NO-SHIFT./      if (false) throw problem(409, \x27BIL-409-NO-SHIFT\x27/' $PAYCTL && grep -q 'if (false) throw problem(409, .BIL-409-NO-SHIFT' $PAYCTL" ""
+mutate M101 "pembayaran melebihi sisa tagihan diterima" 'L02' \
+  "sed -i 's/      if (b.amount > Number(o.outstanding) + 0.001) {/      if (false) {/' $PAYCTL && grep -q '      if (false) {' $PAYCTL" ""
+mutate M102 "pembayaran non-tunai tanpa nomor referensi diterima" 'L02' \
+  "sed -i \"s/      if (b.method !== 'TUNAI' \&\& (reference ?? '').length < 3) throw/      if (false) throw/\" $PAYCTL && grep -q '      if (false) throw' $PAYCTL" ""
+mutate M103 "pembayaran sebagian langsung dianggap lunas" 'L02' \
+  "sed -i \"s/paid + 0.005 >= Number(i.patient_portion) ? 'PAID'/paid > 0 ? 'PAID'/\" $PAYREPO && grep -q \"paid > 0 ? 'PAID'\" $PAYREPO" ""
+mutate M104 "tagihan lunas tidak menyelesaikan kunjungan / penjualan bebas" 'L0[256]' \
+  "sed -i \"s/  if (status === 'PAID' \&\& i.status !== 'PAID') await onPaid/  if (false) await onPaid/\" $PAYREPO && grep -q '  if (false) await onPaid' $PAYREPO" ""
+mutate M105 "alur kasir-dulu tidak meneruskan kunjungan ke farmasi" 'L05' \
+  "sed -i \"s/  const next = !e.pharmacy_first \&\& e.open_rx ? 'PHARMACY'/  const next = false ? 'PHARMACY'/\" $PAYREPO && grep -q \"const next = false ? 'PHARMACY'\" $PAYREPO" ""
+mutate M106 "porsi penjamin tidak menjadi piutang saat terbit" 'L04' \
+  "sed -i 's/      const receivable = await createReceivable(tx, id);/      const receivable = null as { amount: string } | null;/' $INVCTL && grep -q 'const receivable = null as' $INVCTL" ""
+mutate M107 "selisih kas di atas toleransi tidak wajib keterangan" 'L03' \
+  "sed -i \"s/      if (Math.abs(variance) > tol + 1e-9 \&\& (note ?? '').length < 5) {/      if (false) {/\" $PAYCTL && grep -q '      if (false) {' $PAYCTL" ""
+mutate M108 "shift kasir dapat ditutup oleh kasir lain" 'L03' \
+  "sed -i 's/      if (s.cashier_id !== ctx().userId) throw/      if (false) throw/' $PAYCTL && grep -q '      if (false) throw' $PAYCTL" ""
+mutate M109 "kas yang diharapkan tidak menghitung pembayaran tunai" 'L03' \
+  "sed -i \"s/where p.shift_id = s.id and p.method = 'TUNAI'), 0)::text as cash_in/where p.shift_id = s.id and false), 0)::text as cash_in/\" $PAYCTL && grep -q 'and false), 0)::text as cash_in' $PAYCTL" ""
+mutate M110 "penjualan obat bebas tidak menjadi PAID saat tagihan lunas" 'L06' \
+  "sed -i \"s/    await tx.execute(sql\\\`update otc_sale set status = 'PAID'/    await tx.execute(sql\\\`update otc_sale set status = 'AWAITING_PAYMENT'/\" $PAYREPO && grep -q \"set status = 'AWAITING_PAYMENT' where id\" $PAYREPO" ""
 
 # Mutasi UI: suite Playwright (U##) sebagai detektor
 if [ "${MUTATION_E2E:-0}" = "1" ]; then

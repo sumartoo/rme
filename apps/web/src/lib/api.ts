@@ -311,4 +311,14 @@ export interface Invoice { id: string; kind: 'ENCOUNTER' | 'DRUG' | 'OTC'; statu
   payerName: string | null; contract: { copayPercent: number; plafon: string | number | null; validUntil: string | null } | null;
   patient: { id: string; name: string; mrn: string } | null; customerName: string | null; encounterId: string | null; encounterNo: string | null;
   otcSaleId: string | null; saleNo: string | null; grossAmount: string; discountAmount: string; netAmount: string; payerPortion: string; patientPortion: string;
-  paidAmount: string; issuedAt: string | null; issuedByName: string | null; createdAt: string; version: number; warnings: string[]; lines: InvoiceLine[] }
+  paidAmount: string; outstanding: string; payments: Payment[];
+  receivable: { id: string; amount: string; paidAmount: string; dueDate: string; status: ReceivableStatus } | null; issuedAt: string | null; issuedByName: string | null; createdAt: string; version: number; warnings: string[]; lines: InvoiceLine[] }
+export type PaymentMethod = 'TUNAI' | 'DEBIT' | 'KARTU_KREDIT' | 'TRANSFER' | 'QRIS';
+export interface Payment { id: string; receiptNo: string; method: PaymentMethod; amount: string; cashTendered: string | null; change: string | null;
+  reference: string | null; receivedAt: string; receivedByName: string; receiptUrl: string; invoiceStatus?: InvoiceStatus }
+export interface CashierShift { id: string; status: 'OPEN' | 'CLOSED' | 'VERIFIED'; branchId: string; branchName: string; cashierName: string; openedAt: string;
+  closedAt: string | null; openingCash: string; expectedCash: string; countedCash: string | null; variance: string | null; varianceNote: string | null;
+  paymentCount: number; totals: { method: PaymentMethod; count: number; total: string }[] }
+export type ReceivableStatus = 'OPEN' | 'PARTIAL' | 'PAID' | 'WRITTEN_OFF';
+export interface Receivable { id: string; invoiceId: string; invoiceNo: string; branchName: string; patient: { name: string; mrn: string } | null; payerId: string;
+  payerName: string; amount: string; paidAmount: string; balance: string; dueDate: string; status: ReceivableStatus; overdue: boolean; createdAt: string }

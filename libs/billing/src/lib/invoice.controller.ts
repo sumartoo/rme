@@ -5,6 +5,7 @@ import { z } from 'zod';
 import { BodySchema, NoBody, RequirePermission, Uuid, assertId, assertVersion, ctx, ifMatchVersion, optText, problem } from '@clinicrme/shared';
 import { renderPdf } from '@clinicrme/shared/pdf';
 import { Db, type Tx, audit, rows } from '@clinicrme/db';
+import { type PaymentRow, createReceivable, paymentDto, settleInvoice } from './payment.repo';
 import { INV_NOT_FOUND, type InvoiceHead, type LineIn, currentLines, invoiceHead, pricingContext, rebuildDraft, resolveTariff, writeLines } from './invoice.repo';
 
 const Money = z.number().min(0).max(1_000_000_000).transform((n) => Math.round(n * 100) / 100);
@@ -49,19 +50,23 @@ export class InvoiceController {
                  e.payer_type, e.coverage_id, e.unit_id, e.branch_id
             from encounter e where e.status = 'BILLING' and (${b}::uuid is null or e.branch_id = ${b}::uuid)
           union all
-          select e.id, 'DRUG', e.encounter_no, e.status, max(ds.dispensed_at), e.patient_id, e.payer_type, e.coverage_id, e.unit_id, e.branch_id
-            from encounter e join prescription p on p.encounter_id = e.id join dispense ds on ds.prescription_id = p.id
-            join dispense_line dl on dl.dispense_id = ds.id
-           where dl.billing_status = 'UNBILLED' and e.status not in ('BILLING', 'CANCELLED') and (${b}::uuid is null or e.branch_id = ${b}::uuid)
+          select e.id, 'DRUG', e.encounter_no, e.status,
+                 coalesce((select max(ds.dispensed_at) from prescription p join dispense ds on ds.prescription_id = p.id where p.encounter_id = e.id), e.arrived_at),
+                 e.patient_id, e.payer_type, e.coverage_id, e.unit_id, e.branch_id
+            from encounter e
+           where e.status not in ('BILLING', 'CANCELLED') and (${b}::uuid is null or e.branch_id = ${b}::uuid)
              and exists (select 1 from invoice i where i.encounter_id = e.id and i.kind = 'ENCOUNTER' and i.status <> 'VOID')
-           group by e.id)
+             -- obat diserahkan belum ditagih, atau tagihan obat susulan terbit yang belum lunas (batch 2)
+             and (exists (select 1 from prescription p join dispense ds on ds.prescription_id = p.id join dispense_line dl on dl.dispense_id = ds.id
+                           where p.encounter_id = e.id and dl.billing_status = 'UNBILLED')
+                  or exists (select 1 from invoice i where i.encounter_id = e.id and i.kind = 'DRUG' and i.status in ('ISSUED', 'PARTIALLY_PAID'))))
         select x.type, x.id as ref_id, x.ref_no, x.status, x.at, pt.full_name as patient_name, pt.mrn, null::text as customer_name, x.payer_type,
                py.name as payer_name, su.name as unit_name, i.id as invoice_id, i.status as invoice_status, i.invoice_no, i.net_amount::text, i.patient_portion::text
           from enc x join patient pt on pt.id = x.patient_id join service_unit su on su.id = x.unit_id
           left join patient_coverage pc on pc.id = x.coverage_id left join payer py on py.id = pc.payer_id
           left join lateral (select * from invoice i where i.encounter_id = x.id and i.status <> 'VOID'
                                and i.kind = case x.type when 'DRUG' then 'DRUG' else 'ENCOUNTER' end
-                               and (x.type <> 'DRUG' or i.status = 'DRAFT') order by i.created_at desc limit 1) i on true
+                               and (x.type <> 'DRUG' or i.status in ('DRAFT', 'ISSUED', 'PARTIALLY_PAID')) order by i.created_at desc limit 1) i on true
         union all
         select 'OTC', o.id, o.sale_no, o.status, o.sold_at, pt.full_name, pt.mrn, o.customer_name, 'UMUM', null, null, i.id, i.status, i.invoice_no,
                i.net_amount::text, i.patient_portion::text
@@ -311,7 +316,10 @@ export class InvoiceController {
                             where invoice_line_id in (select id from invoice_line where invoice_id = ${id})`);
       await tx.execute(sql`update invoice set status = 'ISSUED', invoice_no = ${no}, issued_at = now(), issued_by = ${ctx().userId},
                              version = version + 1, updated_by = ${ctx().userId} where id = ${id}`);
-      await audit(tx, 'INVOICE_ISSUED', 'invoice', id, h.patient_id, { invoiceNo: no, kind: h.kind });
+      const receivable = await createReceivable(tx, id);
+      await audit(tx, 'INVOICE_ISSUED', 'invoice', id, h.patient_id, { invoiceNo: no, kind: h.kind, receivable: receivable?.amount ?? null });
+      // Porsi pasien Rp 0 (ditanggung penuh penjamin) → langsung lunas
+      await settleInvoice(tx, id);
       return this.view(tx, id);
     });
   }
@@ -387,6 +395,11 @@ export class InvoiceController {
              ru.full_name as requester_name, au.full_name as approver_name, l.split_reason
         from invoice_line l left join app_user ru on ru.id = l.discount_requested_by left join app_user au on au.id = l.discount_approved_by
        where l.invoice_id = ${id} order by l.line_no`);
+    const payments = await rows<PaymentRow>(tx, sql`
+      select p.id, p.receipt_no, p.method, p.amount::text, p.cash_tendered::text, p.reference, p.received_at, u.full_name as received_by_name
+        from payment p join app_user u on u.id = p.received_by where p.invoice_id = ${id} order by p.received_at, p.receipt_no`);
+    const [rc] = await rows<{ id: string; amount: string; paid_amount: string; due_date: string; status: string }>(tx, sql`
+      select id, amount::text, paid_amount::text, to_char(due_date, 'YYYY-MM-DD') as due_date, status from receivable where invoice_id = ${id}`);
     const contract = h.contract as { validUntil?: string; copayPercent?: number; plafon?: number | string } | null;
     const warnings: string[] = [];
     if (h.consult_missing) warnings.push('Poli kunjungan ini belum punya layanan konsultasi bawaan (Master data → Fasilitas & cabang).');
@@ -399,7 +412,10 @@ export class InvoiceController {
       patient: h.patient_name ? { id: h.patient_id!, name: h.patient_name, mrn: h.mrn } : null, customerName: h.customer_name,
       encounterId: h.encounter_id, encounterNo: h.encounter_no, otcSaleId: h.otc_sale_id, saleNo: h.sale_no,
       grossAmount: h.gross_amount, discountAmount: h.discount_amount, netAmount: h.net_amount, payerPortion: h.payer_portion, patientPortion: h.patient_portion,
-      paidAmount: h.paid_amount, issuedAt: h.issued_at, issuedByName: h.issued_by_name, createdAt: h.created_at, version: h.version, warnings,
+      paidAmount: h.paid_amount, outstanding: Math.max(0, Math.round((Number(h.patient_portion) - Number(h.paid_amount)) * 100) / 100).toFixed(2),
+      payments: payments.map(paymentDto),
+      receivable: rc ? { id: rc.id, amount: rc.amount, paidAmount: rc.paid_amount, dueDate: rc.due_date, status: rc.status } : null,
+      issuedAt: h.issued_at, issuedByName: h.issued_by_name, createdAt: h.created_at, version: h.version, warnings,
       lines: lines.map((l) => ({ id: l.id, lineNo: l.line_no, sourceType: l.source_type, description: l.description, qty: Number(l.qty), unitPrice: l.unit_price,
         discountAmount: l.discount_amount, lineTotal: l.line_total, payerPortion: l.payer_portion, patientPortion: l.patient_portion, isManual: l.is_manual,
         serviceItemId: l.service_item_id, discountReason: l.discount_reason, discountStatus: l.discount_status, discountRequestedByName: l.requester_name,

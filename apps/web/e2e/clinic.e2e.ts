@@ -45,6 +45,14 @@ async function login(page: Page, email: string) {
   await page.getByRole('button', { name: 'Masuk', exact: true }).click();
 }
 
+/** Password kasir sudah diganti di W11 (lupa password). */
+async function loginKasir(page: Page) {
+  await page.goto('/login');
+  await page.getByLabel('Email').fill('kasir@klinik-web.test');
+  await page.getByLabel('Password').fill('sepeda-hijau-pagi-45');   // pragma: allowlist secret gitleaks:allow — password uji sintetis
+  await page.getByRole('button', { name: 'Masuk', exact: true }).click();
+}
+
 /** Admin klinik: login → (daftar TOTP sekali) → verifikasi → profil klinik. */
 async function signInAdmin(page: Page) {
   await login(page, 'admin@klinik-web.test');
@@ -1168,11 +1176,7 @@ test('W31 kasir: admin mengatur layanan konsultasi poli; kasir membuat tagihan k
 
   const kasir = await browser.newPage();
   watchCsp(kasir);
-  // Password kasir sudah diganti di W11 (lupa password)
-  await kasir.goto('/login');
-  await kasir.getByLabel('Email').fill('kasir@klinik-web.test');
-  await kasir.getByLabel('Password').fill('sepeda-hijau-pagi-45');   // pragma: allowlist secret gitleaks:allow — password uji sintetis
-  await kasir.getByRole('button', { name: 'Masuk', exact: true }).click();
+  await loginKasir(kasir);
   await kasir.getByTestId('side-menu').getByRole('link', { name: 'Tagihan' }).click();
   const row = kasir.getByTestId('billing-row').filter({ hasText: 'Siti Rahmawati' });
   await expect(row).toContainText('Kunjungan');
@@ -1202,6 +1206,65 @@ test('W31 kasir: admin mengatur layanan konsultasi poli; kasir membuat tagihan k
   await expect(kasir.getByTestId('billing-row').filter({ hasText: 'Siti Rahmawati' })).toContainText('Terbit');
   expect(cspViolations).toEqual([]);
   await kasir.close();
+});
+
+test('W32 kasir: buka shift, bayar sebagian tunai (kembalian) lalu debit, lunas, kwitansi PDF, kunjungan keluar antrean, tutup shift (Stage 11 batch 2)', async ({ page }) => {
+  watchCsp(page);
+  await loginKasir(page);
+  const menu = page.getByTestId('side-menu');
+  await menu.getByRole('link', { name: 'Tagihan' }).click();
+  const panel = page.getByTestId('shift-panel');
+  await expect(panel).toContainText('Shift belum dibuka');
+  await panel.getByRole('button', { name: 'Buka shift' }).click();
+  const od = page.getByRole('dialog', { name: 'Buka shift kasir' });
+  // Shift dibuka di cabang tagihan (kunjungan W20 terdaftar di Cabang Timur)
+  await od.getByLabel('Cabang').selectOption({ label: 'Cabang Timur' });
+  await od.getByLabel('Kas awal (Rp)').fill('100000');
+  await od.getByRole('button', { name: 'Buka shift' }).click();
+  await expect(panel).toContainText('Shift terbuka');
+  await expect(page.getByTestId('expected-cash')).toHaveText('Rp 100.000');
+
+  const row = page.getByTestId('billing-row').filter({ hasText: 'Siti Rahmawati' });
+  await row.getByRole('button', { name: 'Buka' }).click();
+  await expect(page.getByTestId('invoice-status')).toHaveText('Terbit');
+  const total = Number(((await page.getByTestId('outstanding').textContent()) ?? '').replace(/\D/g, ''));
+  expect(total).toBeGreaterThan(20000);
+  await page.getByRole('button', { name: 'Terima pembayaran' }).click();
+  let pd = page.getByRole('dialog', { name: 'Terima pembayaran' });
+  await pd.getByLabel('Nominal (Rp)').fill('20000');
+  await pd.getByLabel('Uang diterima (Rp)').fill('50000');
+  await expect(pd.getByTestId('change')).toHaveText('Kembalian: Rp 30.000');
+  await pd.getByRole('button', { name: 'Simpan pembayaran' }).click();
+  await expect(page.getByRole('status').filter({ hasText: /Pembayaran KW\d{12} tercatat — kembalian Rp 30\.000/ })).toBeVisible();
+  await expect(page.getByTestId('invoice-status')).toHaveText('Dibayar sebagian');
+  await page.getByRole('button', { name: 'Terima pembayaran' }).click();
+  pd = page.getByRole('dialog', { name: 'Terima pembayaran' });
+  await pd.getByLabel('Metode').selectOption({ label: 'Kartu debit' });
+  await pd.getByLabel('Nominal (Rp)').fill(String(total - 20000));
+  await pd.getByLabel('Nomor referensi (EDC / transfer)').fill('EDC-123456');
+  await pd.getByRole('button', { name: 'Simpan pembayaran' }).click();
+  await expect(page.getByTestId('invoice-status')).toHaveText('Lunas');
+  await expect(page.getByTestId('payment-row')).toHaveCount(2);
+  await expect(page.getByRole('button', { name: 'Terima pembayaran' })).toHaveCount(0);
+  const href = await page.getByTestId('payment-row').first().getByRole('link', { name: 'Kwitansi' }).getAttribute('href');
+  const pdf = await page.evaluate(async (u) => { const r = await fetch(u!, { credentials: 'same-origin' }); return { s: r.status, t: r.headers.get('content-type') }; }, href);
+  expect(pdf).toEqual({ s: 200, t: 'application/pdf' });
+
+  await page.getByRole('link', { name: '← Tagihan' }).click();
+  await expect(page.getByTestId('billing-row').filter({ hasText: 'Siti Rahmawati' })).toHaveCount(0);
+  await expect(page.getByTestId('expected-cash')).toHaveText('Rp 120.000');
+  await page.getByTestId('shift-panel').getByRole('button', { name: 'Tutup shift' }).click();
+  const cd = page.getByRole('dialog', { name: 'Tutup shift kasir' });
+  await cd.getByLabel('Kas fisik dihitung (Rp)').fill('120000');
+  await expect(cd.getByTestId('variance')).toHaveText('Selisih: Rp 0');
+  await cd.getByRole('button', { name: 'Tutup shift' }).click();
+  await expect(page.getByTestId('shift-panel')).toContainText('Shift ditutup. Kas seharusnya Rp 120.000, dihitung Rp 120.000, selisih Rp 0.');
+  await expect(page.getByTestId('shift-panel')).toContainText('Shift belum dibuka');
+
+  await menu.getByRole('link', { name: 'Piutang penjamin' }).click();
+  await expect(page.getByRole('heading', { name: 'Piutang penjamin' })).toBeVisible();
+  await expect(page.getByText('Tidak ada piutang.')).toBeVisible();
+  expect(cspViolations).toEqual([]);
 });
 
 test('W06 keamanan: CSP bernonce, no-store; proxy hanya untuk klinik dari subdomain; tidak ada pelanggaran CSP', async ({ page }) => {

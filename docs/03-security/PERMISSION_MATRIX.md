@@ -46,7 +46,7 @@
 | **billing** | | | | | | | | | |
 | `billing.invoice.discount` |  |  |  |  |  | ✓ |  |  | (di handler) Memberi diskon pada baris tagihan (di atas batas klinik perlu persetujuan, OD-041) |
 | `billing.invoice.issue` |  |  |  |  |  | ✓ |  |  | invoiceDiscount; invoiceDraftDelete; invoiceForEncounter; invoiceForOtc; invoiceIssue; invoiceLineAdd; invoiceLineDelete |
-| `billing.invoice.read` |  |  |  |  |  | ✓ | ✓ | ✓ | billingWorklist; invoiceGet; invoiceList; invoicePdf |
+| `billing.invoice.read` |  |  |  |  |  | ✓ | ✓ | ✓ | billingWorklist; invoiceGet; invoiceList; invoicePdf; paymentReceipt |
 | `billing.invoice.void.approve` |  |  |  |  |  |  | ✓ |  | invoiceDiscountDecide; invoiceVoidDecide |
 | `billing.invoice.void.request` |  |  |  |  |  | ✓ |  |  | invoiceVoidRequest |
 | `billing.payment.create` |  |  |  |  |  | ✓ |  |  | paymentCreate; qrisChargeCreate; qrisChargeGet |

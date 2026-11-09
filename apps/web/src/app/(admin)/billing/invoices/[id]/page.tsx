@@ -3,8 +3,8 @@ import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { FormEvent, useCallback, useEffect, useState } from 'react';
 import { Alert, Badge, Button, Card, CardContent, Dialog, Field, Input, Select, TBody, TD, TH, THead, TR, Table } from '@clinicrme/ui';
-import { Invoice, InvoiceLine, Page, ServiceItem, api, errorText } from '../../../../../lib/api';
-import { PAYER_TYPE_LABEL, fmtDateTime, fmtRupiah } from '../../../../../lib/format';
+import { Invoice, InvoiceLine, Page, Payment, PaymentMethod, ServiceItem, api, errorText } from '../../../../../lib/api';
+import { PAYER_TYPE_LABEL, PAYMENT_METHOD_LABEL, fmtDate, fmtDateTime, fmtRupiah } from '../../../../../lib/format';
 import { can, useSession } from '../../../../../lib/session';
 
 const STATUS_LABEL: Record<Invoice['status'], string> = { DRAFT: 'Draf', ISSUED: 'Terbit', PARTIALLY_PAID: 'Dibayar sebagian', PAID: 'Lunas', VOID: 'Void' };
@@ -22,6 +22,8 @@ export default function InvoicePage() {
   const canEdit = can(s, 'billing.invoice.issue');
   const canDiscount = can(s, 'billing.invoice.discount');
   const canApprove = can(s, 'billing.invoice.void.approve');
+  const canPay = can(s, 'billing.payment.create');
+  const [paying, setPaying] = useState(false);
   const [inv, setInv] = useState<Invoice>();
   const [services, setServices] = useState<ServiceItem[]>([]);
   const [error, setError] = useState<string>();
@@ -130,6 +132,44 @@ export default function InvoicePage() {
           {draft && pending ? <p className="text-xs text-muted-foreground">Tagihan bisa diterbitkan sesudah semua diskon di atas batas disetujui manajer.</p> : null}
         </CardContent>
       </Card>
+      {!draft ? (
+        <Card data-testid="payments">
+          <CardContent className="grid gap-3 pt-6 text-sm">
+            <div className="flex flex-wrap items-center gap-3">
+              <p className="font-medium">Pembayaran pasien</p>
+              <span>Terbayar <b className="tabular-nums">{fmtRupiah(inv.paidAmount)}</b></span>
+              <span>Sisa <b className="tabular-nums" data-testid="outstanding">{fmtRupiah(inv.outstanding)}</b></span>
+              {canPay && (inv.status === 'ISSUED' || inv.status === 'PARTIALLY_PAID')
+                ? <Button className="ml-auto" disabled={busy} onClick={() => { setNotice(undefined); setPaying(true); }}>Terima pembayaran</Button> : null}
+            </div>
+            {inv.payments.length ? (
+              <Table>
+                <THead><TR><TH>Kwitansi</TH><TH>Metode</TH><TH className="text-right">Nominal</TH><TH>Keterangan</TH><TH>Kasir</TH><TH /></TR></THead>
+                <TBody>
+                  {inv.payments.map((p) => (
+                    <TR key={p.id} data-testid="payment-row">
+                      <TD className="font-mono text-xs">{p.receiptNo}<span className="block font-sans text-muted-foreground">{fmtDateTime(p.receivedAt)}</span></TD>
+                      <TD>{PAYMENT_METHOD_LABEL[p.method]}</TD>
+                      <TD className="text-right tabular-nums">{fmtRupiah(p.amount)}</TD>
+                      <TD className="text-xs">{p.reference ? `Ref. ${p.reference}` : p.change !== null ? `Diterima ${fmtRupiah(p.cashTendered)} · kembali ${fmtRupiah(p.change)}` : ''}</TD>
+                      <TD className="text-xs">{p.receivedByName}</TD>
+                      <TD className="text-right"><a className="underline" href={p.receiptUrl} target="_blank" rel="noreferrer">Kwitansi</a></TD>
+                    </TR>
+                  ))}
+                </TBody>
+              </Table>
+            ) : <p className="text-muted-foreground">Belum ada pembayaran.</p>}
+            {inv.receivable ? (
+              <p className="text-xs text-muted-foreground" data-testid="receivable">Piutang ke {inv.payerName ?? 'penjamin'}: {fmtRupiah(inv.receivable.amount)}
+                {' '}· jatuh tempo {fmtDate(inv.receivable.dueDate)}</p>
+            ) : null}
+          </CardContent>
+        </Card>
+      ) : null}
+      {paying ? <PayDialog inv={inv} onClose={() => setPaying(false)} onDone={(p) => {
+        setPaying(false); void load();
+        setNotice(`Pembayaran ${p.receiptNo} tercatat${p.change && Number(p.change) > 0 ? ` — kembalian ${fmtRupiah(p.change)}` : ''}.`);
+      }} /> : null}
       {adding ? <AddDialog services={services} busy={busy} onClose={() => setAdding(false)}
         onSave={async (serviceItemId, qty) => { if (await run(() => api<Invoice>(`/invoices/${inv.id}/lines`, { method: 'POST', body: { serviceItemId, qty }, headers: ifMatch }))) setAdding(false); }} /> : null}
       {editing ? <EditDialog line={editing} services={services} insured={insured} canDiscount={canDiscount} busy={busy} onClose={() => setEditing(undefined)}
@@ -199,6 +239,47 @@ function EditDialog({ line, services, insured, canDiscount, busy, onClose, onSav
           {payer !== '' ? <Field id="inv-f8" label="Alasan ubah porsi"><Input id="inv-f8" value={splitReason} maxLength={300} onChange={(e) => setSplitReason(e.target.value)} /></Field> : null}
         </> : null}
         <div className="flex justify-end gap-2"><Button type="button" variant="ghost" onClick={onClose}>Batal</Button><Button type="submit" disabled={busy}>Simpan</Button></div>
+      </form>
+    </Dialog>
+  );
+}
+
+/** Terima pembayaran (BIL-FR-005/007): tunai menghitung kembalian; non-tunai wajib referensi. Satu Idempotency-Key per dialog
+ *  sehingga klik ganda / kirim ulang tidak mencatat pembayaran dua kali. */
+function PayDialog({ inv, onClose, onDone }: { inv: Invoice; onClose: () => void; onDone: (p: Payment) => void }) {
+  const [key] = useState(() => `pay-${crypto.randomUUID()}`);
+  const [method, setMethod] = useState<PaymentMethod>('TUNAI');
+  const [amount, setAmount] = useState(String(Number(inv.outstanding)));
+  const [tendered, setTendered] = useState('');
+  const [reference, setReference] = useState('');
+  const [error, setError] = useState<string>();
+  const [busy, setBusy] = useState(false);
+  const change = method === 'TUNAI' && tendered !== '' ? Number(tendered) - Number(amount) : null;
+  async function submit(e: FormEvent) {
+    e.preventDefault(); setBusy(true); setError(undefined);
+    try {
+      onDone(await api<Payment>(`/invoices/${inv.id}/payments`, { method: 'POST', headers: { 'Idempotency-Key': key },
+        body: { method, amount: Number(amount), ...(method === 'TUNAI' ? (tendered ? { cashTendered: Number(tendered) } : {}) : { reference }) } }));
+    } catch (x) { setError(errorText(x, 'Gagal mencatat pembayaran')); } finally { setBusy(false); }
+  }
+  return (
+    <Dialog open title="Terima pembayaran" onClose={onClose}>
+      <form className="grid gap-3" onSubmit={submit}>
+        {error ? <Alert tone="error">{error}</Alert> : null}
+        <p className="text-sm">Sisa tagihan: <b className="tabular-nums">{fmtRupiah(inv.outstanding)}</b></p>
+        <Field id="pay-method" label="Metode"><Select id="pay-method" value={method} onChange={(e) => setMethod(e.target.value as PaymentMethod)}>
+          {(['TUNAI', 'DEBIT', 'KARTU_KREDIT', 'TRANSFER'] as const).map((m) => <option key={m} value={m}>{PAYMENT_METHOD_LABEL[m]}</option>)}
+        </Select></Field>
+        <Field id="pay-amount" label="Nominal (Rp)"><Input id="pay-amount" type="number" min="1" step="1" max={Number(inv.outstanding)} required value={amount}
+          onChange={(e) => setAmount(e.target.value)} /></Field>
+        {method === 'TUNAI' ? <>
+          <Field id="pay-tendered" label="Uang diterima (Rp)" hint="Kosongkan bila uang pas.">
+            <Input id="pay-tendered" type="number" min="0" step="1" value={tendered} onChange={(e) => setTendered(e.target.value)} /></Field>
+          {change !== null ? <p className="text-sm" data-testid="change">Kembalian: <b className="tabular-nums">{change >= 0 ? fmtRupiah(change.toFixed(2)) : 'uang kurang'}</b></p> : null}
+        </> : <Field id="pay-ref" label="Nomor referensi (EDC / transfer)"><Input id="pay-ref" required minLength={3} maxLength={100} value={reference}
+          onChange={(e) => setReference(e.target.value)} /></Field>}
+        <div className="flex justify-end gap-2"><Button type="button" variant="ghost" onClick={onClose}>Batal</Button>
+          <Button type="submit" disabled={busy || (change !== null && change < 0)}>Simpan pembayaran</Button></div>
       </form>
     </Dialog>
   );
