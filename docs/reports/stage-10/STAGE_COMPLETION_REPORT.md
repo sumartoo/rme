@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | Stage | 10 — Pharmacy & Inventory |
-| Status | **MENUNGGU PERSETUJUAN PO** |
+| Status | **DISETUJUI BERSYARAT** — DEC-041 (9 Nov 2026): S10-1 tinjauan apoteker sebelum/saat UAT; S10-2 uji mutasi lengkap di Actions setelah 1 Des |
 | Disusun oleh | Sumarto (dibantu Claude) |
 | Rincian | [STAGE_PLAN.md](STAGE_PLAN.md) · keputusan DEC-039 (OD-037, OD-038, OD-096–OD-104) |
 | Repo kerja | `AtoAIs/atoai-rme-v2`, PR #25–#28. Kuota GitHub Actions AtoAIs habis sampai 1 Des 2026, jadi setiap batch diverifikasi penuh di lokal lalu digabung tanpa CI (DEC-036) |
@@ -66,8 +66,8 @@ Farmasi klinik kini berjalan dari barang masuk sampai obat keluar:
 - [x] Resep ↔ penyerahan ↔ calon baris tagihan terekonsiliasi, termasuk parsial, sisa ditutup, dan substitusi. Penjualan bebas ↔ ledger, termasuk pembatalan (G03)
 - [x] Kontrol golongan obat terbatas teruji (P04, D06, S03, S04, S06; M61, M71, M82, M83)
 - [x] Matriks permission (X01) mencakup semua endpoint baru
-- [ ] Uji mutasi lengkap M1–M89 di GitHub Actions — menyusul bersama S9-2 setelah kuota aktif 1 Des
-- [ ] PO menyetujui Stage 10
+- [ ] Uji mutasi lengkap M1–M89 di GitHub Actions — **S10-2 (DEC-041)**, bersama S9-2 setelah kuota aktif 1 Des
+- [x] PO menyetujui Stage 10 secara bersyarat — DEC-041
 
 ## 4. Keamanan & integritas
 
@@ -112,4 +112,4 @@ Farmasi klinik kini berjalan dari barang masuk sampai obat keluar:
 | Peran | Nama | Keputusan | Tanggal | Catatan |
 |---|---|---|---|---|
 | Apoteker penanggung jawab | | ☐ Layak ☐ Perlu perubahan | | checklist telaah & laporan obat terbatas (sebelum/saat UAT) |
-| Project Owner | Sumarto | ☐ Disetujui ☐ Disetujui bersyarat ☐ Ditolak | | |
+| Project Owner | Sumarto | ☑ Disetujui bersyarat | 9 Nov 2026 | DEC-041: S10-1 tinjauan apoteker sebelum/saat UAT, S10-2 uji mutasi lengkap |

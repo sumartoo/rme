@@ -66,7 +66,7 @@ Memastikan sistem siap dipakai di klinik nyata melalui pengujian menyeluruh, UAT
 
 ## 5. Gate Checklist
 
-- [ ] **Syarat terbuka dari stage sebelumnya ditutup** — termasuk **S9-1 review tenaga medis Stage 9** (`docs/reports/stage-9/CLINICAL_SAFETY_REVIEW.md`, DEC-040; wajib sebelum/saat UAT), S7-1 lisensi & data ICD resmi, S8-1/S9-2 uji mutasi lengkap di Actions. **Stage 10:** apoteker penanggung jawab meninjau checklist telaah resep (OD-098, `CHECKLIST` di `libs/pharmacy/src/lib/dispense.repo.ts`, ditandai `[REVIEW-MEDIS]`) dan format laporan obat golongan terbatas (REG-10, belum diverifikasi).
+- [ ] **Syarat terbuka dari stage sebelumnya ditutup** — termasuk **S9-1 review tenaga medis Stage 9** (`docs/reports/stage-9/CLINICAL_SAFETY_REVIEW.md`, DEC-040; wajib sebelum/saat UAT), S7-1 lisensi & data ICD resmi, S8-1/S9-2/S10-2 uji mutasi lengkap di Actions. **S10-1 (DEC-041):** apoteker penanggung jawab meninjau checklist telaah resep (OD-098, `CHECKLIST` di `libs/pharmacy/src/lib/dispense.repo.ts`, ditandai `[REVIEW-MEDIS]`) dan format laporan obat golongan terbatas (REG-10, belum diverifikasi).
 - [ ] RTM: setiap requirement MVP memiliki test case dengan hasil lulus.
 - [ ] Tidak ada defect kritis/tinggi terbuka.
 - [ ] Temuan pentest kritis/tinggi ditutup.
