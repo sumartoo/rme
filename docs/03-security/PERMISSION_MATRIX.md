@@ -51,8 +51,8 @@
 | `billing.invoice.void.request` |  |  |  |  |  | ✓ |  |  | invoiceVoidRequest |
 | `billing.payment.create` |  |  |  |  |  | ✓ |  |  | paymentCreate; qrisChargeCreate; qrisChargeGet; qrisSimulate |
 | `billing.receivable.manage` |  |  |  |  |  |  | ✓ |  | receivablePay |
-| `billing.receivable.read` |  |  |  |  |  | ✓ | ✓ | ✓ | receivableList |
-| `billing.reconcile` |  |  |  |  |  |  | ✓ |  | qrisReconciliation; qrisSettlementSimulated; qrisSettlementUpload |
+| `billing.receivable.read` |  |  |  |  |  | ✓ | ✓ | ✓ | receivableGet; receivableList |
+| `billing.reconcile` |  |  |  |  |  |  | ✓ |  | qrisReconciliation; qrisSettlementSimulated; qrisSettlementUpload; shiftForceClose; shiftList; shiftVerify |
 | `billing.refund.approve` |  |  |  |  |  |  | ✓ |  | refundDecide |
 | `billing.refund.request` |  |  |  |  |  | ✓ |  |  | refundRequest |
 | `billing.shift.manage` |  |  |  |  |  | ✓ |  |  | shiftClose; shiftCurrent; shiftOpen |

@@ -1272,7 +1272,8 @@ test('W33 kasir: QRIS simulator, refund & void diajukan; supervisor menyetujui; 
   const enc = { patientName: 'Siti Rahmawati', branchName: 'Cabang Timur', unitName: 'Poli Gigi', practitionerName: 'drg. Web Sintetis' };
   await addClinicBillingEncounter(enc);
   await addClinicBillingEncounter(enc);
-  await addClinicRole('SPV_KASIR', 'Supervisor kasir', ['billing.invoice.read', 'billing.invoice.void.approve', 'billing.refund.approve', 'billing.reconcile']);
+  await addClinicRole('SPV_KASIR', 'Supervisor kasir', ['billing.invoice.read', 'billing.invoice.void.approve', 'billing.refund.approve', 'billing.reconcile',
+    'billing.receivable.read', 'billing.receivable.manage', 'report.finance.audit']);
   await addClinicUser('spv-kasir@klinik-web.test', 'Supervisor Kasir E2E', 'SPV_KASIR');
 
   await loginKasir(page);
@@ -1364,6 +1365,77 @@ test('W33 kasir: QRIS simulator, refund & void diajukan; supervisor menyetujui; 
   await expect(spv.getByRole('status').filter({ hasText: 'Settlement diunggah: 1 baris, 1 cocok dengan transaksi.' })).toBeVisible();
   await expect(spv.getByTestId('rec-issue-count')).toHaveText('0');
   await expect(spv.getByText('Tidak ada selisih.')).toBeVisible();
+  expect(cspViolations).toEqual([]);
+  await spv.close();
+});
+
+test('W34 supervisor: tutup shift yang lupa ditutup & verifikasi, pelunasan piutang penjamin, laporan transaksi tidak wajar (Stage 11 batch 4)', async ({ page, browser }) => {
+  watchCsp(page);
+  await addClinicBillingEncounter({ patientName: 'Siti Rahmawati', branchName: 'Cabang Timur', unitName: 'Poli Gigi', practitionerName: 'drg. Web Sintetis',
+    insurer: { code: 'ASR-E2E', name: 'Asuransi E2E', copayPercent: 20 } });
+  // Kasir: tagihan penjamin (porsi pasien 20%) dibayar tunai; shift dibiarkan terbuka
+  await loginKasir(page);
+  await page.getByTestId('side-menu').getByRole('link', { name: 'Tagihan' }).click();
+  const panel = page.getByTestId('shift-panel');
+  await panel.getByRole('button', { name: 'Buka shift' }).click();
+  const od = page.getByRole('dialog', { name: 'Buka shift kasir' });
+  await od.getByLabel('Cabang').selectOption({ label: 'Cabang Timur' });
+  await od.getByLabel('Kas awal (Rp)').fill('100000');
+  await od.getByRole('button', { name: 'Buka shift' }).click();
+  await expect(panel).toContainText('Shift terbuka');
+  await page.getByTestId('billing-row').filter({ hasText: 'Asuransi E2E' }).getByRole('button', { name: 'Buat tagihan' }).click();
+  await page.getByRole('button', { name: 'Terbitkan tagihan' }).click();
+  await expect(page.getByTestId('invoice-status')).toHaveText('Terbit');
+  await expect(page.getByTestId('receivable')).toContainText('Piutang ke Asuransi E2E: Rp 40.000');
+  await page.getByRole('button', { name: 'Terima pembayaran' }).click();
+  await page.getByRole('dialog', { name: 'Terima pembayaran' }).getByRole('button', { name: 'Simpan pembayaran' }).click();
+  await expect(page.getByTestId('invoice-status')).toHaveText('Lunas');
+
+  const spv = await browser.newPage();
+  watchCsp(spv);
+  await login(spv, 'spv-kasir@klinik-web.test');
+  const menu = spv.getByTestId('side-menu');
+  // Shift kasir terbuka → ditutup supervisor (tercatat) → diverifikasi
+  await menu.getByRole('link', { name: 'Shift kasir' }).click();
+  await spv.getByLabel('Status shift').selectOption({ label: 'Terbuka' });
+  const openRow = spv.getByTestId('shift-row').filter({ hasText: 'Cabang Timur' });
+  await expect(openRow).toHaveCount(1);
+  await expect(openRow).toContainText('Rp 110.000');
+  await openRow.getByRole('button', { name: 'Tutup shift' }).click();
+  const fd = spv.getByRole('dialog', { name: /Tutup shift/ });
+  await fd.getByLabel('Kas fisik dihitung (Rp)').fill('105000');
+  await fd.getByLabel('Keterangan').fill('Kasir pulang tanpa tutup shift (uji)');
+  await fd.getByRole('button', { name: 'Tutup shift' }).click();
+  await expect(spv.getByRole('status').filter({ hasText: /ditutup\.$/ })).toBeVisible();
+  await spv.getByLabel('Status shift').selectOption({ label: 'Ditutup' });
+  const closedRow = spv.getByTestId('shift-row').filter({ hasText: 'ditutup Supervisor Kasir E2E' });
+  await expect(closedRow).toContainText('Rp -5.000');
+  await closedRow.getByRole('button', { name: 'Verifikasi' }).click();
+  await spv.getByRole('dialog', { name: /Verifikasi shift/ }).getByRole('button', { name: 'Verifikasi' }).click();
+  await expect(spv.getByRole('status').filter({ hasText: /diverifikasi\.$/ })).toBeVisible();
+  await spv.getByLabel('Status shift').selectOption({ label: 'Terverifikasi' });
+  await expect(spv.getByTestId('shift-row').filter({ hasText: 'ditutup Supervisor Kasir E2E' })).toContainText('Terverifikasi');
+
+  // Pelunasan piutang penjamin
+  await menu.getByRole('link', { name: 'Piutang penjamin' }).click();
+  const rrow = spv.getByTestId('receivable-row').filter({ hasText: 'Asuransi E2E' });
+  await expect(rrow).toContainText('Rp 40.000');
+  await rrow.getByRole('button', { name: 'Pelunasan' }).click();
+  const rd = spv.getByRole('dialog', { name: /Piutang Asuransi E2E/ });
+  await expect(rd.getByTestId('receivable-balance')).toHaveText('Rp 40.000');
+  await rd.getByLabel('Referensi (no. transfer / giro)').fill('TRF-E2E-001');
+  await rd.getByRole('button', { name: 'Catat pelunasan' }).click();
+  await expect(spv.getByRole('status').filter({ hasText: 'Pelunasan tercatat. Saldo Asuransi E2E: Rp 0.' })).toBeVisible();
+  await expect(spv.getByTestId('receivable-row').filter({ hasText: 'Asuransi E2E' })).toHaveCount(0);
+
+  // Laporan transaksi tidak wajar (ambang bawaan)
+  await menu.getByRole('link', { name: 'Transaksi tidak wajar' }).click();
+  await expect(spv.getByRole('heading', { name: 'Transaksi tidak wajar' })).toBeVisible();
+  await expect(spv.getByText(/Ambang: jam kasir 07:00–21:00, maks\. 3 void per shift, toleransi kas Rp 10\.000/)).toBeVisible();
+  await expect(spv.getByTestId('anomaly-counts')).toContainText('Selisih kas (0)');
+  const csv = await spv.getByRole('link', { name: 'Unduh CSV' }).getAttribute('href');
+  const res = await spv.evaluate(async (u) => { const r = await fetch(u!, { credentials: 'same-origin' }); return { s: r.status, t: r.headers.get('content-type') }; }, csv);
+  expect(res).toEqual({ s: 200, t: 'text/csv; charset=utf-8' });
   expect(cspViolations).toEqual([]);
   await spv.close();
 });

@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | Phase | D — Operasional Klinik |
-| Status | Berjalan — OD diputuskan DEC-042 ([STAGE_PLAN](../reports/stage-11/STAGE_PLAN.md)) |
+| Status | Selesai — menunggu persetujuan PO ([completion report](../reports/stage-11/STAGE_COMPLETION_REPORT.md), [STAGE_PLAN](../reports/stage-11/STAGE_PLAN.md)) |
 | Prasyarat | Stage 10 disetujui |
 | Modul | `billing`, `integration` (payment gateway) |
 

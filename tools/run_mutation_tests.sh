@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Uji mutasi kontrol keamanan (Stage 3 M1–M4 diulang di monorepo — RSK-020; M5 Stage 4; M6–M14 Stage 5; M15–M17 Stage 6; M18–M22 Stage 7; M23–M38 Stage 8; M39–M59 Stage 9; M60–M89 Stage 10; M90–M123 Stage 11).
+# Uji mutasi kontrol keamanan (Stage 3 M1–M4 diulang di monorepo — RSK-020; M5 Stage 4; M6–M14 Stage 5; M15–M17 Stage 6; M18–M22 Stage 7; M23–M38 Stage 8; M39–M59 Stage 9; M60–M89 Stage 10; M90–M133 Stage 11).
 # Setiap mutasi sengaja merusak satu kontrol, menjalankan suite integrasi API, dan LULUS hanya bila
 # uji yang menjaga kontrol itu GAGAL. Kode selalu dikembalikan (trap), juga bila skrip dihentikan.
 #
@@ -67,7 +67,8 @@ PAYCTL=libs/billing/src/lib/payment.controller.ts
 PAYREPO=libs/billing/src/lib/payment.repo.ts
 QRCTL=libs/billing/src/lib/qris.controller.ts
 CORCTL=libs/billing/src/lib/correction.controller.ts
-FILES=("$AUTH" "$SESSION" "$MIG2" "$MIG3" "$GUARD" "$PGUARD" "$LAYOUT" "$EXPORT" "$MIG5" "$MIG6" "$TOTP" "$IAMUSERS" "$ACCOUNT" "$AUDITCHG" "$PRACT" "$MIG12" "$TERM" "$IMPORTS" "$PATIENT" "$MIG15" "$IDEM" "$MIG16" "$BOOK" "$SCHED" "$NOSHOW" "$ENCREPO" "$ENCCTL" "$QDISP" "$CHART" "$CHARTREPO" "$MIG19" "$SIGNCTL" "$REAUTH" "$MIG20" "$RXREPO" "$RXCTL" "$MIG21" "$LABCTL" "$DOCCTL" "$MIG22" "$RECV" "$PRICE" "$LOCS" "$DISP" "$DREPO" "$RXREM" "$SUBC" "$ADJC" "$OPNC" "$CRPT" "$OTCC" "$SRPT" "$INVREPO" "$INVCTL" "$PAYCTL" "$PAYREPO" "$QRCTL" "$CORCTL")
+OVCTL=libs/billing/src/lib/oversight.controller.ts
+FILES=("$AUTH" "$SESSION" "$MIG2" "$MIG3" "$GUARD" "$PGUARD" "$LAYOUT" "$EXPORT" "$MIG5" "$MIG6" "$TOTP" "$IAMUSERS" "$ACCOUNT" "$AUDITCHG" "$PRACT" "$MIG12" "$TERM" "$IMPORTS" "$PATIENT" "$MIG15" "$IDEM" "$MIG16" "$BOOK" "$SCHED" "$NOSHOW" "$ENCREPO" "$ENCCTL" "$QDISP" "$CHART" "$CHARTREPO" "$MIG19" "$SIGNCTL" "$REAUTH" "$MIG20" "$RXREPO" "$RXCTL" "$MIG21" "$LABCTL" "$DOCCTL" "$MIG22" "$RECV" "$PRICE" "$LOCS" "$DISP" "$DREPO" "$RXREM" "$SUBC" "$ADJC" "$OPNC" "$CRPT" "$OTCC" "$SRPT" "$INVREPO" "$INVCTL" "$PAYCTL" "$PAYREPO" "$QRCTL" "$CORCTL" "$OVCTL")
 BACKUP=$(mktemp -d)
 cp "${FILES[@]}" "$BACKUP"/
 restore() { for f in "${FILES[@]}"; do cp "$BACKUP/$(basename "$f")" "$f"; done; }
@@ -349,6 +350,27 @@ mutate M122 "kas shift yang diharapkan tidak dikurangi refund tunai" 'R05' \
   "sed -i 's/Number(s.cash_in) - Number(s.cash_refund)/Number(s.cash_in) - 0/' $PAYCTL && grep -q 'Number(s.cash_in) - 0' $PAYCTL" ""
 mutate M123 "refund tunai disetujui walau shift pengaju sudah ditutup" 'R05' \
   "sed -i \"s/      if (r.method === 'TUNAI' \&\& r.shift_status !== 'OPEN') {/      if (false) {/\" $CORCTL && grep -q '      if (false) {' $CORCTL" ""
+
+mutate M124 "pelunasan piutang melebihi saldo diterima" 'H01' \
+  "sed -i 's/      if (b.amount > Number(r.balance) + 0.001) throw/      if (false) throw/' $OVCTL && grep -q '      if (false) throw' $OVCTL" ""
+mutate M125 "piutang tidak pernah menjadi lunas" 'H01' \
+  "sed -i \"s/then 'PAID' else 'PARTIAL' end/then 'PARTIAL' else 'PARTIAL' end/\" $OVCTL && grep -q \"then 'PARTIAL' else 'PARTIAL' end\" $OVCTL" ""
+mutate M126 "piutang lunas/batal masih menerima pelunasan" 'H01' \
+  "sed -i \"s/      if (r.status !== 'OPEN' \&\& r.status !== 'PARTIAL') throw/      if (false) throw/\" $OVCTL && grep -q '      if (false) throw' $OVCTL" ""
+mutate M127 "kasir dapat memverifikasi shift miliknya sendiri" 'H02' \
+  "sed -i 's/      if (s.cashier_id === ctx().userId) throw problem(403/      if (false) throw problem(403/' $OVCTL && grep -q 'if (false) throw problem(403' $OVCTL" ""
+mutate M128 "verifikasi shift dengan selisih di atas toleransi tanpa catatan" 'H02' \
+  "sed -i 's/      if (Math.abs(Number(s.variance ?? 0)) > tol + 1e-9 \&\& (note ?? .*/      if (false) {/' $OVCTL && grep -q '      if (false) {' $OVCTL" ""
+mutate M129 "batas void per kasir per shift tidak ditandai" 'H03' \
+  "sed -i 's/         where n.n > \${c.voids}::int and/         where n.n > 999 and/' $OVCTL && grep -q 'where n.n > 999 and' $OVCTL" ""
+mutate M130 "void/refund di luar jam operasional tidak ditandai (logika jam terbalik)" 'H03' \
+  "sed -i 's/        sql\`not ((/        sql\`((/' $OVCTL && ! grep -q 'sql\`not ((' $OVCTL" ""
+mutate M131 "selisih kas di atas toleransi tidak ditandai" 'H03' \
+  "sed -i 's/abs(s.variance) > \${c.tol}::numeric/abs(s.variance) > 100000000/' $OVCTL && grep -q 'abs(s.variance) > 100000000' $OVCTL" ""
+mutate M132 "diskon di atas batas yang sudah disetujui tidak ditandai" 'H03' \
+  "sed -i \"s/l.discount_status in ('PENDING', 'APPROVED')/l.discount_status in ('PENDING')/\" $OVCTL && grep -q \"l.discount_status in ('PENDING')\" $OVCTL" ""
+mutate M133 "bayar tunai + QRIS melebihi tagihan tidak ditandai" 'H03' \
+  "sed -i 's/x.total > i.patient_portion and/x.total > i.patient_portion * 2 and/' $OVCTL && grep -q 'x.total > i.patient_portion \* 2 and' $OVCTL" ""
 
 # Mutasi UI: suite Playwright (U##) sebagai detektor
 if [ "${MUTATION_E2E:-0}" = "1" ]; then

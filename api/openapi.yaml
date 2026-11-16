@@ -7195,6 +7195,29 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '409':
           $ref: '#/components/responses/Conflict'
+    get:
+      operationId: shiftList
+      tags:
+      - Billing
+      summary: Daftar shift kasir untuk manajer (status, cabang, tanggal)
+      x-requirements:
+      - BIL-FR-011
+      x-permission: billing.reconcile
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Shift'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
   /api/v1/cashier-shifts/current:
     get:
       operationId: shiftCurrent
@@ -7258,6 +7281,74 @@ paths:
           $ref: '#/components/responses/NotFound'
         '409':
           $ref: '#/components/responses/Conflict'
+  /api/v1/cashier-shifts/{shiftId}/force-close:
+    post:
+      operationId: shiftForceClose
+      tags:
+      - Billing
+      summary: Manajer menutup shift yang lupa ditutup (OD-111)
+      x-requirements:
+      - BIL-FR-011
+      x-permission: billing.reconcile
+      parameters:
+      - $ref: '#/components/parameters/shiftId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ShiftForceCloseInput'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Shift'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /api/v1/cashier-shifts/{shiftId}/verify:
+    post:
+      operationId: shiftVerify
+      tags:
+      - Billing
+      summary: Manajer memverifikasi shift tertutup (≠ kasir shift)
+      x-requirements:
+      - BIL-FR-011
+      x-permission: billing.reconcile
+      parameters:
+      - $ref: '#/components/parameters/shiftId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ShiftVerifyInput'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Shift'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
   /api/v1/receivables:
     get:
       operationId: receivableList
@@ -7282,12 +7373,38 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
+  /api/v1/receivables/{receivableId}:
+    get:
+      operationId: receivableGet
+      tags:
+      - Billing
+      summary: Piutang & riwayat pelunasan
+      x-requirements:
+      - BIL-FR-013
+      x-permission: billing.receivable.read
+      parameters:
+      - $ref: '#/components/parameters/receivableId'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReceivableDetail'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
   /api/v1/receivables/{receivableId}/payments:
     post:
       operationId: receivablePay
       tags:
       - Billing
-      summary: Catat pelunasan piutang
+      summary: Catat pelunasan piutang sebagian/penuh (≤ saldo)
       x-requirements:
       - BIL-FR-013
       x-permission: billing.receivable.manage
@@ -7306,7 +7423,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Receivable'
+                $ref: '#/components/schemas/ReceivableDetail'
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -7723,7 +7840,7 @@ paths:
       operationId: reportAnomalies
       tags:
       - Report
-      summary: Transaksi tidak wajar
+      summary: Transaksi tidak wajar (?from&to&branchId&format=json|csv, OD-041)
       x-requirements:
       - BIL-FR-016
       x-permission: report.finance.audit
@@ -7733,7 +7850,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ReportResult'
+                $ref: '#/components/schemas/AnomalyReport'
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -12377,6 +12494,26 @@ components:
           - string
           - 'null'
         paymentCount: *id005
+        cashRefunds: *id008
+        cashierId: *id002
+        closedByName:
+          type:
+          - string
+          - 'null'
+        forceClosed: *id001
+        verifiedByName:
+          type:
+          - string
+          - 'null'
+        verifiedAt:
+          type:
+          - string
+          - 'null'
+        verifyNote:
+          type:
+          - string
+          - 'null'
+        overTolerance: *id001
         totals:
           type: array
           items:
@@ -12432,12 +12569,155 @@ components:
       type: object
       properties:
         amount: *id008
+        paidOn: *id004
+        method:
+          type: string
+          enum:
+          - TRANSFER
+          - GIRO
+          - LAINNYA
         reference:
           type: string
-        receivedAt: *id004
+          minLength: 3
+        note:
+          type: string
       required:
       - amount
+      - paidOn
+      - method
       - reference
+    ReceivableDetail:
+      type: object
+      properties:
+        id: *id002
+        invoiceId: *id002
+        invoiceNo:
+          type: string
+        branchName:
+          type: string
+        payerId: *id002
+        payerName:
+          type: string
+        patient:
+          type:
+          - object
+          - 'null'
+        amount: *id008
+        paidAmount: *id008
+        balance: *id008
+        dueDate: *id004
+        status:
+          type: string
+          enum:
+          - OPEN
+          - PARTIAL
+          - PAID
+          - WRITTEN_OFF
+          - VOID
+        overdue: *id001
+        payments:
+          type: array
+          items:
+            type: object
+            properties:
+              id: *id002
+              amount: *id008
+              paidOn: *id004
+              method:
+                type: string
+              reference:
+                type: string
+              note:
+                type:
+                - string
+                - 'null'
+              recordedByName:
+                type: string
+              recordedAt: *id006
+            required:
+            - id
+            - amount
+            - paidOn
+      required:
+      - id
+      - amount
+      - paidAmount
+      - balance
+      - payments
+    ShiftForceCloseInput:
+      type: object
+      properties:
+        countedCash: *id008
+        note:
+          type: string
+          minLength: 5
+      required:
+      - countedCash
+      - note
+    ShiftVerifyInput:
+      type: object
+      properties:
+        note:
+          type: string
+    AnomalyReport:
+      type: object
+      properties:
+        from: *id004
+        to: *id004
+        thresholds:
+          type: object
+        counts:
+          type: object
+          additionalProperties: *id005
+        items:
+          type: array
+          items:
+            type: object
+            properties:
+              rule:
+                type: string
+                enum:
+                - VOID_OUTSIDE_HOURS
+                - REFUND_OUTSIDE_HOURS
+                - DISCOUNT_OVER_LIMIT
+                - VOIDS_PER_SHIFT
+                - CASH_VARIANCE
+                - CASH_AFTER_QRIS
+              label:
+                type: string
+              at: *id006
+              branchName:
+                type: string
+              userName:
+                type:
+                - string
+                - 'null'
+              invoiceId:
+                type:
+                - string
+                - 'null'
+              invoiceNo:
+                type:
+                - string
+                - 'null'
+              shiftId:
+                type:
+                - string
+                - 'null'
+              amount:
+                type:
+                - string
+                - 'null'
+              detail:
+                type: string
+            required:
+            - rule
+            - label
+            - at
+      required:
+      - from
+      - to
+      - items
     IntegrationConnectionInput:
       type: object
       properties:

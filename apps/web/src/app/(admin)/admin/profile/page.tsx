@@ -6,7 +6,8 @@ import { can, useSession } from '../../../../lib/session';
 
 interface Form { displayName: string; name: string; address: string; phone: string; license: string;
                  pharmacyBeforeCashier: boolean; discountLimitPercent: string; noShowMinutes: string; lateToleranceMinutes: string; mrnPrefix: string; queueDisplayInitials: boolean;
-                 dispenseMethod: 'FEFO' | 'FIFO'; partialPickupDays: string }
+                 dispenseMethod: 'FEFO' | 'FIFO'; partialPickupDays: string;
+                 cashVarianceTolerance: string; billingHoursStart: string; billingHoursEnd: string; voidsPerShiftLimit: string }
 const toForm = (p: TenantProfile): Form => ({
   displayName: p.displayName, name: p.letterhead?.name ?? '', address: p.letterhead?.address ?? '', phone: p.letterhead?.phone ?? '',
   license: p.letterhead?.license ?? '', pharmacyBeforeCashier: p.settings.pharmacyBeforeCashier ?? true,   // OD-103: bawaan farmasi dulu (DEC-013)
@@ -15,7 +16,15 @@ const toForm = (p: TenantProfile): Form => ({
   mrnPrefix: p.settings.mrnPrefix ?? '',
   queueDisplayInitials: p.settings.queueDisplayInitials ?? false,
   dispenseMethod: p.settings.dispenseMethod ?? 'FEFO', partialPickupDays: p.settings.partialPickupDays?.toString() ?? '',
+  cashVarianceTolerance: p.settings.cashVarianceTolerance?.toString() ?? '', billingHoursStart: p.settings.billingHoursStart ?? '',
+  billingHoursEnd: p.settings.billingHoursEnd ?? '', voidsPerShiftLimit: p.settings.voidsPerShiftLimit?.toString() ?? '',
 });
+
+/** Kunci kasir yang dikosongkan di formulir dihapus agar kembali ke nilai bawaan. */
+const withoutBilling = (x: TenantProfile['settings']) => {
+  const { cashVarianceTolerance: _a, billingHoursStart: _b, billingHoursEnd: _c, voidsPerShiftLimit: _d, ...rest } = x;
+  return rest;
+};
 
 /** PLT-FR-007: profil & kop klinik (dipakai di cetakan dokumen). Simpan dengan If-Match agar perubahan orang lain tidak tertimpa. */
 export default function ProfilePage() {
@@ -43,11 +52,16 @@ export default function ProfilePage() {
   const late = f ? num(f.lateToleranceMinutes) : undefined;
   const pickup = f ? num(f.partialPickupDays) : undefined;
   const pickupBad = pickup !== undefined && !(Number.isInteger(pickup) && pickup >= 1 && pickup <= 30);
+  const tol = f ? num(f.cashVarianceTolerance) : undefined;
+  const voidsMax = f ? num(f.voidsPerShiftLimit) : undefined;
+  const hhmm = (v: string) => v === '' || /^([01]\d|2[0-3]):[0-5]\d$/.test(v);
+  const billingBad = (tol !== undefined && !(tol >= 0 && tol <= 10_000_000)) || (voidsMax !== undefined && !(Number.isInteger(voidsMax) && voidsMax >= 1 && voidsMax <= 100))
+    || !f || !hhmm(f.billingHoursStart) || !hhmm(f.billingHoursEnd);
   const invalid = !f || f.displayName.trim().length < 2
     || (discount !== undefined && !(discount >= 0 && discount <= 100))
     || (noShow !== undefined && !(Number.isInteger(noShow) && noShow >= 5 && noShow <= 240)) || pickupBad
     || (late !== undefined && !(Number.isInteger(late) && late >= 0 && late <= 120))
-    || !/^[A-Za-z]{0,5}$/.test(f.mrnPrefix);
+    || !/^[A-Za-z]{0,5}$/.test(f.mrnPrefix) || billingBad;
 
   async function save(e: React.FormEvent) {
     e.preventDefault();
@@ -60,9 +74,11 @@ export default function ProfilePage() {
         body: {
           displayName: f.displayName.trim(),
           letterhead: Object.values(letterhead).some(Boolean) ? letterhead : null,
-          settings: { ...p.settings, pharmacyBeforeCashier: f.pharmacyBeforeCashier,
+          settings: { ...withoutBilling(p.settings), pharmacyBeforeCashier: f.pharmacyBeforeCashier,
                       ...(discount !== undefined ? { discountLimitPercent: discount } : {}), ...(noShow !== undefined ? { noShowMinutes: noShow } : {}), ...(late !== undefined ? { lateToleranceMinutes: late } : {}), mrnPrefix: f.mrnPrefix.toUpperCase(), queueDisplayInitials: f.queueDisplayInitials,
-                      dispenseMethod: f.dispenseMethod, ...(pickup !== undefined ? { partialPickupDays: pickup } : {}) },
+                      dispenseMethod: f.dispenseMethod, ...(pickup !== undefined ? { partialPickupDays: pickup } : {}),
+                      ...(tol !== undefined ? { cashVarianceTolerance: tol } : {}), ...(voidsMax !== undefined ? { voidsPerShiftLimit: voidsMax } : {}),
+                      ...(f.billingHoursStart ? { billingHoursStart: f.billingHoursStart } : {}), ...(f.billingHoursEnd ? { billingHoursEnd: f.billingHoursEnd } : {}) },
         },
       });
       setP(r); setF(toForm(r)); setNotice('Profil klinik disimpan.');
@@ -146,6 +162,27 @@ export default function ProfilePage() {
               Tampilkan inisial pasien di layar TV antrean (bawaan: hanya nomor antrean)
               <Switch id="queueDisplayInitials" checked={f.queueDisplayInitials} onChange={(e) => set('queueDisplayInitials', e.target.checked)} />
             </label>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader><CardTitle>Kasir & transaksi tidak wajar</CardTitle>
+            <CardDescription>Dipakai untuk wajib-keterangan selisih kas dan untuk tanda di laporan transaksi tidak wajar (OD-041). Tanda tidak memblokir transaksi.</CardDescription></CardHeader>
+          <CardContent className="grid gap-3 md:grid-cols-2">
+            <Field id="cashTol" label="Toleransi selisih kas (Rp)" hint="Bawaan 10.000. Selisih di atas ini wajib keterangan saat tutup shift."
+                   error={tol !== undefined && !(tol >= 0 && tol <= 10_000_000) ? 'Harus 0–10.000.000' : undefined}>
+              <Input id="cashTol" inputMode="numeric" value={f.cashVarianceTolerance} onChange={(e) => set('cashVarianceTolerance', e.target.value)} />
+            </Field>
+            <Field id="voidsMax" label="Batas void per kasir per shift" hint="Bawaan 3. Lebih dari ini ditandai."
+                   error={voidsMax !== undefined && !(Number.isInteger(voidsMax) && voidsMax >= 1 && voidsMax <= 100) ? 'Bilangan bulat 1–100' : undefined}>
+              <Input id="voidsMax" inputMode="numeric" value={f.voidsPerShiftLimit} onChange={(e) => set('voidsPerShiftLimit', e.target.value)} />
+            </Field>
+            <Field id="billStart" label="Jam operasional kasir mulai" hint="HH:MM, bawaan 07:00. Void/refund di luar jam ditandai."
+                   error={!hhmm(f.billingHoursStart) ? 'Format HH:MM' : undefined}>
+              <Input id="billStart" placeholder="07:00" value={f.billingHoursStart} onChange={(e) => set('billingHoursStart', e.target.value)} />
+            </Field>
+            <Field id="billEnd" label="Jam operasional kasir selesai" hint="HH:MM, bawaan 21:00." error={!hhmm(f.billingHoursEnd) ? 'Format HH:MM' : undefined}>
+              <Input id="billEnd" placeholder="21:00" value={f.billingHoursEnd} onChange={(e) => set('billingHoursEnd', e.target.value)} />
+            </Field>
           </CardContent>
         </Card>
       </fieldset>

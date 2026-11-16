@@ -72,7 +72,8 @@ export interface Permission { code: string; module: string; description: string 
 export interface SessionItem { id: string; userAgent: string | null; ip: string | null; createdAt: string; lastSeenAt: string; current: boolean }
 export interface TenantProfile {
   displayName: string; letterhead: { name?: string; address?: string; phone?: string; license?: string } | null;
-  logoFileId: string | null; settings: { pharmacyBeforeCashier?: boolean; dispenseMethod?: 'FEFO' | 'FIFO'; partialPickupDays?: number; discountLimitPercent?: number; noShowMinutes?: number; lateToleranceMinutes?: number; mrnPrefix?: string; queueDisplayInitials?: boolean }; version: number;
+  logoFileId: string | null; settings: { pharmacyBeforeCashier?: boolean; dispenseMethod?: 'FEFO' | 'FIFO'; partialPickupDays?: number; discountLimitPercent?: number; noShowMinutes?: number; lateToleranceMinutes?: number; mrnPrefix?: string; queueDisplayInitials?: boolean;
+    cashVarianceTolerance?: number; billingHoursStart?: string; billingHoursEnd?: string; voidsPerShiftLimit?: number }; version: number;
 }
 export type ExportStatus = 'QUEUED' | 'RUNNING' | 'DONE' | 'FAILED' | 'EXPIRED';
 export interface ExportJob {
@@ -320,8 +321,9 @@ export interface Payment { id: string; receiptNo: string; method: PaymentMethod;
   reference: string | null; receivedAt: string; receivedByName: string; receiptUrl: string; invoiceStatus?: InvoiceStatus }
 export interface CashierShift { id: string; status: 'OPEN' | 'CLOSED' | 'VERIFIED'; branchId: string; branchName: string; cashierName: string; openedAt: string;
   closedAt: string | null; openingCash: string; expectedCash: string; countedCash: string | null; variance: string | null; varianceNote: string | null;
-  paymentCount: number; cashRefunds: string; totals: { method: PaymentMethod; count: number; total: string }[] }
-export type ReceivableStatus = 'OPEN' | 'PARTIAL' | 'PAID' | 'WRITTEN_OFF';
+  paymentCount: number; cashRefunds: string; totals: { method: PaymentMethod; count: number; total: string }[]; cashierId: string;
+  closedByName: string | null; forceClosed: boolean; verifiedByName: string | null; verifiedAt: string | null; verifyNote: string | null; overTolerance?: boolean }
+export type ReceivableStatus = 'OPEN' | 'PARTIAL' | 'PAID' | 'WRITTEN_OFF' | 'VOID';
 export interface Receivable { id: string; invoiceId: string; invoiceNo: string; branchName: string; patient: { name: string; mrn: string } | null; payerId: string;
   payerName: string; amount: string; paidAmount: string; balance: string; dueDate: string; status: ReceivableStatus; overdue: boolean; createdAt: string }
 export type ApprovalStatus = 'REQUESTED' | 'APPROVED' | 'REJECTED';
@@ -339,3 +341,9 @@ export type QrisIssue = 'PAID_NOT_SETTLED' | 'SETTLED_NOT_PAID' | 'AMOUNT_MISMAT
 export interface QrisReconciliation { date: string; paidCount: number; paidTotal: string; settledCount: number; settledTotal: string; batches: number;
   issues: { issue: QrisIssue; txnId: string | null; providerRef: string; invoiceId: string | null; invoiceNo: string | null; systemAmount: string | null;
     settledAmount: string | null; paidAt: string | null }[] }
+export interface ReceivableDetail extends Omit<Receivable, 'createdAt'> {
+  payments: { id: string; amount: string; paidOn: string; method: 'TRANSFER' | 'GIRO' | 'LAINNYA'; reference: string; note: string | null; recordedByName: string; recordedAt: string }[] }
+export type AnomalyRule = 'VOID_OUTSIDE_HOURS' | 'REFUND_OUTSIDE_HOURS' | 'DISCOUNT_OVER_LIMIT' | 'VOIDS_PER_SHIFT' | 'CASH_VARIANCE' | 'CASH_AFTER_QRIS';
+export interface AnomalyReport { from: string; to: string; thresholds: { billingHoursStart: string; billingHoursEnd: string; voidsPerShiftLimit: number; cashVarianceTolerance: number };
+  counts: Record<AnomalyRule, number>; items: { rule: AnomalyRule; label: string; at: string; branchName: string; userName: string | null; invoiceId: string | null;
+    invoiceNo: string | null; shiftId: string | null; amount: string | null; detail: string }[] }

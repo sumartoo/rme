@@ -119,17 +119,30 @@ export async function addClinicTariffs(price: number): Promise<void> {
 }
 
 /** Kunjungan sintetis yang sudah diteruskan ke kasir (status BILLING) untuk pasien & poli yang sudah ada (uji kasir, Stage 11). */
-export async function addClinicBillingEncounter(o: { patientName: string; branchName: string; unitName: string; practitionerName: string }): Promise<void> {
+export async function addClinicBillingEncounter(o: { patientName: string; branchName: string; unitName: string; practitionerName: string;
+  /** Penjamin asuransi sintetis (dibuat bila belum ada) dengan co-pay %; tanpa ini kunjungan Umum. */ insurer?: { code: string; name: string; copayPercent: number } }): Promise<void> {
   const c = new Client({ connectionString: dbUrl() });
   await c.connect();
   try {
     const { rows: [t] } = await c.query(`SELECT id FROM app.tenant WHERE code = $1`, [CLINIC_CODE]);
+    let coverage: string | null = null;
+    if (o.insurer) {
+      await c.query(`INSERT INTO app.payer(tenant_id, code, name, payer_type, contract) VALUES ($1, $2, $3, 'ASURANSI', jsonb_build_object('copayPercent', $4::int))
+                     ON CONFLICT DO NOTHING`, [t.id, o.insurer.code, o.insurer.name, o.insurer.copayPercent]);
+      const { rows: [cv] } = await c.query(`
+        INSERT INTO app.patient_coverage(tenant_id, patient_id, payer_id, member_no)
+        SELECT $1, p.id, y.id, 'E2E-' || substr(md5(random()::text), 1, 8) FROM app.patient p, app.payer y
+         WHERE p.tenant_id = $1 AND p.full_name = $2 AND y.tenant_id = $1 AND y.code = $3 LIMIT 1 RETURNING id`, [t.id, o.patientName, o.insurer.code]);
+      coverage = cv.id;
+    }
     await c.query(`
-      INSERT INTO app.encounter(tenant_id, encounter_no, patient_id, branch_id, unit_id, practitioner_id, arrival_type, status, payer_type, arrived_at)
-      SELECT $1, 'E2E-KSR-' || substr(md5(random()::text), 1, 8), p.id, b.id, u.id, pr.id, 'WALK_IN', 'BILLING', 'UMUM', now()
+      INSERT INTO app.encounter(tenant_id, encounter_no, patient_id, branch_id, unit_id, practitioner_id, arrival_type, status, payer_type, coverage_id,
+                                coverage_verified_at, arrived_at)
+      SELECT $1, 'E2E-KSR-' || substr(md5(random()::text), 1, 8), p.id, b.id, u.id, pr.id, 'WALK_IN', 'BILLING',
+             CASE WHEN $6::uuid IS NULL THEN 'UMUM' ELSE 'ASURANSI' END, $6::uuid, CASE WHEN $6::uuid IS NULL THEN NULL ELSE now() END, now()
         FROM app.patient p, app.branch b, app.service_unit u, app.practitioner pr
        WHERE p.tenant_id = $1 AND p.full_name = $2 AND b.tenant_id = $1 AND b.name = $3 AND u.branch_id = b.id AND u.name = $4
-         AND pr.tenant_id = $1 AND pr.full_name = $5 LIMIT 1`, [t.id, o.patientName, o.branchName, o.unitName, o.practitionerName]);
+         AND pr.tenant_id = $1 AND pr.full_name = $5 LIMIT 1`, [t.id, o.patientName, o.branchName, o.unitName, o.practitionerName, coverage]);
   } finally {
     await c.end();
   }

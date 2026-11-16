@@ -7,6 +7,7 @@ import { renderPdf } from '@clinicrme/shared/pdf';
 import { Db, type Tx, audit, idempotent, rows } from '@clinicrme/db';
 import { INV_NOT_FOUND, invoiceHead } from './invoice.repo';
 import { type PaymentRow, assertNoVoidPending, paymentDto, settleInvoice } from './payment.repo';
+import { SHIFT_NOT_FOUND, shiftView } from './shift.repo';
 
 const Money = z.number().min(0).max(1_000_000_000).transform((n) => Math.round(n * 100) / 100);
 const PaymentBody = z.object({
@@ -25,7 +26,6 @@ const ReceivableQuery = z.object({ status: z.enum(['OPEN', 'PARTIAL', 'PAID', 'W
   branchId: Uuid.optional(), overdue: z.enum(['true', 'false']).optional() });
 const METHOD_LABEL: Record<string, string> = { TUNAI: 'Tunai', DEBIT: 'Kartu debit', KARTU_KREDIT: 'Kartu kredit', TRANSFER: 'Transfer', QRIS: 'QRIS' };
 const rp = (v: string | number) => `Rp ${Number(v).toLocaleString('id-ID', { maximumFractionDigits: 2 })}`;
-const SHIFT_NOT_FOUND = ['BIL-404-SHIFT', 'Shift kasir tidak ditemukan'] as const;
 
 /**
  * Pembayaran & shift kasir (Stage 11 batch 2): BIL-FR-005, 007, 008, 011, 013 (pembentukan piutang).
@@ -144,7 +144,7 @@ export class PaymentController {
         insert into cashier_shift(tenant_id, branch_id, cashier_id, opening_cash) values (app.current_tenant_id(), ${branchId}, ${c.userId}, ${b.openingCash.toFixed(2)}::numeric)
         returning id`);
       await audit(tx, 'SHIFT_OPENED', 'cashier_shift', s.id, null, { branchId, openingCash: b.openingCash });
-      return this.shift(tx, s.id);
+      return shiftView(tx, s.id);
     });
   }
 
@@ -153,7 +153,7 @@ export class PaymentController {
   async current() {
     return this.db.withTenantTx(async (tx) => {
       const [s] = await rows<{ id: string }>(tx, sql`select id from cashier_shift where cashier_id = ${ctx().userId} and status = 'OPEN'`);
-      return { shift: s ? await this.shift(tx, s.id) : null };
+      return { shift: s ? await shiftView(tx, s.id) : null };
     });
   }
 
@@ -169,7 +169,7 @@ export class PaymentController {
       if (!s) throw problem(404, ...SHIFT_NOT_FOUND);
       if (s.cashier_id !== ctx().userId) throw problem(403, 'BIL-403-SHIFT-OWNER', 'Shift hanya dapat ditutup oleh kasir pemiliknya');
       if (s.status !== 'OPEN') throw problem(409, 'BIL-409-SHIFT-CLOSED', 'Shift sudah ditutup');
-      const v = await this.shift(tx, id);
+      const v = await shiftView(tx, id);
       const variance = Math.round((b.countedCash - Number(v.expectedCash)) * 100) / 100;
       const [{ tol }] = await rows<{ tol: number }>(tx, sql`
         select coalesce((settings->>'cashVarianceTolerance')::numeric, 10000)::float as tol from tenant where id = app.current_tenant_id()`);
@@ -182,7 +182,7 @@ export class PaymentController {
                expected_cash = ${v.expectedCash}::numeric, variance_note = ${note}, denominations = ${b.denominations ? JSON.stringify(b.denominations) : null}::jsonb
          where id = ${id}`);
       await audit(tx, 'SHIFT_CLOSED', 'cashier_shift', id, null, { expectedCash: v.expectedCash, countedCash: b.countedCash, variance, overTolerance: Math.abs(variance) > tol });
-      return this.shift(tx, id);
+      return shiftView(tx, id);
     });
   }
 
@@ -219,27 +219,5 @@ export class PaymentController {
         from payment p join app_user u on u.id = p.received_by where p.id = ${id}`);
     if (!p) throw problem(404, 'BIL-404-PAYMENT', 'Pembayaran tidak ditemukan');
     return p;
-  }
-
-  private async shift(tx: Tx, id: string) {
-    const [s] = await rows<{ id: string; status: string; branch_id: string; branch_name: string; cashier_name: string; opened_at: string; closed_at: string | null;
-                             opening_cash: string; counted_cash: string | null; expected_cash: string | null; variance: string | null; variance_note: string | null;
-                             cash_in: string; cash_refund: string }>(tx, sql`
-      select s.id, s.status, s.branch_id, br.name as branch_name, u.full_name as cashier_name, s.opened_at, s.closed_at, s.opening_cash::text,
-             s.counted_cash::text, s.expected_cash::text, s.variance::text, s.variance_note,
-             coalesce((select sum(p.amount) from payment p where p.shift_id = s.id and p.method = 'TUNAI'), 0)::text as cash_in,
-             coalesce((select sum(r.amount) from refund r where r.shift_id = s.id and r.method = 'TUNAI' and r.status = 'APPROVED'), 0)::text as cash_refund
-        from cashier_shift s join branch br on br.id = s.branch_id join app_user u on u.id = s.cashier_id where s.id = ${id}`);
-    if (!s) throw problem(404, ...SHIFT_NOT_FOUND);
-    const totals = await rows<{ method: string; n: number; total: string }>(tx, sql`
-      select method, count(*)::int as n, sum(amount)::text as total from payment where shift_id = ${id} group by method order by method`);
-    // OD-111: kas awal + tunai diterima − refund tunai disetujui di shift ini
-    const expected = s.expected_cash ?? (Number(s.opening_cash) + Number(s.cash_in) - Number(s.cash_refund)).toFixed(2);
-    return {
-      id: s.id, status: s.status, branchId: s.branch_id, branchName: s.branch_name, cashierName: s.cashier_name, openedAt: s.opened_at, closedAt: s.closed_at,
-      openingCash: s.opening_cash, expectedCash: expected, countedCash: s.counted_cash, variance: s.variance, varianceNote: s.variance_note,
-      totals: totals.map((t) => ({ method: t.method, count: t.n, total: t.total })),
-      paymentCount: totals.reduce((n, t) => n + t.n, 0), cashRefunds: s.cash_refund,
-    };
   }
 }

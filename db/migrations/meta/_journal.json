@@ -211,6 +211,13 @@
       "when": 1795593600000,
       "tag": "0029_qris_void_refund",
       "breakpoints": false
+    },
+    {
+      "idx": 30,
+      "version": "7",
+      "when": 1795680000000,
+      "tag": "0030_receivable_payment_shift_verify",
+      "breakpoints": false
     }
   ]
 }
