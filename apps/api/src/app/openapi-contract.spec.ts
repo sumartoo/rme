@@ -90,7 +90,9 @@ describe('Kontrak OpenAPI (ADR-0008)', () => {
     for (const r of routes) {
       const c = contract.get(`${r.method} ${norm(r.path)}`);
       if (!c) continue;
-      const isPublic = Array.isArray(c.op.security) && c.op.security.length === 0;
+      // Webhook payment gateway: tanpa sesi, diamankan signature HMAC (security: gatewaySignature) → @Public di implementasi
+      const sec = c.op.security as Record<string, unknown>[] | undefined;
+      const isPublic = Array.isArray(sec) && (sec.length === 0 || sec.every((x) => Object.keys(x).join() === 'gatewaySignature'));
       if (isPublic !== r.access.public) diff.push(`${r.key}: public impl=${r.access.public} kontrak=${isPublic}`);
       if ((c.op['x-permission'] ?? undefined) !== r.access.permission) {
         diff.push(`${r.key}: permission impl=${r.access.permission ?? '-'} kontrak=${c.op['x-permission'] ?? '-'}`);

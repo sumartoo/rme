@@ -34,4 +34,15 @@ describe('loadConfig', () => {
     expect(loadConfig({ ...base, APP_ENV: 'local', COOKIE_SECURE: 'false' }).cookieSecure).toBe(false);
     expect(() => loadConfig({ ...base, APP_ENV: 'prod', COOKIE_SECURE: 'false' })).toThrow(/COOKIE_SECURE/);
   });
+
+  it('payment gateway: simulator ditolak di produksi; staging wajib kunci simulator; lokal menurunkan kunci (OD-039)', () => {
+    expect(() => loadConfig({ ...base, APP_ENV: 'prod' })).toThrow(/SIMULATOR/);
+    expect(() => loadConfig({ ...base, APP_ENV: 'staging', STORAGE_DRIVER: 'gcs' })).toThrow(/PAYMENT_SIMULATOR_SECRET/);
+    const k = 'k'.repeat(40);   // pragma: allowlist secret — nilai uji sintetis
+    expect(loadConfig({ ...base, APP_ENV: 'staging', STORAGE_DRIVER: 'gcs', PAYMENT_SIMULATOR_SECRET: k }).paymentGateway.secret).toBe(k);
+    const local = loadConfig(base).paymentGateway;
+    expect(local).toMatchObject({ provider: 'SIMULATOR', qrisExpiryMinutes: 15 });
+    expect(local.secret).toMatch(/^[0-9a-f]{64}$/);
+    expect(local.secret).not.toBe('b'.repeat(64));
+  });
 });

@@ -1,3 +1,4 @@
+import { createHmac } from 'node:crypto';
 import { z } from 'zod';
 import { StorageConfig, storageConfigFromEnv } from '@clinicrme/storage';
 
@@ -36,6 +37,11 @@ const EnvSchema = z.object({
   GOOGLE_REDIRECT_URI: z.string().url(),
   /** Masa berlaku tautan unduh ekspor tenant (AC-PLT-FR-008-1, default 24 jam). */
   EXPORT_TTL_HOURS: int(24).pipe(z.number().max(168)),
+  /** Payment gateway QRIS (OD-039). Hanya simulator sampai penyedia nyata dipilih sebelum pilot. */
+  PAYMENT_GATEWAY: z.enum(['SIMULATOR']).default('SIMULATOR'),
+  /** Kunci HMAC callback simulator (≥ 32 karakter). Wajib di staging; lingkungan lain: diturunkan dari ENCRYPTION_KEY_HEX bila kosong. */
+  PAYMENT_SIMULATOR_SECRET: z.string().min(32).optional(),
+  QRIS_EXPIRY_MINUTES: int(15).pipe(z.number().max(120)),
 });
 
 export interface AppConfig {
@@ -57,6 +63,7 @@ export interface AppConfig {
   google: { issuer: string; clientId: string; clientSecret: string; redirectUri: string };
   storage: StorageConfig;
   exportTtlHours: number;
+  paymentGateway: { provider: 'SIMULATOR'; secret: string; qrisExpiryMinutes: number };
 }
 
 export function loadConfig(env: Record<string, string | undefined> = process.env): AppConfig {
@@ -69,6 +76,12 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
   const e = r.data;
   if (e.APP_ENV !== 'local' && e.APP_ENV !== 'test' && !e.COOKIE_SECURE) {
     throw new Error('COOKIE_SECURE wajib true di luar lingkungan local/test');
+  }
+  if (e.APP_ENV === 'prod' && e.PAYMENT_GATEWAY === 'SIMULATOR') {
+    throw new Error('PAYMENT_GATEWAY=SIMULATOR tidak boleh dipakai di produksi (OD-039)');
+  }
+  if (e.APP_ENV === 'staging' && !e.PAYMENT_SIMULATOR_SECRET) {
+    throw new Error('PAYMENT_SIMULATOR_SECRET wajib di staging');
   }
   return {
     env: e.NODE_ENV,
@@ -94,6 +107,11 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
     },
     storage: storageConfigFromEnv(env, e.APP_ENV),
     exportTtlHours: e.EXPORT_TTL_HOURS,
+    paymentGateway: {
+      provider: e.PAYMENT_GATEWAY,
+      secret: e.PAYMENT_SIMULATOR_SECRET ?? createHmac('sha256', e.ENCRYPTION_KEY_HEX).update('payment-simulator').digest('hex'),
+      qrisExpiryMinutes: e.QRIS_EXPIRY_MINUTES,
+    },
   };
 }
 

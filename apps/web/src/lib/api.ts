@@ -312,13 +312,30 @@ export interface Invoice { id: string; kind: 'ENCOUNTER' | 'DRUG' | 'OTC'; statu
   patient: { id: string; name: string; mrn: string } | null; customerName: string | null; encounterId: string | null; encounterNo: string | null;
   otcSaleId: string | null; saleNo: string | null; grossAmount: string; discountAmount: string; netAmount: string; payerPortion: string; patientPortion: string;
   paidAmount: string; outstanding: string; payments: Payment[];
-  receivable: { id: string; amount: string; paidAmount: string; dueDate: string; status: ReceivableStatus } | null; issuedAt: string | null; issuedByName: string | null; createdAt: string; version: number; warnings: string[]; lines: InvoiceLine[] }
+  receivable: { id: string; amount: string; paidAmount: string; dueDate: string; status: ReceivableStatus } | null; issuedAt: string | null;
+  voids: InvoiceVoidEntry[]; refunds: Refund[]; replaces: { id: string; invoiceNo: string | null } | null;
+  replacedBy: { id: string; invoiceNo: string | null; status: InvoiceStatus } | null; pendingQrisId: string | null; issuedByName: string | null; createdAt: string; version: number; warnings: string[]; lines: InvoiceLine[] }
 export type PaymentMethod = 'TUNAI' | 'DEBIT' | 'KARTU_KREDIT' | 'TRANSFER' | 'QRIS';
 export interface Payment { id: string; receiptNo: string; method: PaymentMethod; amount: string; cashTendered: string | null; change: string | null;
   reference: string | null; receivedAt: string; receivedByName: string; receiptUrl: string; invoiceStatus?: InvoiceStatus }
 export interface CashierShift { id: string; status: 'OPEN' | 'CLOSED' | 'VERIFIED'; branchId: string; branchName: string; cashierName: string; openedAt: string;
   closedAt: string | null; openingCash: string; expectedCash: string; countedCash: string | null; variance: string | null; varianceNote: string | null;
-  paymentCount: number; totals: { method: PaymentMethod; count: number; total: string }[] }
+  paymentCount: number; cashRefunds: string; totals: { method: PaymentMethod; count: number; total: string }[] }
 export type ReceivableStatus = 'OPEN' | 'PARTIAL' | 'PAID' | 'WRITTEN_OFF';
 export interface Receivable { id: string; invoiceId: string; invoiceNo: string; branchName: string; patient: { name: string; mrn: string } | null; payerId: string;
   payerName: string; amount: string; paidAmount: string; balance: string; dueDate: string; status: ReceivableStatus; overdue: boolean; createdAt: string }
+export type ApprovalStatus = 'REQUESTED' | 'APPROVED' | 'REJECTED';
+export interface InvoiceVoidEntry { id: string; reason: string; status: ApprovalStatus; requestedByName: string; approvedByName: string | null; requestedAt: string;
+  decidedAt: string | null; decisionNote: string | null; mine: boolean }
+export interface VoidRequest extends InvoiceVoidEntry { invoiceId: string; invoiceNo: string | null; kind: string; netAmount: string; patientName: string | null;
+  invoiceStatus: InvoiceStatus }
+export interface Refund { id: string; refundNo: string; paymentId: string; receiptNo: string; invoiceId: string; invoiceNo: string | null; amount: string; reason: string;
+  method: 'TUNAI' | 'TRANSFER'; reference: string | null; status: ApprovalStatus; requestedByName: string; requestedAt: string; approvedByName: string | null;
+  decidedAt: string | null; decisionNote: string | null; patientName: string | null; mine: boolean }
+export interface QrisCharge { id: string; invoiceId: string; provider: string; providerRef: string | null; qrPayload: string | null; amount: string;
+  expiresAt: string; status: 'PENDING' | 'PAID' | 'EXPIRED' | 'FAILED' | 'CANCELLED'; paymentId: string | null; paidAt: string | null; callbackCount: number;
+  settled: boolean; invoiceStatus: InvoiceStatus; simulator: boolean }
+export type QrisIssue = 'PAID_NOT_SETTLED' | 'SETTLED_NOT_PAID' | 'AMOUNT_MISMATCH' | 'PAID_WITHOUT_PAYMENT';
+export interface QrisReconciliation { date: string; paidCount: number; paidTotal: string; settledCount: number; settledTotal: string; batches: number;
+  issues: { issue: QrisIssue; txnId: string | null; providerRef: string; invoiceId: string | null; invoiceNo: string | null; systemAmount: string | null;
+    settledAmount: string | null; paidAt: string | null }[] }

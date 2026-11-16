@@ -14,7 +14,13 @@ export async function createApp(cfg: AppConfig, extra: AppExtras = {}): Promise<
     bodyParser: false,
   });
   app.useLogger(app.get(Logger));
-  app.useBodyParser('json', { limit: cfg.bodyLimit });           // SC-WEB-05
+  app.useBodyParser('json', {
+    limit: cfg.bodyLimit,                                         // SC-WEB-05
+    // Callback payment gateway: signature HMAC dihitung atas byte mentah, bukan JSON hasil parse (BIL-FR-006)
+    verify: (req: { url?: string; rawBody?: Buffer }, _res: unknown, buf: Buffer) => {
+      if (req.url?.startsWith('/api/integrations/')) req.rawBody = Buffer.from(buf);
+    },
+  });
   // Impor master data (MST-FR-008, OD-083): berkas CSV/XLSX mentah, maks 5 MB; tipe lain tetap ditolak body parser JSON
   // + unggah hasil lab PDF (CLN-FR-015); isi diperiksa (magic %PDF) di controller
   app.useBodyParser('raw', { type: ['text/csv', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'application/pdf'], limit: '5mb' });

@@ -6,6 +6,7 @@ import { Alert, Badge, Button, Card, CardContent, Dialog, Field, Input, Select, 
 import { Invoice, InvoiceLine, Page, Payment, PaymentMethod, ServiceItem, api, errorText } from '../../../../../lib/api';
 import { PAYER_TYPE_LABEL, PAYMENT_METHOD_LABEL, fmtDate, fmtDateTime, fmtRupiah } from '../../../../../lib/format';
 import { can, useSession } from '../../../../../lib/session';
+import { QrisDialog, RefundDialog, RefundTable, VoidCard, refundRoom } from './corrections';
 
 const STATUS_LABEL: Record<Invoice['status'], string> = { DRAFT: 'Draf', ISSUED: 'Terbit', PARTIALLY_PAID: 'Dibayar sebagian', PAID: 'Lunas', VOID: 'Void' };
 const DISCOUNT_LABEL: Record<InvoiceLine['discountStatus'], string> = { NONE: '', WITHIN_LIMIT: 'Diskon', PENDING: 'Menunggu persetujuan', APPROVED: 'Disetujui' };
@@ -24,6 +25,11 @@ export default function InvoicePage() {
   const canApprove = can(s, 'billing.invoice.void.approve');
   const canPay = can(s, 'billing.payment.create');
   const [paying, setPaying] = useState(false);
+  const [qris, setQris] = useState(false);
+  const [refunding, setRefunding] = useState<Payment>();
+  const canVoidRequest = can(s, 'billing.invoice.void.request');
+  const canRefundRequest = can(s, 'billing.refund.request');
+  const canRefundApprove = can(s, 'billing.refund.approve');
   const [inv, setInv] = useState<Invoice>();
   const [services, setServices] = useState<ServiceItem[]>([]);
   const [error, setError] = useState<string>();
@@ -73,6 +79,12 @@ export default function InvoicePage() {
       </div>
       {error ? <Alert tone="error">{error}</Alert> : null}
       {notice ? <Alert tone="success">{notice}</Alert> : null}
+      {inv.status === 'VOID' ? (
+        <Alert tone="info" data-testid="void-banner">Tagihan ini sudah di-void dan tidak berlaku.
+          {inv.replacedBy ? <> Pengganti: <Link className="underline" href={`/billing/invoices/${inv.replacedBy.id}`}>{inv.replacedBy.invoiceNo ?? 'draf tagihan'}</Link>.</> : ' Buat tagihan pengganti dari antrean kasir.'}
+        </Alert>
+      ) : null}
+      {inv.replaces ? <p className="text-xs text-muted-foreground">Menggantikan tagihan <Link className="underline" href={`/billing/invoices/${inv.replaces.id}`}>{inv.replaces.invoiceNo}</Link> yang di-void.</p> : null}
       {inv.warnings.map((w) => <Alert key={w} tone="info">{w}</Alert>)}
       <Card>
         <CardContent className="grid gap-1 pt-6 text-sm sm:grid-cols-2">
@@ -139,8 +151,10 @@ export default function InvoicePage() {
               <p className="font-medium">Pembayaran pasien</p>
               <span>Terbayar <b className="tabular-nums">{fmtRupiah(inv.paidAmount)}</b></span>
               <span>Sisa <b className="tabular-nums" data-testid="outstanding">{fmtRupiah(inv.outstanding)}</b></span>
-              {canPay && (inv.status === 'ISSUED' || inv.status === 'PARTIALLY_PAID')
-                ? <Button className="ml-auto" disabled={busy} onClick={() => { setNotice(undefined); setPaying(true); }}>Terima pembayaran</Button> : null}
+              {canPay && (inv.status === 'ISSUED' || inv.status === 'PARTIALLY_PAID') && !inv.voids.some((v) => v.status === 'REQUESTED') ? <>
+                <Button className="ml-auto" variant="outline" disabled={busy} onClick={() => { setNotice(undefined); setQris(true); }}>Bayar QRIS</Button>
+                <Button disabled={busy} onClick={() => { setNotice(undefined); setPaying(true); }}>Terima pembayaran</Button>
+              </> : null}
             </div>
             {inv.payments.length ? (
               <Table>
@@ -153,12 +167,15 @@ export default function InvoicePage() {
                       <TD className="text-right tabular-nums">{fmtRupiah(p.amount)}</TD>
                       <TD className="text-xs">{p.reference ? `Ref. ${p.reference}` : p.change !== null ? `Diterima ${fmtRupiah(p.cashTendered)} · kembali ${fmtRupiah(p.change)}` : ''}</TD>
                       <TD className="text-xs">{p.receivedByName}</TD>
-                      <TD className="text-right"><a className="underline" href={p.receiptUrl} target="_blank" rel="noreferrer">Kwitansi</a></TD>
+                      <TD className="whitespace-nowrap text-right"><a className="underline" href={p.receiptUrl} target="_blank" rel="noreferrer">Kwitansi</a>
+                        {canRefundRequest && inv.status !== 'VOID' && refundRoom(inv, p) > 0
+                          ? <Button size="sm" variant="ghost" className="ml-2" onClick={() => { setNotice(undefined); setRefunding(p); }}>Refund</Button> : null}</TD>
                     </TR>
                   ))}
                 </TBody>
               </Table>
             ) : <p className="text-muted-foreground">Belum ada pembayaran.</p>}
+            <RefundTable inv={inv} canApprove={canRefundApprove} onChanged={(m) => { setNotice(m); void load(); }} />
             {inv.receivable ? (
               <p className="text-xs text-muted-foreground" data-testid="receivable">Piutang ke {inv.payerName ?? 'penjamin'}: {fmtRupiah(inv.receivable.amount)}
                 {' '}· jatuh tempo {fmtDate(inv.receivable.dueDate)}</p>
@@ -166,6 +183,10 @@ export default function InvoicePage() {
           </CardContent>
         </Card>
       ) : null}
+      {!draft ? <VoidCard inv={inv} canRequest={canVoidRequest} canApprove={canApprove} onChanged={(m) => { setNotice(m); void load(); }} /> : null}
+      {qris ? <QrisDialog inv={inv} onClose={() => { setQris(false); void load(); }} onPaid={() => { setNotice('Pembayaran QRIS diterima.'); void load(); }} /> : null}
+      {refunding ? <RefundDialog payment={refunding} room={refundRoom(inv, refunding)} onClose={() => setRefunding(undefined)}
+        onDone={(r) => { setRefunding(undefined); setNotice(`Refund ${r.refundNo} diajukan; menunggu persetujuan manajer.`); void load(); }} /> : null}
       {paying ? <PayDialog inv={inv} onClose={() => setPaying(false)} onDone={(p) => {
         setPaying(false); void load();
         setNotice(`Pembayaran ${p.receiptNo} tercatat${p.change && Number(p.change) > 0 ? ` — kembalian ${fmtRupiah(p.change)}` : ''}.`);

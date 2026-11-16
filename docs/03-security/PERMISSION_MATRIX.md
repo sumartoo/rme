@@ -46,13 +46,13 @@
 | **billing** | | | | | | | | | |
 | `billing.invoice.discount` |  |  |  |  |  | ✓ |  |  | (di handler) Memberi diskon pada baris tagihan (di atas batas klinik perlu persetujuan, OD-041) |
 | `billing.invoice.issue` |  |  |  |  |  | ✓ |  |  | invoiceDiscount; invoiceDraftDelete; invoiceForEncounter; invoiceForOtc; invoiceIssue; invoiceLineAdd; invoiceLineDelete |
-| `billing.invoice.read` |  |  |  |  |  | ✓ | ✓ | ✓ | billingWorklist; invoiceGet; invoiceList; invoicePdf; paymentReceipt |
-| `billing.invoice.void.approve` |  |  |  |  |  |  | ✓ |  | invoiceDiscountDecide; invoiceVoidDecide |
+| `billing.invoice.read` |  |  |  |  |  | ✓ | ✓ | ✓ | billingWorklist; invoiceGet; invoiceList; invoicePdf; paymentReceipt; refundList |
+| `billing.invoice.void.approve` |  |  |  |  |  |  | ✓ |  | invoiceDiscountDecide; invoiceVoidDecide; voidRequestList |
 | `billing.invoice.void.request` |  |  |  |  |  | ✓ |  |  | invoiceVoidRequest |
-| `billing.payment.create` |  |  |  |  |  | ✓ |  |  | paymentCreate; qrisChargeCreate; qrisChargeGet |
+| `billing.payment.create` |  |  |  |  |  | ✓ |  |  | paymentCreate; qrisChargeCreate; qrisChargeGet; qrisSimulate |
 | `billing.receivable.manage` |  |  |  |  |  |  | ✓ |  | receivablePay |
 | `billing.receivable.read` |  |  |  |  |  | ✓ | ✓ | ✓ | receivableList |
-| `billing.reconcile` |  |  |  |  |  |  | ✓ |  | qrisReconciliation |
+| `billing.reconcile` |  |  |  |  |  |  | ✓ |  | qrisReconciliation; qrisSettlementSimulated; qrisSettlementUpload |
 | `billing.refund.approve` |  |  |  |  |  |  | ✓ |  | refundDecide |
 | `billing.refund.request` |  |  |  |  |  | ✓ |  |  | refundRequest |
 | `billing.shift.manage` |  |  |  |  |  | ✓ |  |  | shiftClose; shiftCurrent; shiftOpen |

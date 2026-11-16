@@ -6814,7 +6814,7 @@ paths:
       operationId: qrisChargeCreate
       tags:
       - Billing
-      summary: Buat QR dinamis
+      summary: Buat QR dinamis untuk sisa tagihan (butuh shift terbuka; QR menunggu sebelumnya dibatalkan)
       x-requirements:
       - BIL-FR-006
       x-permission: billing.payment.create
@@ -6849,7 +6849,7 @@ paths:
       operationId: qrisChargeGet
       tags:
       - Billing
-      summary: Status QR (polling/SSE)
+      summary: Status QR (polling); lewat batas waktu → EXPIRED
       x-requirements:
       - BIL-FR-006
       x-permission: billing.payment.create
@@ -6870,12 +6870,46 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
+  /api/v1/qris/{chargeId}/simulate:
+    post:
+      operationId: qrisSimulate
+      tags:
+      - Billing
+      summary: 'Simulator saja: bayar/kedaluwarsa/gagal lewat callback ber-signature (OD-039)'
+      x-requirements:
+      - BIL-FR-006
+      x-permission: billing.payment.create
+      parameters:
+      - $ref: '#/components/parameters/chargeId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/QrisSimulateInput'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QrisCharge'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
   /api/integrations/payment-gateway/callback:
     post:
       operationId: paymentGatewayCallback
       tags:
       - Billing
-      summary: Callback provider (verifikasi signature, idempoten)
+      summary: Callback provider per host klinik (signature HMAC X-Signature, idempoten)
       x-requirements:
       - BIL-FR-006
       security:
@@ -6893,12 +6927,69 @@ paths:
           $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
+  /api/v1/billing/qris-settlements:
+    post:
+      operationId: qrisSettlementUpload
+      tags:
+      - Billing
+      summary: Unggah berkas settlement CSV (provider_ref,amount,settled_at)
+      x-requirements:
+      - BIL-FR-012
+      x-permission: billing.reconcile
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/QrisSettlementInput'
+      responses:
+        '201':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QrisSettlement'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /api/v1/billing/qris-settlements/simulated:
+    get:
+      operationId: qrisSettlementSimulated
+      tags:
+      - Billing
+      summary: 'Simulator saja: CSV settlement QRIS lunas pada tanggal'
+      x-requirements:
+      - BIL-FR-012
+      x-permission: billing.reconcile
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  csv:
+                    type: string
+                required:
+                - csv
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
   /api/v1/invoices/{invoiceId}/void-requests:
     post:
       operationId: invoiceVoidRequest
       tags:
       - Billing
-      summary: Ajukan void
+      summary: Ajukan void tagihan terbit yang belum dibayar
       x-requirements:
       - BIL-FR-009
       x-permission: billing.invoice.void.request
@@ -6927,12 +7018,36 @@ paths:
           $ref: '#/components/responses/NotFound'
         '409':
           $ref: '#/components/responses/Conflict'
+  /api/v1/void-requests:
+    get:
+      operationId: voidRequestList
+      tags:
+      - Billing
+      summary: Daftar pengajuan void (antrean persetujuan)
+      x-requirements:
+      - BIL-FR-009
+      x-permission: billing.invoice.void.approve
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/VoidRequest'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
   /api/v1/void-requests/{voidRequestId}/decision:
     post:
       operationId: invoiceVoidDecide
       tags:
       - Billing
-      summary: Setujui/tolak void
+      summary: Setujui/tolak void (≠ pengaju; tolak wajib catatan)
       x-requirements:
       - BIL-FR-009
       x-permission: billing.invoice.void.approve
@@ -6966,7 +7081,7 @@ paths:
       operationId: refundRequest
       tags:
       - Billing
-      summary: Ajukan refund
+      summary: Ajukan refund atas satu pembayaran (OD-112)
       x-requirements:
       - BIL-FR-010
       x-permission: billing.refund.request
@@ -6993,12 +7108,35 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '409':
           $ref: '#/components/responses/Conflict'
+    get:
+      operationId: refundList
+      tags:
+      - Billing
+      summary: Daftar refund (status, tagihan)
+      x-requirements:
+      - BIL-FR-010
+      x-permission: billing.invoice.read
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Refund'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
   /api/v1/refunds/{refundId}/decision:
     post:
       operationId: refundDecide
       tags:
       - Billing
-      summary: Setujui/tolak refund (≠ pengaju)
+      summary: Setujui/tolak refund (≠ pengaju; tolak wajib catatan)
       x-requirements:
       - BIL-FR-010
       x-permission: billing.refund.approve
@@ -7184,7 +7322,7 @@ paths:
       operationId: qrisReconciliation
       tags:
       - Billing
-      summary: Rekonsiliasi QRIS vs settlement
+      summary: Rekonsiliasi harian QRIS vs settlement
       x-requirements:
       - BIL-FR-012
       x-permission: billing.reconcile
@@ -7194,18 +7332,7 @@ paths:
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  type: object
-                  properties:
-                    chargeId: *id002
-                    issue:
-                      type: string
-                    amount: &id007
-                      type: string
-                      pattern: ^-?\d{1,16}(\.\d{1,2})?$
-                      description: Rupiah sebagai string desimal (jangan pakai float)
-                      example: '150000.00'
+                $ref: '#/components/schemas/QrisReconciliation'
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -8554,7 +8681,7 @@ components:
         id: *id002
         serviceItemId: *id002
         branchId: *id002
-        payerType: &id008
+        payerType: &id007
           type: string
           enum:
           - UMUM
@@ -8562,7 +8689,11 @@ components:
           - PERUSAHAAN
           - BPJS
         payerId: *id002
-        price: *id007
+        price: &id008
+          type: string
+          pattern: ^-?\d{1,16}(\.\d{1,2})?$
+          description: Rupiah sebagai string desimal (jangan pakai float)
+          example: '150000.00'
         validFrom: *id004
         validTo: *id004
         closePrevious:
@@ -8581,7 +8712,7 @@ components:
           type: string
         name:
           type: string
-        payerType: *id008
+        payerType: *id007
         isActive: *id001
         version: *id005
         contract:
@@ -8590,7 +8721,7 @@ components:
             contractNumber:
               type: string
             validUntil: *id004
-            plafon: *id007
+            plafon: *id008
             copayPercent:
               type: number
             paymentTermDays: *id005
@@ -8992,7 +9123,7 @@ components:
         payerId: *id002
         payerName:
           type: string
-        payerType: *id008
+        payerType: *id007
         memberNo:
           type: string
         planName:
@@ -9364,7 +9495,7 @@ components:
         practitionerId: *id002
         practitionerName:
           type: string
-        payerType: *id008
+        payerType: *id007
         coverage:
           type: object
           properties:
@@ -9557,7 +9688,7 @@ components:
             practitionerId: *id002
             practitionerName:
               type: string
-            payerType: *id008
+            payerType: *id007
             payerName:
               type: string
             version: *id005
@@ -9969,7 +10100,7 @@ components:
         practitionerId: *id002
         practitionerName:
           type: string
-        payerType: *id008
+        payerType: *id007
         patient:
           type: object
           properties:
@@ -10817,7 +10948,7 @@ components:
           type:
           - string
           - 'null'
-        sellPrice: *id007
+        sellPrice: *id008
         validFrom: *id004
         validTo:
           type:
@@ -10851,7 +10982,7 @@ components:
           type:
           - string
           - 'null'
-        sellPrice: *id007
+        sellPrice: *id008
         validFrom: *id004
         validTo:
           type:
@@ -11029,7 +11160,7 @@ components:
           - string
           - 'null'
         lineCount: *id005
-        total: *id007
+        total: *id008
         lines:
           type: array
           items:
@@ -11180,7 +11311,7 @@ components:
         soldAt: *id006
         soldByName:
           type: string
-        total: *id007
+        total: *id008
         notes:
           type:
           - string
@@ -11209,8 +11340,8 @@ components:
                 type: number
               uomName:
                 type: string
-              unitPrice: *id007
-              amount: *id007
+              unitPrice: *id008
+              amount: *id008
       required:
       - id
       - saleNo
@@ -11436,8 +11567,8 @@ components:
           type: number
         uomName:
           type: string
-        unitPrice: *id007
-        amount: *id007
+        unitPrice: *id008
+        amount: *id008
         batchReason:
           type:
           - string
@@ -11698,12 +11829,12 @@ components:
           type:
           - string
           - 'null'
-        grossAmount: *id007
-        discountAmount: *id007
-        netAmount: *id007
-        payerPortion: *id007
-        patientPortion: *id007
-        paidAmount: *id007
+        grossAmount: *id008
+        discountAmount: *id008
+        netAmount: *id008
+        payerPortion: *id008
+        patientPortion: *id008
+        paidAmount: *id008
         issuedAt:
           type:
           - string
@@ -11717,7 +11848,7 @@ components:
           type: array
           items:
             type: string
-        outstanding: *id007
+        outstanding: *id008
         payments:
           type: array
           items:
@@ -11748,11 +11879,11 @@ components:
           type: string
         qty:
           type: number
-        unitPrice: *id007
-        discountAmount: *id007
-        lineTotal: *id007
-        payerPortion: *id007
-        patientPortion: *id007
+        unitPrice: *id008
+        discountAmount: *id008
+        lineTotal: *id008
+        payerPortion: *id008
+        patientPortion: *id008
         isManual: *id001
         serviceItemId:
           type:
@@ -11870,8 +12001,8 @@ components:
           - DEBIT
           - KARTU_KREDIT
           - TRANSFER
-        amount: *id007
-        cashTendered: *id007
+        amount: *id008
+        cashTendered: *id008
         reference:
           type: string
       required:
@@ -11885,7 +12016,7 @@ components:
           type: string
         method:
           type: string
-        amount: *id007
+        amount: *id008
         cashTendered:
           type:
           - string
@@ -11913,16 +12044,23 @@ components:
     QrisChargeInput:
       type: object
       properties:
-        amount: *id007
-      required:
-      - amount
+        amount: *id008
     QrisCharge:
       type: object
       properties:
         id: *id002
-        qrPayload:
+        invoiceId: *id002
+        provider:
           type: string
-        amount: *id007
+        providerRef:
+          type:
+          - string
+          - 'null'
+        qrPayload:
+          type:
+          - string
+          - 'null'
+        amount: *id008
         expiresAt: *id006
         status:
           type: string
@@ -11932,21 +12070,134 @@ components:
           - EXPIRED
           - FAILED
           - CANCELLED
+        paymentId:
+          type:
+          - string
+          - 'null'
+        paidAt:
+          type:
+          - string
+          - 'null'
+        callbackCount: *id005
+        settled: *id001
+        invoiceStatus:
+          type: string
+        simulator: *id001
       required:
       - id
-      - qrPayload
-      - expiresAt
       - status
+    QrisSimulateInput:
+      type: object
+      properties:
+        outcome:
+          type: string
+          enum:
+          - PAID
+          - EXPIRED
+          - FAILED
+      required:
+      - outcome
     GatewayCallback:
       type: object
-      description: Payload sesuai provider (OD-039); diverifikasi signature-nya
-      additionalProperties: true
+      properties:
+        eventId:
+          type: string
+        providerRef:
+          type: string
+        status:
+          type: string
+          enum:
+          - PAID
+          - EXPIRED
+          - FAILED
+        amount: *id008
+        paidAt: *id006
+      required:
+      - eventId
+      - providerRef
+      - status
+      - amount
+    QrisSettlementInput:
+      type: object
+      properties:
+        settlementDate: *id004
+        fileName:
+          type: string
+        csv:
+          type: string
+      required:
+      - settlementDate
+      - csv
+    QrisSettlement:
+      type: object
+      properties:
+        id: *id002
+        settlementDate: *id004
+        lineCount: *id005
+        matched: *id005
+        total: *id008
+      required:
+      - id
+      - lineCount
+      - matched
+    QrisReconciliation:
+      type: object
+      properties:
+        date: *id004
+        paidCount: *id005
+        paidTotal: *id008
+        settledCount: *id005
+        settledTotal: *id008
+        batches: *id005
+        issues:
+          type: array
+          items:
+            type: object
+            properties:
+              issue:
+                type: string
+                enum:
+                - PAID_NOT_SETTLED
+                - SETTLED_NOT_PAID
+                - AMOUNT_MISMATCH
+                - PAID_WITHOUT_PAYMENT
+              txnId:
+                type:
+                - string
+                - 'null'
+              providerRef:
+                type: string
+              invoiceId:
+                type:
+                - string
+                - 'null'
+              invoiceNo:
+                type:
+                - string
+                - 'null'
+              systemAmount:
+                type:
+                - string
+                - 'null'
+              settledAmount:
+                type:
+                - string
+                - 'null'
+              paidAt:
+                type:
+                - string
+                - 'null'
+            required:
+            - issue
+      required:
+      - date
+      - issues
     VoidInput:
       type: object
       properties:
         reason:
           type: string
-          minLength: 3
+          minLength: 5
       required:
       - reason
     ApprovalDecision:
@@ -11966,6 +12217,15 @@ components:
       properties:
         id: *id002
         invoiceId: *id002
+        invoiceNo:
+          type: string
+        kind:
+          type: string
+        netAmount: *id008
+        patientName:
+          type:
+          - string
+          - 'null'
         reason:
           type: string
         status:
@@ -11974,6 +12234,24 @@ components:
           - REQUESTED
           - APPROVED
           - REJECTED
+        requestedByName:
+          type: string
+        approvedByName:
+          type:
+          - string
+          - 'null'
+        requestedAt: *id006
+        decidedAt:
+          type:
+          - string
+          - 'null'
+        decisionNote:
+          type:
+          - string
+          - 'null'
+        invoiceStatus:
+          type: string
+        mine: *id001
       required:
       - id
       - status
@@ -11981,17 +12259,16 @@ components:
       type: object
       properties:
         paymentId: *id002
-        amount: *id007
+        amount: *id008
         reason:
           type: string
-          minLength: 3
-        method:
+          minLength: 5
+        reference:
           type: string
       required:
       - paymentId
       - amount
       - reason
-      - method
     Refund:
       type: object
       properties:
@@ -11999,17 +12276,49 @@ components:
         refundNo:
           type: string
         paymentId: *id002
-        amount: *id007
+        receiptNo:
+          type: string
+        invoiceId: *id002
+        invoiceNo:
+          type: string
+        amount: *id008
         reason:
           type: string
+        method:
+          type: string
+          enum:
+          - TUNAI
+          - TRANSFER
+        reference:
+          type:
+          - string
+          - 'null'
         status:
           type: string
           enum:
           - REQUESTED
           - APPROVED
           - REJECTED
-        requestedBy: *id002
-        approvedBy: *id002
+        requestedByName:
+          type: string
+        requestedAt: *id006
+        approvedByName:
+          type:
+          - string
+          - 'null'
+        decidedAt:
+          type:
+          - string
+          - 'null'
+        decisionNote:
+          type:
+          - string
+          - 'null'
+        patientName:
+          type:
+          - string
+          - 'null'
+        mine: *id001
       required:
       - id
       - refundNo
@@ -12019,13 +12328,13 @@ components:
       type: object
       properties:
         branchId: *id002
-        openingCash: *id007
+        openingCash: *id008
       required:
       - openingCash
     ShiftCloseInput:
       type: object
       properties:
-        countedCash: *id007
+        countedCash: *id008
         denominations:
           type: object
           additionalProperties: *id005
@@ -12053,8 +12362,8 @@ components:
           type:
           - string
           - 'null'
-        openingCash: *id007
-        expectedCash: *id007
+        openingCash: *id008
+        expectedCash: *id008
         countedCash:
           type:
           - string
@@ -12076,7 +12385,7 @@ components:
               method:
                 type: string
               count: *id005
-              total: *id007
+              total: *id008
             required:
             - method
             - count
@@ -12101,9 +12410,9 @@ components:
         payerId: *id002
         payerName:
           type: string
-        amount: *id007
-        paidAmount: *id007
-        balance: *id007
+        amount: *id008
+        paidAmount: *id008
+        balance: *id008
         dueDate: *id004
         status:
           type: string
@@ -12122,7 +12431,7 @@ components:
     ReceivablePaymentInput:
       type: object
       properties:
-        amount: *id007
+        amount: *id008
         reference:
           type: string
         receivedAt: *id004
@@ -12314,7 +12623,7 @@ components:
         visits: *id005
         finished: *id005
         waiting: *id005
-        revenue: *id007
+        revenue: *id008
         satusehatPending: *id005
         satusehatError: *id005
       required:

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Uji mutasi kontrol keamanan (Stage 3 M1–M4 diulang di monorepo — RSK-020; M5 Stage 4; M6–M14 Stage 5; M15–M17 Stage 6; M18–M22 Stage 7; M23–M38 Stage 8; M39–M59 Stage 9; M60–M89 Stage 10; M90–M110 Stage 11).
+# Uji mutasi kontrol keamanan (Stage 3 M1–M4 diulang di monorepo — RSK-020; M5 Stage 4; M6–M14 Stage 5; M15–M17 Stage 6; M18–M22 Stage 7; M23–M38 Stage 8; M39–M59 Stage 9; M60–M89 Stage 10; M90–M123 Stage 11).
 # Setiap mutasi sengaja merusak satu kontrol, menjalankan suite integrasi API, dan LULUS hanya bila
 # uji yang menjaga kontrol itu GAGAL. Kode selalu dikembalikan (trap), juga bila skrip dihentikan.
 #
@@ -65,7 +65,9 @@ INVREPO=libs/billing/src/lib/invoice.repo.ts
 INVCTL=libs/billing/src/lib/invoice.controller.ts
 PAYCTL=libs/billing/src/lib/payment.controller.ts
 PAYREPO=libs/billing/src/lib/payment.repo.ts
-FILES=("$AUTH" "$SESSION" "$MIG2" "$MIG3" "$GUARD" "$PGUARD" "$LAYOUT" "$EXPORT" "$MIG5" "$MIG6" "$TOTP" "$IAMUSERS" "$ACCOUNT" "$AUDITCHG" "$PRACT" "$MIG12" "$TERM" "$IMPORTS" "$PATIENT" "$MIG15" "$IDEM" "$MIG16" "$BOOK" "$SCHED" "$NOSHOW" "$ENCREPO" "$ENCCTL" "$QDISP" "$CHART" "$CHARTREPO" "$MIG19" "$SIGNCTL" "$REAUTH" "$MIG20" "$RXREPO" "$RXCTL" "$MIG21" "$LABCTL" "$DOCCTL" "$MIG22" "$RECV" "$PRICE" "$LOCS" "$DISP" "$DREPO" "$RXREM" "$SUBC" "$ADJC" "$OPNC" "$CRPT" "$OTCC" "$SRPT" "$INVREPO" "$INVCTL" "$PAYCTL" "$PAYREPO")
+QRCTL=libs/billing/src/lib/qris.controller.ts
+CORCTL=libs/billing/src/lib/correction.controller.ts
+FILES=("$AUTH" "$SESSION" "$MIG2" "$MIG3" "$GUARD" "$PGUARD" "$LAYOUT" "$EXPORT" "$MIG5" "$MIG6" "$TOTP" "$IAMUSERS" "$ACCOUNT" "$AUDITCHG" "$PRACT" "$MIG12" "$TERM" "$IMPORTS" "$PATIENT" "$MIG15" "$IDEM" "$MIG16" "$BOOK" "$SCHED" "$NOSHOW" "$ENCREPO" "$ENCCTL" "$QDISP" "$CHART" "$CHARTREPO" "$MIG19" "$SIGNCTL" "$REAUTH" "$MIG20" "$RXREPO" "$RXCTL" "$MIG21" "$LABCTL" "$DOCCTL" "$MIG22" "$RECV" "$PRICE" "$LOCS" "$DISP" "$DREPO" "$RXREM" "$SUBC" "$ADJC" "$OPNC" "$CRPT" "$OTCC" "$SRPT" "$INVREPO" "$INVCTL" "$PAYCTL" "$PAYREPO" "$QRCTL" "$CORCTL")
 BACKUP=$(mktemp -d)
 cp "${FILES[@]}" "$BACKUP"/
 restore() { for f in "${FILES[@]}"; do cp "$BACKUP/$(basename "$f")" "$f"; done; }
@@ -320,6 +322,33 @@ mutate M109 "kas yang diharapkan tidak menghitung pembayaran tunai" 'L03' \
   "sed -i \"s/where p.shift_id = s.id and p.method = 'TUNAI'), 0)::text as cash_in/where p.shift_id = s.id and false), 0)::text as cash_in/\" $PAYCTL && grep -q 'and false), 0)::text as cash_in' $PAYCTL" ""
 mutate M110 "penjualan obat bebas tidak menjadi PAID saat tagihan lunas" 'L06' \
   "sed -i \"s/    await tx.execute(sql\\\`update otc_sale set status = 'PAID'/    await tx.execute(sql\\\`update otc_sale set status = 'AWAITING_PAYMENT'/\" $PAYREPO && grep -q \"set status = 'AWAITING_PAYMENT' where id\" $PAYREPO" ""
+
+mutate M111 "callback QRIS diterima tanpa verifikasi signature" 'R01' \
+  "sed -i 's/    if (!this.gw.verifySignature(raw, headers)) {/    if (false) {/' $QRCTL && grep -q '    if (false) {' $QRCTL" ""
+mutate M112 "callback QRIS ganda diproses ulang" 'R01' \
+  "sed -i \"s/      if (t.status === 'PAID') {/      if (false) {/\" $QRCTL && grep -q '      if (false) {' $QRCTL" ""
+mutate M113 "callback QRIS dengan nominal berbeda tetap dicatat" 'R01' \
+  "sed -i 's/      if (Math.abs(ev.amount - Number(t.amount)) > 0.001) {/      if (false) {/' $QRCTL && grep -q '      if (false) {' $QRCTL" ""
+mutate M114 "QR QRIS dapat dibuat tanpa shift kasir terbuka" 'R01' \
+  "sed -i 's/      if (!s) throw problem(409, .BIL-409-NO-SHIFT./      if (false) throw problem(409, \x27BIL-409-NO-SHIFT\x27/' $QRCTL && grep -q 'if (false) throw problem(409, .BIL-409-NO-SHIFT' $QRCTL" ""
+mutate M115 "rekonsiliasi tidak mendeteksi nominal settlement yang berbeda" 'R03' \
+  "sed -i 's/ or sl.amount <> sl.txn_amount$//' $QRCTL && ! grep -q 'or sl.amount <> sl.txn_amount' $QRCTL" ""
+mutate M116 "tagihan yang sedang diajukan void tetap menerima pembayaran" 'R04' \
+  "sed -i 's/  if (v) throw problem(409, .BIL-409-VOID-PENDING./  if (false) throw problem(409, \x27BIL-409-VOID-PENDING\x27/' $PAYREPO && grep -q 'if (false) throw problem(409, .BIL-409-VOID-PENDING' $PAYREPO" ""
+mutate M117 "pengaju void dapat menyetujui void-nya sendiri" 'R04' \
+  "sed -i 's/      if (v.requested_by === ctx().userId) throw/      if (false) throw/' $CORCTL && grep -q '      if (false) throw' $CORCTL" ""
+mutate M118 "void tidak mengembalikan obat ke status belum ditagih" 'R04' \
+  "sed -i \"s/with u as (update dispense_line set billing_status = 'UNBILLED', invoice_line_id = null/with u as (update dispense_line set invoice_line_id = invoice_line_id/\" $CORCTL && grep -q 'set invoice_line_id = invoice_line_id' $CORCTL" ""
+mutate M119 "refund melebihi nominal pembayaran diterima" 'R05' \
+  "sed -i 's/      if (b.amount > room + 0.001) throw/      if (false) throw/' $CORCTL && grep -q '      if (false) throw' $CORCTL" ""
+mutate M120 "pengaju refund dapat menyetujui refund-nya sendiri" 'R05' \
+  "sed -i 's/      if (r.requested_by === ctx().userId) throw/      if (false) throw/' $CORCTL && grep -q '      if (false) throw' $CORCTL" ""
+mutate M121 "refund disetujui tidak menghitung ulang status tagihan" 'R05' \
+  "sed -i 's/      const status = await settleInvoice(tx, r.invoice_id);/      const status = \x27TIDAK\x27;/' $CORCTL && grep -q \"const status = 'TIDAK';\" $CORCTL" ""
+mutate M122 "kas shift yang diharapkan tidak dikurangi refund tunai" 'R05' \
+  "sed -i 's/Number(s.cash_in) - Number(s.cash_refund)/Number(s.cash_in) - 0/' $PAYCTL && grep -q 'Number(s.cash_in) - 0' $PAYCTL" ""
+mutate M123 "refund tunai disetujui walau shift pengaju sudah ditutup" 'R05' \
+  "sed -i \"s/      if (r.method === 'TUNAI' \&\& r.shift_status !== 'OPEN') {/      if (false) {/\" $CORCTL && grep -q '      if (false) {' $CORCTL" ""
 
 # Mutasi UI: suite Playwright (U##) sebagai detektor
 if [ "${MUTATION_E2E:-0}" = "1" ]; then

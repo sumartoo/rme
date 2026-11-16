@@ -164,8 +164,11 @@ SELECT test.expect_error('T16b ubah pembayaran',
 UPDATE invoice SET status = 'PAID', paid_amount = 50000 WHERE id = test.id('a',100);
 SELECT test.expect_error('T17 void invoice yang sudah dibayar',
   $q$UPDATE invoice SET status = 'VOID' WHERE id = test.id('a',100)$q$, 'tidak valid|refund');
-INSERT INTO refund(id, tenant_id, refund_no, payment_id, amount, reason, method, requested_by)
-  VALUES (test.id('a',120), app.current_tenant_id(), 'RF-1', test.id('a',110), 10000, 'Salah tagih', 'TUNAI', test.id('a',22));
+INSERT INTO refund(id, tenant_id, refund_no, payment_id, amount, reason, method, requested_by, shift_id)
+  VALUES (test.id('a',120), app.current_tenant_id(), 'RF-1', test.id('a',110), 10000, 'Salah tagih', 'TUNAI', test.id('a',22), test.id('a',80));
+SELECT test.expect_error('T18a refund transfer tanpa referensi (OD-112)',
+  $q$INSERT INTO refund(tenant_id, refund_no, payment_id, amount, reason, method, requested_by)
+     VALUES (app.current_tenant_id(), 'RF-2', test.id('a',110), 1000, 'Salah tagih', 'TRANSFER', test.id('a',22))$q$, 'refund_method_ref');
 SELECT test.expect_error('T18 refund disetujui oleh pengaju sendiri',
   $q$UPDATE refund SET status = 'APPROVED', approved_by = test.id('a',22), decided_at = now() WHERE id = test.id('a',120)$q$, 'check');
 UPDATE refund SET status = 'APPROVED', approved_by = test.id('a',23), decided_at = now() WHERE id = test.id('a',120);

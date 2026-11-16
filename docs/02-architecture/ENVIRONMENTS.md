@@ -34,6 +34,7 @@ All configuration comes from environment variables (12-factor) and is validated 
 | `COOKIE_SECURE` | api | `false` allowed | **Must be `true`** (the app refuses `false`) |
 | `STORAGE_DRIVER` / `STORAGE_FS_DIR` / `STORAGE_GCS_ENDPOINT` / `STORAGE_BUCKET_FILES` / `STORAGE_BUCKET_EXPORTS` | api, worker | `fs` → `.data/storage` (or `gcs` + emulator `http://localhost:4443`) | `gcs` (required), private buckets; exports bucket with 7-day lifecycle (Terraform) |
 | `EXPORT_TTL_HOURS` | api, worker | `24` | `24` (AC-PLT-FR-008-1) |
+| `PAYMENT_GATEWAY` / `PAYMENT_SIMULATOR_SECRET` / `QRIS_EXPIRY_MINUTES` | api | `SIMULATOR`; secret derived from `ENCRYPTION_KEY_HEX` when empty; `15` | Staging: `SIMULATOR` + secret from Secret Manager (required). Prod: the app refuses `SIMULATOR` — real provider adapter chosen before the pilot (OD-039) |
 | `SMTP_URL` | worker | `smtp://localhost:1025` (Mailpit, inbox at `http://localhost:8025`); empty = sending off | Secret Manager; `smtps://` to the SMTP provider (to be decided before the pilot) |
 | `MAIL_FROM` / `CLINIC_URL_TEMPLATE` | worker | `ClinicRME <no-reply@clinicrme.local>` · `http://{code}.localhost:4200` | Verified sender domain · `https://{code}.<BASE_DOMAIN>` |
 | `API_INTERNAL_URL` | platform-admin, web (server) | `http://localhost:3000` (default) | Internal Cloud Run URL of the API; never exposed to the browser |

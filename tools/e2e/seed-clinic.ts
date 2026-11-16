@@ -117,3 +117,20 @@ export async function addClinicTariffs(price: number): Promise<void> {
     await c.end();
   }
 }
+
+/** Kunjungan sintetis yang sudah diteruskan ke kasir (status BILLING) untuk pasien & poli yang sudah ada (uji kasir, Stage 11). */
+export async function addClinicBillingEncounter(o: { patientName: string; branchName: string; unitName: string; practitionerName: string }): Promise<void> {
+  const c = new Client({ connectionString: dbUrl() });
+  await c.connect();
+  try {
+    const { rows: [t] } = await c.query(`SELECT id FROM app.tenant WHERE code = $1`, [CLINIC_CODE]);
+    await c.query(`
+      INSERT INTO app.encounter(tenant_id, encounter_no, patient_id, branch_id, unit_id, practitioner_id, arrival_type, status, payer_type, arrived_at)
+      SELECT $1, 'E2E-KSR-' || substr(md5(random()::text), 1, 8), p.id, b.id, u.id, pr.id, 'WALK_IN', 'BILLING', 'UMUM', now()
+        FROM app.patient p, app.branch b, app.service_unit u, app.practitioner pr
+       WHERE p.tenant_id = $1 AND p.full_name = $2 AND b.tenant_id = $1 AND b.name = $3 AND u.branch_id = b.id AND u.name = $4
+         AND pr.tenant_id = $1 AND pr.full_name = $5 LIMIT 1`, [t.id, o.patientName, o.branchName, o.unitName, o.practitionerName]);
+  } finally {
+    await c.end();
+  }
+}

@@ -204,6 +204,13 @@
       "when": 1795507200000,
       "tag": "0028_payment_shift",
       "breakpoints": false
+    },
+    {
+      "idx": 29,
+      "version": "7",
+      "when": 1795593600000,
+      "tag": "0029_qris_void_refund",
+      "breakpoints": false
     }
   ]
 }

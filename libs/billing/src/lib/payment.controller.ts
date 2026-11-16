@@ -6,7 +6,7 @@ import { BodySchema, RequirePermission, Uuid, assertId, ctx, optText, problem } 
 import { renderPdf } from '@clinicrme/shared/pdf';
 import { Db, type Tx, audit, idempotent, rows } from '@clinicrme/db';
 import { INV_NOT_FOUND, invoiceHead } from './invoice.repo';
-import { type PaymentRow, paymentDto, settleInvoice } from './payment.repo';
+import { type PaymentRow, assertNoVoidPending, paymentDto, settleInvoice } from './payment.repo';
 
 const Money = z.number().min(0).max(1_000_000_000).transform((n) => Math.round(n * 100) / 100);
 const PaymentBody = z.object({
@@ -44,6 +44,7 @@ export class PaymentController {
       if (h.status !== 'ISSUED' && h.status !== 'PARTIALLY_PAID') {
         throw problem(409, 'BIL-409-NOT-PAYABLE', h.status === 'PAID' ? 'Tagihan sudah lunas' : 'Tagihan belum diterbitkan atau sudah dibatalkan');
       }
+      await assertNoVoidPending(tx, id);
       const [s] = await rows<{ id: string }>(tx, sql`
         select id from cashier_shift where cashier_id = ${ctx().userId} and status = 'OPEN' and branch_id = ${h.branch_id} for update`);
       if (!s) throw problem(409, 'BIL-409-NO-SHIFT', 'Buka shift kasir di cabang tagihan ini sebelum menerima pembayaran');
@@ -157,7 +158,7 @@ export class PaymentController {
   }
 
   /**
-   * Tutup shift (AC-BIL-FR-011-2): kas yang diharapkan = kas awal + tunai diterima (− refund tunai, batch 3); selisih di atas
+   * Tutup shift (AC-BIL-FR-011-2): kas yang diharapkan = kas awal + tunai diterima − refund tunai disetujui; selisih di atas
    * toleransi klinik (bawaan Rp 10.000, OD-041) wajib keterangan. Hanya pemilik shift (penutupan oleh manajer di batch 4).
    */
   @RequirePermission('billing.shift.manage') @BodySchema(ShiftCloseBody) @Post('cashier-shifts/:id/close') @HttpCode(200)
@@ -223,20 +224,22 @@ export class PaymentController {
   private async shift(tx: Tx, id: string) {
     const [s] = await rows<{ id: string; status: string; branch_id: string; branch_name: string; cashier_name: string; opened_at: string; closed_at: string | null;
                              opening_cash: string; counted_cash: string | null; expected_cash: string | null; variance: string | null; variance_note: string | null;
-                             cash_in: string }>(tx, sql`
+                             cash_in: string; cash_refund: string }>(tx, sql`
       select s.id, s.status, s.branch_id, br.name as branch_name, u.full_name as cashier_name, s.opened_at, s.closed_at, s.opening_cash::text,
              s.counted_cash::text, s.expected_cash::text, s.variance::text, s.variance_note,
-             coalesce((select sum(p.amount) from payment p where p.shift_id = s.id and p.method = 'TUNAI'), 0)::text as cash_in
+             coalesce((select sum(p.amount) from payment p where p.shift_id = s.id and p.method = 'TUNAI'), 0)::text as cash_in,
+             coalesce((select sum(r.amount) from refund r where r.shift_id = s.id and r.method = 'TUNAI' and r.status = 'APPROVED'), 0)::text as cash_refund
         from cashier_shift s join branch br on br.id = s.branch_id join app_user u on u.id = s.cashier_id where s.id = ${id}`);
     if (!s) throw problem(404, ...SHIFT_NOT_FOUND);
     const totals = await rows<{ method: string; n: number; total: string }>(tx, sql`
       select method, count(*)::int as n, sum(amount)::text as total from payment where shift_id = ${id} group by method order by method`);
-    const expected = s.expected_cash ?? (Number(s.opening_cash) + Number(s.cash_in)).toFixed(2);
+    // OD-111: kas awal + tunai diterima − refund tunai disetujui di shift ini
+    const expected = s.expected_cash ?? (Number(s.opening_cash) + Number(s.cash_in) - Number(s.cash_refund)).toFixed(2);
     return {
       id: s.id, status: s.status, branchId: s.branch_id, branchName: s.branch_name, cashierName: s.cashier_name, openedAt: s.opened_at, closedAt: s.closed_at,
       openingCash: s.opening_cash, expectedCash: expected, countedCash: s.counted_cash, variance: s.variance, varianceNote: s.variance_note,
       totals: totals.map((t) => ({ method: t.method, count: t.n, total: t.total })),
-      paymentCount: totals.reduce((n, t) => n + t.n, 0),
+      paymentCount: totals.reduce((n, t) => n + t.n, 0), cashRefunds: s.cash_refund,
     };
   }
 }

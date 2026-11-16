@@ -5,7 +5,7 @@ import { z } from 'zod';
 import { BodySchema, NoBody, RequirePermission, Uuid, assertId, assertVersion, ctx, ifMatchVersion, optText, problem } from '@clinicrme/shared';
 import { renderPdf } from '@clinicrme/shared/pdf';
 import { Db, type Tx, audit, rows } from '@clinicrme/db';
-import { type PaymentRow, createReceivable, paymentDto, settleInvoice } from './payment.repo';
+import { type PaymentRow, REFUND_SELECT, type RefundRow, createReceivable, paymentDto, refundDto, settleInvoice } from './payment.repo';
 import { INV_NOT_FOUND, type InvoiceHead, type LineIn, currentLines, invoiceHead, pricingContext, rebuildDraft, resolveTariff, writeLines } from './invoice.repo';
 
 const Money = z.number().min(0).max(1_000_000_000).transform((n) => Math.round(n * 100) / 100);
@@ -124,8 +124,11 @@ export class InvoiceController {
       }
       if (!draft) {
         [draft] = await rows<{ id: string; kind: string }>(tx, sql`
-          insert into invoice(tenant_id, branch_id, patient_id, encounter_id, kind, payer_type, coverage_id, payer_id, updated_by)
-          values (app.current_tenant_id(), ${e.branch_id}, ${e.patient_id}, ${id}, ${kind}, ${e.payer_type}, ${e.coverage_id}, ${e.payer_id}, ${ctx().userId})
+          insert into invoice(tenant_id, branch_id, patient_id, encounter_id, kind, payer_type, coverage_id, payer_id, updated_by, replaces_invoice_id)
+          values (app.current_tenant_id(), ${e.branch_id}, ${e.patient_id}, ${id}, ${kind}, ${e.payer_type}, ${e.coverage_id}, ${e.payer_id}, ${ctx().userId},
+                  -- BIL-FR-009: tagihan pengganti merujuk tagihan yang di-void
+                  (select v.id from invoice v where v.encounter_id = ${id} and v.kind = ${kind} and v.status = 'VOID'
+                      and not exists (select 1 from invoice r where r.replaces_invoice_id = v.id) order by v.updated_at desc limit 1))
           returning id, kind`);
       }
       await rebuildDraft(tx, await invoiceHead(tx, draft.id, true));
@@ -146,8 +149,11 @@ export class InvoiceController {
       if (inv && inv.status !== 'DRAFT') return this.view(tx, inv.id);
       if (!inv) {
         [inv] = await rows<{ id: string; status: string }>(tx, sql`
-          insert into invoice(tenant_id, branch_id, patient_id, otc_sale_id, kind, payer_type, customer_name, updated_by)
-          values (app.current_tenant_id(), ${o.branch_id}, ${o.patient_id}, ${id}, 'OTC', 'UMUM', ${o.customer_name}, ${ctx().userId}) returning id, status`);
+          insert into invoice(tenant_id, branch_id, patient_id, otc_sale_id, kind, payer_type, customer_name, updated_by, replaces_invoice_id)
+          values (app.current_tenant_id(), ${o.branch_id}, ${o.patient_id}, ${id}, 'OTC', 'UMUM', ${o.customer_name}, ${ctx().userId},
+                  (select v.id from invoice v where v.otc_sale_id = ${id} and v.status = 'VOID'
+                      and not exists (select 1 from invoice r where r.replaces_invoice_id = v.id) order by v.updated_at desc limit 1))
+          returning id, status`);
       }
       await rebuildDraft(tx, await invoiceHead(tx, inv.id, true));
       await audit(tx, 'INVOICE_DRAFTED', 'invoice', inv.id, o.patient_id, { otcSaleId: id, kind: 'OTC' });
@@ -400,6 +406,20 @@ export class InvoiceController {
         from payment p join app_user u on u.id = p.received_by where p.invoice_id = ${id} order by p.received_at, p.receipt_no`);
     const [rc] = await rows<{ id: string; amount: string; paid_amount: string; due_date: string; status: string }>(tx, sql`
       select id, amount::text, paid_amount::text, to_char(due_date, 'YYYY-MM-DD') as due_date, status from receivable where invoice_id = ${id}`);
+    const voids = await rows<{ id: string; reason: string; status: string; requested_by: string; requested_by_name: string; approved_by_name: string | null;
+                               created_at: string; decided_at: string | null; decision_note: string | null }>(tx, sql`
+      select v.id, v.reason, v.status, v.requested_by, ru.full_name as requested_by_name, au.full_name as approved_by_name, v.created_at, v.decided_at, v.decision_note
+        from invoice_void v join app_user ru on ru.id = v.requested_by left join app_user au on au.id = v.approved_by
+       where v.invoice_id = ${id} order by v.created_at`);
+    const refunds = await rows<RefundRow>(tx, sql`${REFUND_SELECT} where p.invoice_id = ${id} order by r.requested_at`);
+    const [links] = await rows<{ replaces_id: string | null; replaces_no: string | null; replaced_by_id: string | null; replaced_by_no: string | null;
+                                 replaced_by_status: string | null }>(tx, sql`
+      select o.id as replaces_id, o.invoice_no as replaces_no, n.id as replaced_by_id, n.invoice_no as replaced_by_no, n.status as replaced_by_status
+        from invoice i left join invoice o on o.id = i.replaces_invoice_id
+        left join lateral (select id, invoice_no, status from invoice r where r.replaces_invoice_id = i.id order by created_at desc limit 1) n on true
+       where i.id = ${id}`);
+    const [qr] = await rows<{ id: string }>(tx, sql`
+      select id from payment_gateway_txn where invoice_id = ${id} and status = 'PENDING' and expires_at > now() order by created_at desc limit 1`);
     const contract = h.contract as { validUntil?: string; copayPercent?: number; plafon?: number | string } | null;
     const warnings: string[] = [];
     if (h.consult_missing) warnings.push('Poli kunjungan ini belum punya layanan konsultasi bawaan (Master data → Fasilitas & cabang).');
@@ -415,6 +435,12 @@ export class InvoiceController {
       paidAmount: h.paid_amount, outstanding: Math.max(0, Math.round((Number(h.patient_portion) - Number(h.paid_amount)) * 100) / 100).toFixed(2),
       payments: payments.map(paymentDto),
       receivable: rc ? { id: rc.id, amount: rc.amount, paidAmount: rc.paid_amount, dueDate: rc.due_date, status: rc.status } : null,
+      voids: voids.map((v) => ({ id: v.id, reason: v.reason, status: v.status, requestedByName: v.requested_by_name, approvedByName: v.approved_by_name,
+        requestedAt: v.created_at, decidedAt: v.decided_at, decisionNote: v.decision_note, mine: v.requested_by === ctx().userId })),
+      refunds: refunds.map(refundDto),
+      replaces: links?.replaces_id ? { id: links.replaces_id, invoiceNo: links.replaces_no } : null,
+      replacedBy: links?.replaced_by_id ? { id: links.replaced_by_id, invoiceNo: links.replaced_by_no, status: links.replaced_by_status } : null,
+      pendingQrisId: qr?.id ?? null,
       issuedAt: h.issued_at, issuedByName: h.issued_by_name, createdAt: h.created_at, version: h.version, warnings,
       lines: lines.map((l) => ({ id: l.id, lineNo: l.line_no, sourceType: l.source_type, description: l.description, qty: Number(l.qty), unitPrice: l.unit_price,
         discountAmount: l.discount_amount, lineTotal: l.line_total, payerPortion: l.payer_portion, patientPortion: l.patient_portion, isManual: l.is_manual,

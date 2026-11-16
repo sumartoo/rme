@@ -5,7 +5,7 @@ import { mkdtempSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { authenticator } from 'otplib';
-import { addClinicDrugStock, addClinicRole, addClinicTariffs, addClinicUser, seedClinic, setLinkToken } from '../../../tools/e2e/seed-clinic';
+import { addClinicBillingEncounter, addClinicDrugStock, addClinicRole, addClinicTariffs, addClinicUser, seedClinic, setLinkToken } from '../../../tools/e2e/seed-clinic';
 import { CLINIC_URL, E2E_ENCRYPTION_KEY, STORAGE_DIR, USER_PASSWORD, dbUrl } from '../../../tools/e2e/config';
 
 /**
@@ -1265,6 +1265,107 @@ test('W32 kasir: buka shift, bayar sebagian tunai (kembalian) lalu debit, lunas,
   await expect(page.getByRole('heading', { name: 'Piutang penjamin' })).toBeVisible();
   await expect(page.getByText('Tidak ada piutang.')).toBeVisible();
   expect(cspViolations).toEqual([]);
+});
+
+test('W33 kasir: QRIS simulator, refund & void diajukan; supervisor menyetujui; rekonsiliasi QRIS tanpa selisih (Stage 11 batch 3)', async ({ page, browser }) => {
+  watchCsp(page);
+  const enc = { patientName: 'Siti Rahmawati', branchName: 'Cabang Timur', unitName: 'Poli Gigi', practitionerName: 'drg. Web Sintetis' };
+  await addClinicBillingEncounter(enc);
+  await addClinicBillingEncounter(enc);
+  await addClinicRole('SPV_KASIR', 'Supervisor kasir', ['billing.invoice.read', 'billing.invoice.void.approve', 'billing.refund.approve', 'billing.reconcile']);
+  await addClinicUser('spv-kasir@klinik-web.test', 'Supervisor Kasir E2E', 'SPV_KASIR');
+
+  await loginKasir(page);
+  await page.getByTestId('side-menu').getByRole('link', { name: 'Tagihan' }).click();
+  const panel = page.getByTestId('shift-panel');
+  await panel.getByRole('button', { name: 'Buka shift' }).click();
+  const od = page.getByRole('dialog', { name: 'Buka shift kasir' });
+  await od.getByLabel('Cabang').selectOption({ label: 'Cabang Timur' });
+  await od.getByLabel('Kas awal (Rp)').fill('100000');
+  await od.getByRole('button', { name: 'Buka shift' }).click();
+  await expect(panel).toContainText('Shift terbuka');
+  const fresh = () => page.getByTestId('billing-row').filter({ hasText: 'Siti Rahmawati' }).filter({ hasText: 'Belum dibuat' });
+  await expect(fresh()).toHaveCount(2);
+
+  // 1) Tagihan pertama: terbit → QRIS (simulator) → lunas → ajukan refund transfer
+  await fresh().first().getByRole('button', { name: 'Buat tagihan' }).click();
+  await page.getByRole('button', { name: 'Terbitkan tagihan' }).click();
+  await expect(page.getByTestId('invoice-status')).toHaveText('Terbit');
+  await page.getByRole('button', { name: 'Bayar QRIS' }).click();
+  const qd = page.getByRole('dialog', { name: 'Bayar dengan QRIS' });
+  await expect(qd.getByRole('img', { name: 'Kode QR pembayaran' })).toBeVisible();
+  await expect(qd.getByTestId('qris-status')).toHaveText('Menunggu pembayaran');
+  await expect(qd).toContainText('Mode simulator');
+  await qd.getByRole('button', { name: 'Simulasikan bayar' }).click();
+  await expect(qd.getByTestId('qris-status')).toHaveText('Dibayar');
+  await qd.getByRole('button', { name: 'Tutup' }).click();
+  await expect(page.getByTestId('invoice-status')).toHaveText('Lunas');
+  const prow = page.getByTestId('payment-row');
+  await expect(prow).toHaveCount(1);
+  await expect(prow).toContainText('QRIS');
+  await prow.getByRole('button', { name: 'Refund' }).click();
+  const rd = page.getByRole('dialog', { name: /Ajukan refund KW/ });
+  await rd.getByLabel('Nominal refund (Rp)').fill('10000');
+  await rd.getByLabel('Alasan refund').fill('Kelebihan bayar (uji)');
+  await rd.getByLabel('Rekening / referensi transfer').fill('BCA 0000000000 a.n. Siti');
+  await rd.getByRole('button', { name: 'Ajukan refund' }).click();
+  await expect(page.getByTestId('refund-row')).toContainText('Menunggu persetujuan');
+  await expect(page.getByTestId('refund-row')).toContainText('Transfer · BCA 0000000000 a.n. Siti');
+
+  // 2) Tagihan kedua: terbit → ajukan void (pembayaran ditahan)
+  await page.getByRole('link', { name: '← Tagihan' }).click();
+  await fresh().first().getByRole('button', { name: 'Buat tagihan' }).click();
+  await page.getByRole('button', { name: 'Terbitkan tagihan' }).click();
+  await expect(page.getByTestId('invoice-status')).toHaveText('Terbit');
+  const voidUrl = page.url();
+  await page.getByTestId('void-card').getByRole('button', { name: 'Ajukan void' }).click();
+  const vd = page.getByRole('dialog', { name: 'Ajukan void tagihan' });
+  await vd.getByLabel('Alasan void').fill('Pasien batal berobat (uji)');
+  await vd.getByRole('button', { name: 'Ajukan' }).click();
+  await expect(page.getByTestId('void-row')).toContainText('Menunggu persetujuan');
+  await expect(page.getByRole('button', { name: 'Terima pembayaran' })).toHaveCount(0);
+  await expect(page.getByTestId('void-card').getByRole('button', { name: 'Putuskan void' })).toHaveCount(0);
+
+  // 3) Tutup shift: QRIS tidak menambah kas tunai
+  await page.getByRole('link', { name: '← Tagihan' }).click();
+  await expect(page.getByTestId('expected-cash')).toHaveText('Rp 100.000');
+  await page.getByTestId('shift-panel').getByRole('button', { name: 'Tutup shift' }).click();
+  const cd = page.getByRole('dialog', { name: 'Tutup shift kasir' });
+  await cd.getByLabel('Kas fisik dihitung (Rp)').fill('100000');
+  await cd.getByRole('button', { name: 'Tutup shift' }).click();
+  await expect(page.getByTestId('shift-panel')).toContainText('Shift belum dibuka');
+
+  // 4) Supervisor: setujui void & refund, rekonsiliasi QRIS hari ini
+  const spv = await browser.newPage();
+  watchCsp(spv);
+  await login(spv, 'spv-kasir@klinik-web.test');
+  await spv.getByTestId('side-menu').getByRole('link', { name: 'Tagihan' }).click();
+  await expect(spv.getByTestId('approval-row')).toHaveCount(2);
+  await spv.getByTestId('approval-row').filter({ hasText: 'Void' }).getByRole('button', { name: 'Tinjau' }).click();
+  await expect(spv).toHaveURL(voidUrl);
+  await spv.getByTestId('void-card').getByRole('button', { name: 'Putuskan void' }).click();
+  await spv.getByRole('dialog', { name: /Void:/ }).getByRole('button', { name: 'Setujui' }).click();
+  await expect(spv.getByTestId('invoice-status')).toHaveText('Void');
+  await expect(spv.getByTestId('void-banner')).toContainText('Buat tagihan pengganti dari antrean kasir');
+  await spv.getByRole('link', { name: '← Tagihan' }).click();
+  await spv.getByTestId('approval-row').filter({ hasText: 'Refund' }).getByRole('button', { name: 'Tinjau' }).click();
+  await spv.getByTestId('refund-row').getByRole('button', { name: 'Putuskan' }).click();
+  const dd = spv.getByRole('dialog', { name: /Refund RF/ });
+  await dd.getByLabel('Catatan').fill('Transfer dilakukan bagian keuangan');
+  await dd.getByRole('button', { name: 'Setujui' }).click();
+  await expect(spv.getByTestId('refund-row')).toContainText('Disetujui');
+  await expect(spv.getByTestId('invoice-status')).toHaveText('Dibayar sebagian');
+
+  await spv.getByTestId('side-menu').getByRole('link', { name: 'Rekonsiliasi QRIS' }).click();
+  await expect(spv.getByTestId('rec-summary')).toContainText('QRIS lunas di sistem: 1');
+  await spv.getByRole('button', { name: 'Ambil CSV simulasi' }).click();
+  await expect(spv.getByLabel('Isi CSV')).toHaveValue(/^provider_ref,amount,settled_at\nSIM-[0-9A-F]{20},/);
+  await spv.getByRole('button', { name: 'Unggah & cocokkan' }).click();
+  await expect(spv.getByRole('status').filter({ hasText: 'Settlement diunggah: 1 baris, 1 cocok dengan transaksi.' })).toBeVisible();
+  await expect(spv.getByTestId('rec-issue-count')).toHaveText('0');
+  await expect(spv.getByText('Tidak ada selisih.')).toBeVisible();
+  expect(cspViolations).toEqual([]);
+  await spv.close();
 });
 
 test('W06 keamanan: CSP bernonce, no-store; proxy hanya untuk klinik dari subdomain; tidak ada pelanggaran CSP', async ({ page }) => {

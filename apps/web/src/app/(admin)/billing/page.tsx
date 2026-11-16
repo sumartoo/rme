@@ -2,7 +2,7 @@
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
 import { Alert, Badge, Button, Card, CardContent, Select, TBody, TD, TH, THead, TR, Table } from '@clinicrme/ui';
-import { BillingWorkItem, Invoice, InvoiceStatus, api, errorText } from '../../../lib/api';
+import { BillingWorkItem, Invoice, InvoiceStatus, Refund, VoidRequest, api, errorText } from '../../../lib/api';
 import { PAYER_TYPE_LABEL, fmtDateTime, fmtRupiah } from '../../../lib/format';
 import { can, useSession } from '../../../lib/session';
 import { ShiftPanel } from './shift-panel';
@@ -21,18 +21,25 @@ export default function BillingPage() {
   const canIssue = can(s, 'billing.invoice.issue');
   const canApprove = can(s, 'billing.invoice.void.approve');
   const canShift = can(s, 'billing.shift.manage');
+  const canRefundApprove = can(s, 'billing.refund.approve');
   const [items, setItems] = useState<BillingWorkItem[]>();
   const [pending, setPending] = useState<Invoice[]>([]);
+  const [voids, setVoids] = useState<VoidRequest[]>([]);
+  const [refunds, setRefunds] = useState<Refund[]>([]);
   const [filter, setFilter] = useState<'' | BillingWorkItem['type']>('');
   const [error, setError] = useState<string>();
   const [busy, setBusy] = useState<string>();
   const load = useCallback(async () => {
     try {
       setItems(await api<BillingWorkItem[]>(`/billing/worklist${branchId ? `?branchId=${branchId}` : ''}`));
-      if (canApprove) setPending(await api<Invoice[]>(`/invoices?status=DRAFT&discountPending=true${branchId ? `&branchId=${branchId}` : ''}`));
+      if (canApprove) {
+        setPending(await api<Invoice[]>(`/invoices?status=DRAFT&discountPending=true${branchId ? `&branchId=${branchId}` : ''}`));
+        setVoids(await api<VoidRequest[]>('/void-requests?status=REQUESTED'));
+      }
+      if (canRefundApprove) setRefunds(await api<Refund[]>('/refunds?status=REQUESTED'));
       setError(undefined);
     } catch (e) { setError(errorText(e, 'Gagal memuat antrean kasir')); }
-  }, [branchId, canApprove]);
+  }, [branchId, canApprove, canRefundApprove]);
   useEffect(() => { void load(); }, [load]);
   useEffect(() => {
     const t = setInterval(() => { if (document.visibilityState === 'visible') void load(); }, 10_000);
@@ -69,6 +76,27 @@ export default function BillingPage() {
                 <span>{p.patient?.name ?? p.customerName ?? '—'} · {p.encounterNo ?? p.saleNo}</span>
                 <span className="text-xs text-muted-foreground">{p.lines.filter((l) => l.discountStatus === 'PENDING').map((l) => `${l.description} −${fmtRupiah(l.discountAmount)}`).join(', ')}</span>
                 <Button size="sm" variant="outline" className="ml-auto" onClick={() => router.push(`/billing/invoices/${p.id}`)}>Tinjau</Button>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      ) : null}
+      {voids.length || refunds.length ? (
+        <Card data-testid="approvals-pending">
+          <CardContent className="grid gap-2 pt-6 text-sm">
+            <p className="font-medium">Void & refund menunggu persetujuan</p>
+            {voids.map((v) => (
+              <div key={v.id} className="flex flex-wrap items-center gap-2" data-testid="approval-row">
+                <Badge tone="warning">Void</Badge><span>{v.invoiceNo} · {v.patientName ?? '—'} · {fmtRupiah(v.netAmount)}</span>
+                <span className="text-xs text-muted-foreground">{v.reason} — {v.requestedByName}</span>
+                <Button size="sm" variant="outline" className="ml-auto" onClick={() => router.push(`/billing/invoices/${v.invoiceId}`)}>Tinjau</Button>
+              </div>
+            ))}
+            {refunds.map((r) => (
+              <div key={r.id} className="flex flex-wrap items-center gap-2" data-testid="approval-row">
+                <Badge tone="warning">Refund</Badge><span>{r.refundNo} · {r.invoiceNo} · {r.patientName ?? '—'} · {fmtRupiah(r.amount)}</span>
+                <span className="text-xs text-muted-foreground">{r.reason} — {r.requestedByName}</span>
+                <Button size="sm" variant="outline" className="ml-auto" onClick={() => router.push(`/billing/invoices/${r.invoiceId}`)}>Tinjau</Button>
               </div>
             ))}
           </CardContent>
