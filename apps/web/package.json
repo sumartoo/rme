@@ -31,8 +31,8 @@
     "lucide-react": "^1.67.0"
   },
   "devDependencies": {
-    "@tailwindcss/postcss": "^4.3.4",
-    "tailwindcss": "^4.3.4",
+    "@tailwindcss/postcss": "^4.3.5",
+    "tailwindcss": "^4.3.5",
     "postcss": "^8.5.32",
     "@types/qrcode": "^1.5.6"
   }
