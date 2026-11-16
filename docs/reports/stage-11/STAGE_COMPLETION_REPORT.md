@@ -6,7 +6,7 @@
 | Status | **MENUNGGU PERSETUJUAN PO** |
 | Disusun oleh | Sumarto (dibantu Claude) |
 | Rincian | [STAGE_PLAN.md](STAGE_PLAN.md) · keputusan DEC-042 (OD-039–OD-041, OD-105–OD-113) |
-| Repo kerja | `AtoAIs/atoai-rme-v2`, PR #30, #36, #37 dan PR batch 4. Kuota GitHub Actions AtoAIs habis sampai 1 Des 2026, jadi setiap batch diverifikasi penuh di lokal lalu digabung tanpa CI (DEC-036) |
+| Repo kerja | `AtoAIs/atoai-rme-v2`, PR #30, #36, #37, #38. Kuota GitHub Actions AtoAIs habis sampai 1 Des 2026, jadi setiap batch diverifikasi penuh di lokal lalu digabung tanpa CI (DEC-036) |
 | Lingkungan uji | `https://demo.medika.atoai.id` (data sintetis). Demo VPS **belum** diperbarui ke Stage 10–11 |
 
 ## 1. Ringkasan
