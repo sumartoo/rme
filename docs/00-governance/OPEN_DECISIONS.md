@@ -42,6 +42,22 @@ Semua keputusan penentu Stage 0 sudah diambil — lihat bagian D.
 | ID | Pertanyaan | Usulan |
 |---|---|---|
 
+## B5. Baru dari Stage 12 (menunggu PO)
+
+Rincian & usulan: [`docs/reports/stage-12/STAGE_PLAN.md`](../reports/stage-12/STAGE_PLAN.md) §4. Juga diputuskan bersama: OD-009, OD-042, dan tindakan OD-058.
+
+| ID | Pertanyaan | Usulan singkat |
+|---|---|---|
+| OD-114 | Penyimpanan kredensial SATUSEHAT | Terenkripsi di DB sampai Stage 15 (Secret Manager) |
+| OD-115 | Kapan kunjungan dikirim | Satu Bundle per kunjungan setelah RM disahkan |
+| OD-116 | Pasien tanpa NIK/IHS | Tidak memblokir; ditunda & lookup ulang otomatis |
+| OD-117 | Pemetaan fasilitas/poli/nakes | Fasilitas = Organization, poli = Location, nakes = IHS by NIK |
+| OD-118 | Kode tindakan & obat | ICD-9-CM & KFA dari master; tanpa kode → ditandai |
+| OD-119 | Retry & dead-letter | Backoff 5×, 4xx tanpa retry, notifikasi admin |
+| OD-120 | Koreksi setelah terkirim | Update Condition; dihapus → entered-in-error |
+| OD-121 | Pengujian tanpa sandbox | Simulator bawaan; tanpa kredensial → disetujui bersyarat |
+| OD-122 | Dasar pengiriman & privasi | Kewajiban fasyankes, tanpa opt-out; konfirmasi PPDP |
+
 ## C. Ditetapkan di Stage Berikutnya
 
 Lihat `docs/APP_DESIGN.md` §13 dan masing-masing `docs/stages/STAGE_XX_*.md` (OD-003 s.d. OD-054).

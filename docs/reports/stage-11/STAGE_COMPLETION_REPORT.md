@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | Stage | 11 — Billing, Payment & Financial Controls |
-| Status | **MENUNGGU PERSETUJUAN PO** |
+| Status | **DISETUJUI** — DEC-043 (16 Nov 2026). Tindak lanjut: uji mutasi lengkap M1–M133 di Actions setelah 1 Des; penyedia QRIS nyata sebelum pilot |
 | Disusun oleh | Sumarto (dibantu Claude) |
 | Rincian | [STAGE_PLAN.md](STAGE_PLAN.md) · keputusan DEC-042 (OD-039–OD-041, OD-105–OD-113) |
 | Repo kerja | `AtoAIs/atoai-rme-v2`, PR #30, #36, #37, #38. Kuota GitHub Actions AtoAIs habis sampai 1 Des 2026, jadi setiap batch diverifikasi penuh di lokal lalu digabung tanpa CI (DEC-036) |
@@ -86,7 +86,7 @@ Kasir klinik kini berjalan dari tagihan sampai tutup buku harian:
 - [x] Aturan anomali menghasilkan tanda yang benar (H03; M129–M133)
 - [x] Matriks permission X01 mencakup semua endpoint baru; uji mutasi kontrol baru terdeteksi (M90–M133)
 - [ ] Uji mutasi lengkap M1–M133 di GitHub Actions — setelah kuota aktif 1 Des (bersama S8-1, S9-2, S10-2)
-- [ ] PO menyetujui Stage 11
+- [x] PO menyetujui Stage 11 — DEC-043
 
 ## 4. Keamanan & integritas
 
@@ -127,4 +127,4 @@ Kasir klinik kini berjalan dari tagihan sampai tutup buku harian:
 
 | Peran | Nama | Keputusan | Tanggal | Catatan |
 |---|---|---|---|---|
-| Project Owner | Sumarto | ☐ Disetujui ☐ Disetujui bersyarat ☐ Perlu perubahan | | |
+| Project Owner | Sumarto | ☑ Disetujui | 16 Nov 2026 | DEC-043 |

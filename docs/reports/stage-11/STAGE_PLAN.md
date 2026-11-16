@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | Stage | 11 — Billing, Payment & Financial Controls |
-| Status | **SELESAI — MENUNGGU PERSETUJUAN PO** ([completion report](STAGE_COMPLETION_REPORT.md)); OD diputuskan DEC-042, dimulai 9 Nov 2026 |
+| Status | **DISETUJUI** — DEC-043, 16 Nov 2026 ([completion report](STAGE_COMPLETION_REPORT.md)); OD diputuskan DEC-042, dimulai 9 Nov 2026 |
 | Project Owner | Sumarto |
 | Requirement | **MVP saja** (DEC-010): BIL-FR-001–013, 016. Di luar stage ini (LJT): BIL-FR-014 tagihan kolektif perusahaan, BIL-FR-015 deposit, BIL-FR-017 pajak/e-Faktur |
 | Mode verifikasi | Lokal penuh, digabung ke `AtoAIs/atoai-rme-v2` tanpa CI sampai Actions aktif lagi 1 Des 2026 (DEC-036) |
@@ -64,7 +64,7 @@ Perkiraan: ±1 hari kerja per batch.
 - [x] Closing shift & rekonsiliasi teruji — closing shift L03, refund tunai mengurangi kas R05, rekonsiliasi QRIS R03
 - [x] Aturan anomali menghasilkan tanda yang benar — H03
 - [x] Matriks permission X01 mencakup semua endpoint baru; uji mutasi kontrol baru terdeteksi — M90–M133
-- [ ] PO menyetujui Stage 11
+- [x] PO menyetujui Stage 11 — DEC-043
 
 ## 6. Progres
 
@@ -76,3 +76,4 @@ Perkiraan: ±1 hari kerja per batch.
 | 9 Nov 2026 | **Batch 2 selesai** — shift & pembayaran: migrasi 0028 (penutup shift & pecahan uang, trigger pembayaran hanya ke shift terbuka, satu piutang per tagihan, menu Piutang penjamin). Buka/tutup shift dengan kas awal & kas fisik; selisih di atas toleransi (bawaan Rp 10.000) wajib keterangan (OD-111). Pembayaran tunai (kembalian), debit, kartu, transfer (wajib referensi), sebagian & multi-metode, idempoten (`Idempotency-Key`), kwitansi `KW…` PDF 80 mm (OD-109/110). Lunas → kunjungan selesai, atau ke farmasi pada alur kasir-dulu bila resep masih terbuka (OD-107); obat bebas → `PAID` (OD-113). Porsi penjamin → piutang dengan jatuh tempo kontrak (OD-108); ditanggung penuh → lunas saat terbit. Obat susulan terbit tetap di antrean kasir sampai lunas | Integrasi L01–L06, E2E W32, mutasi M100–M110 |
 | 16 Nov 2026 | **Batch 3 selesai** — QRIS, void, refund: migrasi 0029 (QR menyimpan kasir & shift pembuat, satu QR menunggu per tagihan, tabel berkas & baris settlement ber-RLS, refund tunai terikat shift / transfer wajib referensi, satu pengajuan void terbuka per tagihan, piutang ikut batal, guard tagihan mengizinkan lunas → sebagian bila refund disetujui, menu Rekonsiliasi QRIS). Adapter payment gateway + **simulator** (QR EMV-mirip bertanda SIMULASI, callback HMAC-SHA256 `X-Signature` atas byte mentah, ditolak di produksi; kunci wajib di staging) (OD-039). Pembayaran QRIS hanya tercatat dari callback terverifikasi, ke shift pembuat QR; callback ganda/nominal beda/signature salah tidak mencatat; uang masuk saat shift sudah ditutup ditandai untuk rekonsiliasi. Rekonsiliasi harian dengan CSV settlement (4 jenis selisih) (BIL-FR-012). Void tagihan terbit belum dibayar dengan persetujuan ≠ pengaju; pembayaran ditahan selama diajukan; obat kembali belum ditagih; tagihan pengganti merujuk tagihan lama (BIL-FR-009). Refund per pembayaran dengan persetujuan ≠ pengaju; tunai dari kas shift (kas seharusnya berkurang), non-tunai transfer manual; status tagihan dihitung ulang (OD-112) | Integrasi R01–R06, E2E W33, mutasi M111–M123 |
 | 16 Nov 2026 | **Batch 4 selesai** — piutang, pengawasan & gate: migrasi 0030 (pelunasan piutang append-only ber-RLS, catatan verifikasi shift, guard shift tertutup/terverifikasi, pemverifikasi ≠ kasir, menu Shift kasir & Transaksi tidak wajar). Pelunasan piutang sebagian/penuh ≤ saldo, idempoten; piutang terbayar memblokir void (BIL-FR-013). Manajer menutup shift yang lupa ditutup (kas fisik + keterangan, tercatat) dan memverifikasi shift (selisih > toleransi wajib catatan) (OD-111). Laporan transaksi tidak wajar 6 aturan dengan ambang di Profil klinik (jam kasir, void per shift, toleransi kas, batas diskon) + CSV (BIL-FR-016, OD-041). Invarian gate H05. [Completion report](STAGE_COMPLETION_REPORT.md) | Integrasi H01–H05, E2E W34, mutasi M124–M133 |
+| 16 Nov 2026 | PO menyetujui Stage 11 (DEC-043). Tindak lanjut: uji mutasi lengkap M1–M133 di Actions setelah 1 Des, penyedia QRIS sebelum pilot | — |
