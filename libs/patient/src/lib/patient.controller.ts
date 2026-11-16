@@ -17,12 +17,13 @@ const NOT_FOUND = ['PAT-404', 'Pasien tidak ditemukan'] as const;
 
 interface PatientRow extends SummaryRow {
   nik_hash: string | null; identity_value_hash: string | null; mother_patient_id: string | null; email: string | null;
-  address: string | null; region_code: string | null; ihs_status: string; merged_into_id: string | null; merged_at: string | null;
+  address: string | null; region_code: string | null; ihs_status: string; ihs_number: string | null; ihs_checked_at: string | null;
+  ihs_last_error: string | null; merged_into_id: string | null; merged_at: string | null;
   merge_reason: string | null; processing_restricted: boolean; restriction_reason: string | null; restricted_at: string | null;
   registered_branch_id: string | null; created_at: string; version: number;
 }
 const SELECT = sql`select ${SUMMARY_COLS}, p.nik_hash, p.identity_value_hash, p.mother_patient_id, p.email, p.address, p.region_code,
-  p.ihs_status, p.merged_into_id, p.merged_at, p.merge_reason, p.processing_restricted, p.restriction_reason, p.restricted_at,
+  p.ihs_status, p.ihs_number, p.ihs_checked_at, p.ihs_last_error, p.merged_into_id, p.merged_at, p.merge_reason, p.processing_restricted, p.restriction_reason, p.restricted_at,
   p.registered_branch_id, p.created_at, p.version from patient p`;
 
 interface CoverageRow { id: string; payer_id: string; payer_name: string; payer_type: string; member_no: string | null; plan_name: string | null;
@@ -193,6 +194,7 @@ export class PatientController {
     const today = new Date().toISOString().slice(0, 10);
     return {
       ...summaryDto(p), email: p.email, address: p.address, regionCode: p.region_code, ihsStatus: p.ihs_status,
+      ihsNumber: p.ihs_number, ihsCheckedAt: p.ihs_checked_at, ihsLastError: p.ihs_last_error,
       mother: await link(p.mother_patient_id), mergedInto: await link(p.merged_into_id), mergedAt: p.merged_at, mergeReason: p.merge_reason,
       processingRestricted: p.processing_restricted, restrictionReason: p.restriction_reason, restrictedAt: p.restricted_at,
       registeredBranchId: p.registered_branch_id, createdAt: p.created_at,

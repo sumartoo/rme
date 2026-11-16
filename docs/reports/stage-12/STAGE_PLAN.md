@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | Stage | 12 — FHIR & SATUSEHAT |
-| Status | **PERENCANAAN** — OD di §4 menunggu keputusan PO |
+| Status | **BERJALAN** — OD diputuskan DEC-044 (16 Nov 2026) |
 | Project Owner | Sumarto |
 | Requirement | **MVP saja** (DEC-010): INT-FR-001–005, 008–012. Di luar stage ini (LJT): INT-FR-006 lab (ServiceRequest/Specimen/DiagnosticReport), INT-FR-007 Composition/resume |
 | Mode verifikasi | Lokal penuh terhadap **simulator SATUSEHAT**, digabung tanpa CI sampai Actions aktif 1 Des 2026 (DEC-036). Validasi di **sandbox resmi** memerlukan kredensial dari PO (OD-058) |
@@ -43,7 +43,7 @@ Kegagalan tidak menghentikan pelayanan. Pengiriman di-retry otomatis, error tamp
 
 Perkiraan: ±1 hari kerja per batch.
 
-## 4. Open Decision (usulan untuk diputuskan PO)
+## 4. Open Decision — ✅ semua disetujui sesuai usulan (DEC-044)
 
 | OD | Pertanyaan | Usulan |
 |---|---|---|
@@ -83,3 +83,5 @@ Perkiraan: ±1 hari kerja per batch.
 | Tanggal | Catatan | Bukti |
 |---|---|---|
 | 16 Nov 2026 | Stage 11 disetujui (DEC-043). Draf rencana & OD Stage 12 disusun | — |
+| 16 Nov 2026 | PO menyetujui semua OD Stage 12 (DEC-044). Batch 1 dimulai | — |
+| 16 Nov 2026 | **Batch 1 selesai** — koneksi & identitas: migrasi 0031 (lingkungan SIMULATOR, kredensial terenkripsi per fasilitas & satu koneksi aktif, status kirim per koneksi, jejak lookup IHS, menu Integrasi › SATUSEHAT). Klien SATUSEHAT HTTP (token OAuth2 di-cache, 401 → token baru, klasifikasi error AUTH/VALIDATION/NOT_FOUND/TRANSIENT, timeout) + **simulator** deterministik (OD-121). Halaman admin: simpan kredensial (tidak pernah ditampilkan lagi), uji koneksi, sinkron master — Location per poli dibuat idempoten, IHS nakes dari NIK (OD-117). Lookup IHS pasien manual di halaman pasien + job worker tiap 10 menit (PENDING segera, gagal sehari sekali, ≤ 7 hari, pasien dibatasi dilewati) (OD-116). Ganti lingkungan mereset IHS untuk dicari ulang | Integrasi J01–J06, unit klien HTTP/simulator, E2E W35, mutasi M134–M141 |

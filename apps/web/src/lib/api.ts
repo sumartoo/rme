@@ -137,7 +137,8 @@ export interface PatientConsent {
   signedByRelation: string | null; recordedAt: string; revokedAt: string | null;
 }
 export interface Patient extends PatientSummary {
-  email: string | null; address: string | null; regionCode: string | null; ihsStatus: string; mother: PatientSummary | null;
+  email: string | null; address: string | null; regionCode: string | null; ihsStatus: string;
+  ihsNumber: string | null; ihsCheckedAt: string | null; ihsLastError: string | null; mother: PatientSummary | null;
   mergedInto: PatientSummary | null; mergedAt: string | null; mergeReason: string | null; processingRestricted: boolean;
   restrictionReason: string | null; restrictedAt: string | null; createdAt: string; contacts: PatientContact[]; coverages: Coverage[];
   consents: PatientConsent[]; hasConsent: boolean; hasActiveCoverage: boolean; version: number;
@@ -347,3 +348,12 @@ export type AnomalyRule = 'VOID_OUTSIDE_HOURS' | 'REFUND_OUTSIDE_HOURS' | 'DISCO
 export interface AnomalyReport { from: string; to: string; thresholds: { billingHoursStart: string; billingHoursEnd: string; voidsPerShiftLimit: number; cashVarianceTolerance: number };
   counts: Record<AnomalyRule, number>; items: { rule: AnomalyRule; label: string; at: string; branchName: string; userName: string | null; invoiceId: string | null;
     invoiceNo: string | null; shiftId: string | null; amount: string | null; detail: string }[] }
+export type SatuSehatEnvironment = 'SIMULATOR' | 'SANDBOX' | 'PRODUCTION';
+export interface SatuSehatConnection { id: string; facilityId: string; environment: SatuSehatEnvironment; clientIdMasked: string; hasSecret: boolean; organizationId: string;
+  lastTestAt: string | null; lastTestOk: boolean | null; lastTestMessage: string | null; lastSyncAt: string | null; updatedAt: string }
+export interface SatuSehatOverview { simulatorAllowed: boolean;
+  facilities: { facilityId: string; facilityName: string; connection: SatuSehatConnection | null;
+    locations: { unitId: string; unitName: string; branchName: string; locationId: string | null; status: string; lastError: string | null }[] }[];
+  identity: { practitioners: number; practitionersFound: number; patientsPending: number; patientsFound: number; patientsNotFound: number; patientsError: number } }
+export interface MasterSyncResult { environment: SatuSehatEnvironment; locations: { created: number; existing: number; failed: number };
+  practitioners: { found: number; notFound: number; noNik: number; failed: number } }

@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | Phase | E — Integrasi & Kanal |
-| Status | Perencanaan — rencana & OD menunggu keputusan PO ([STAGE_PLAN](../reports/stage-12/STAGE_PLAN.md)) |
+| Status | Berjalan — OD diputuskan DEC-044 ([STAGE_PLAN](../reports/stage-12/STAGE_PLAN.md)) |
 | Prasyarat | Stage 11 disetujui |
 | Modul | `integration`, `terminology` |
 

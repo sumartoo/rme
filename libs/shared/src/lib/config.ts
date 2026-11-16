@@ -42,6 +42,9 @@ const EnvSchema = z.object({
   /** Kunci HMAC callback simulator (≥ 32 karakter). Wajib di staging; lingkungan lain: diturunkan dari ENCRYPTION_KEY_HEX bila kosong. */
   PAYMENT_SIMULATOR_SECRET: z.string().min(32).optional(),
   QRIS_EXPIRY_MINUTES: int(15).pipe(z.number().max(120)),
+  /** SATUSEHAT (Stage 12): alamat resmi Kemenkes; diganti hanya untuk uji klien HTTP. */
+  SATUSEHAT_SANDBOX_URL: z.string().url().default('https://api-satusehat-stg.dto.kemkes.go.id'),
+  SATUSEHAT_PRODUCTION_URL: z.string().url().default('https://api-satusehat.kemkes.go.id'),
 });
 
 export interface AppConfig {
@@ -64,6 +67,7 @@ export interface AppConfig {
   storage: StorageConfig;
   exportTtlHours: number;
   paymentGateway: { provider: 'SIMULATOR'; secret: string; qrisExpiryMinutes: number };
+  satusehatUrls: { sandbox: string; production: string };
 }
 
 export function loadConfig(env: Record<string, string | undefined> = process.env): AppConfig {
@@ -112,6 +116,7 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
       secret: e.PAYMENT_SIMULATOR_SECRET ?? createHmac('sha256', e.ENCRYPTION_KEY_HEX).update('payment-simulator').digest('hex'),
       qrisExpiryMinutes: e.QRIS_EXPIRY_MINUTES,
     },
+    satusehatUrls: { sandbox: e.SATUSEHAT_SANDBOX_URL, production: e.SATUSEHAT_PRODUCTION_URL },
   };
 }
 

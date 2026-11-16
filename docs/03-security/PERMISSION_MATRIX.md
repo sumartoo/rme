@@ -81,7 +81,7 @@
 | `iam.user.read` | ✓ |  |  |  |  |  |  |  | userInvitationList; userList |
 | **integration** | | | | | | | | | |
 | `integration.manage` | ✓ |  |  |  |  |  |  |  | satusehatConfigure; satusehatRetry; satusehatSyncMaster; satusehatTest |
-| `integration.read` | ✓ |  |  |  |  |  | ✓ | ✓ | satusehatReconciliation; satusehatRecords; satusehatSummary |
+| `integration.read` | ✓ |  |  |  |  |  | ✓ | ✓ | satusehatGet; satusehatReconciliation; satusehatRecords; satusehatSummary |
 | **master** | | | | | | | | | |
 | `master.export` | ✓ |  |  |  |  |  |  |  | masterExport |
 | `master.facility.manage` | ✓ |  |  |  |  |  |  |  | branchCreate; branchUpdate; facilityCreate; facilityUpdate; stockLocationCreate; stockLocationUpdate; unitCreate; unitUpdate |
@@ -103,7 +103,7 @@
 | `patient.create` |  |  |  | ✓ |  |  |  |  | patientCreate; patientDuplicateCheck |
 | `patient.merge` | ✓ |  |  |  |  |  |  |  | patientMerge |
 | `patient.read` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |  |  | consentDocumentList; patientGet; patientSearch |
-| `patient.update` |  |  |  | ✓ |  |  |  |  | patientConsentRecord; patientConsentRevoke; patientCoverageCreate; patientCoverageUpdate; patientRestrictionSet; patientUpdate |
+| `patient.update` |  |  |  | ✓ |  |  |  |  | patientConsentRecord; patientConsentRevoke; patientCoverageCreate; patientCoverageUpdate; patientIhsLookup; patientRestrictionSet; patientUpdate |
 | **pharmacy** | | | | | | | | | |
 | `pharmacy.dispense` |  |  |  |  | ✓ |  |  |  | pharmacyDispense; pharmacyDispenseLabels; pharmacyPrescriptionClose; pharmacyPrescriptionGet; pharmacyPrescriptionReview; pharmacyWorklist; substitutionCancel; substitutionRequest |
 | `pharmacy.drug.manage` |  |  |  |  | ✓ |  |  |  | drugCreate; drugPriceCreate; drugPriceEnd; drugUpdate |

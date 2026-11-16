@@ -67,7 +67,7 @@ export default function PatientDetailPage() {
               <Row label="Telepon">{p.phone ?? '—'}</Row>
               <Row label="Email">{p.email ?? '—'}</Row>
               <Row label="Alamat">{p.address ?? '—'}{p.regionCode ? <span className="block text-xs text-muted-foreground">Kode wilayah {p.regionCode}</span> : null}</Row>
-              <Row label="SATUSEHAT">{p.ihsStatus === 'NOT_APPLICABLE' ? 'Tidak berlaku' : p.ihsStatus === 'PENDING' ? 'Menunggu (Stage 12)' : p.ihsStatus}</Row>
+              <Row label="SATUSEHAT"><IhsStatus p={p} canLookup={update && !merged} onDone={(m) => { void load(); setNotice(m); }} onError={setError} /></Row>
               <Row label="Terdaftar">{fmtDateTime(p.createdAt)}</Row>
             </dl>
           </CardContent>
@@ -404,5 +404,29 @@ function VisitHistory({ patientId }: { patientId: string }) {
         )}
       </CardContent>
     </Card>
+  );
+}
+
+const IHS_LABEL: Record<string, string> = { PENDING: 'Belum dicari', FOUND: 'Terhubung', NOT_FOUND: 'NIK tidak ditemukan', ERROR: 'Gagal dicari', NOT_APPLICABLE: 'Tidak berlaku (tanpa NIK)' };
+
+/** IHS pasien (INT-FR-003): dicari otomatis oleh sistem; pendaftar dapat mencari ulang sekarang. */
+function IhsStatus({ p, canLookup, onDone, onError }: { p: Patient; canLookup: boolean; onDone: (msg: string) => void; onError: (msg: string) => void }) {
+  const [busy, setBusy] = useState(false);
+  async function lookup() {
+    setBusy(true);
+    try {
+      const r = await api<{ ihsStatus: string; ihsNumber: string | null; error: string | null }>(`/patients/${p.id}/ihs-lookup`, { method: 'POST' });
+      onDone(r.ihsStatus === 'FOUND' ? `IHS ditemukan: ${r.ihsNumber}` : `IHS belum ditemukan: ${r.error ?? '-'}`);
+    } catch (e) { onError(errorText(e, 'Gagal mencari IHS')); } finally { setBusy(false); }
+  }
+  return (
+    <span className="flex flex-wrap items-center gap-2" data-testid="ihs-status">
+      <Badge tone={p.ihsStatus === 'FOUND' ? 'success' : p.ihsStatus === 'NOT_APPLICABLE' ? 'neutral' : 'warning'}>{IHS_LABEL[p.ihsStatus] ?? p.ihsStatus}</Badge>
+      {p.ihsNumber ? <span className="font-mono text-xs">{p.ihsNumber}</span> : null}
+      {p.ihsLastError && p.ihsStatus !== 'FOUND' ? <span className="text-xs text-muted-foreground">{p.ihsLastError}</span> : null}
+      {p.ihsCheckedAt ? <span className="text-xs text-muted-foreground">dicek {fmtDateTime(p.ihsCheckedAt)}</span> : null}
+      {canLookup && p.identityType === 'NIK' && p.ihsStatus !== 'FOUND'
+        ? <Button size="sm" variant="ghost" disabled={busy} onClick={() => void lookup()}>Cari di SATUSEHAT</Button> : null}
+    </span>
   );
 }

@@ -42,7 +42,7 @@ Semua keputusan penentu Stage 0 sudah diambil — lihat bagian D.
 | ID | Pertanyaan | Usulan |
 |---|---|---|
 
-## B5. Baru dari Stage 12 (menunggu PO)
+## B5. Baru dari Stage 12 (✅ diputuskan DEC-044)
 
 Rincian & usulan: [`docs/reports/stage-12/STAGE_PLAN.md`](../reports/stage-12/STAGE_PLAN.md) §4. Juga diputuskan bersama: OD-009, OD-042, dan tindakan OD-058.
 

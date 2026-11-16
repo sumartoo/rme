@@ -35,6 +35,11 @@
       "types": "./src/lib/rx-remainder.ts",
       "import": "./src/lib/rx-remainder.ts",
       "default": "./src/lib/rx-remainder.ts"
+    },
+    "./satusehat": {
+      "types": "./src/lib/satusehat.ts",
+      "import": "./src/lib/satusehat.ts",
+      "default": "./src/lib/satusehat.ts"
     }
   },
   "nx": {

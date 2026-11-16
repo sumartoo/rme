@@ -53,6 +53,9 @@
     },
     {
       "path": "./libs/billing"
+    },
+    {
+      "path": "./libs/integration"
     }
   ],
   "compilerOptions": {}

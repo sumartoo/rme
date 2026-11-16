@@ -218,6 +218,13 @@
       "when": 1795680000000,
       "tag": "0030_receivable_payment_shift_verify",
       "breakpoints": false
+    },
+    {
+      "idx": 31,
+      "version": "7",
+      "when": 1795766400000,
+      "tag": "0031_satusehat_connection",
+      "breakpoints": false
     }
   ]
 }

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Uji mutasi kontrol keamanan (Stage 3 M1–M4 diulang di monorepo — RSK-020; M5 Stage 4; M6–M14 Stage 5; M15–M17 Stage 6; M18–M22 Stage 7; M23–M38 Stage 8; M39–M59 Stage 9; M60–M89 Stage 10; M90–M133 Stage 11).
+# Uji mutasi kontrol keamanan (Stage 3 M1–M4 diulang di monorepo — RSK-020; M5 Stage 4; M6–M14 Stage 5; M15–M17 Stage 6; M18–M22 Stage 7; M23–M38 Stage 8; M39–M59 Stage 9; M60–M89 Stage 10; M90–M133 Stage 11; M134+ Stage 12).
 # Setiap mutasi sengaja merusak satu kontrol, menjalankan suite integrasi API, dan LULUS hanya bila
 # uji yang menjaga kontrol itu GAGAL. Kode selalu dikembalikan (trap), juga bila skrip dihentikan.
 #
@@ -68,7 +68,9 @@ PAYREPO=libs/billing/src/lib/payment.repo.ts
 QRCTL=libs/billing/src/lib/qris.controller.ts
 CORCTL=libs/billing/src/lib/correction.controller.ts
 OVCTL=libs/billing/src/lib/oversight.controller.ts
-FILES=("$AUTH" "$SESSION" "$MIG2" "$MIG3" "$GUARD" "$PGUARD" "$LAYOUT" "$EXPORT" "$MIG5" "$MIG6" "$TOTP" "$IAMUSERS" "$ACCOUNT" "$AUDITCHG" "$PRACT" "$MIG12" "$TERM" "$IMPORTS" "$PATIENT" "$MIG15" "$IDEM" "$MIG16" "$BOOK" "$SCHED" "$NOSHOW" "$ENCREPO" "$ENCCTL" "$QDISP" "$CHART" "$CHARTREPO" "$MIG19" "$SIGNCTL" "$REAUTH" "$MIG20" "$RXREPO" "$RXCTL" "$MIG21" "$LABCTL" "$DOCCTL" "$MIG22" "$RECV" "$PRICE" "$LOCS" "$DISP" "$DREPO" "$RXREM" "$SUBC" "$ADJC" "$OPNC" "$CRPT" "$OTCC" "$SRPT" "$INVREPO" "$INVCTL" "$PAYCTL" "$PAYREPO" "$QRCTL" "$CORCTL" "$OVCTL")
+SSCTL=libs/integration/src/lib/satusehat.controller.ts
+SSLIB=libs/db/src/lib/satusehat.ts
+FILES=("$AUTH" "$SESSION" "$MIG2" "$MIG3" "$GUARD" "$PGUARD" "$LAYOUT" "$EXPORT" "$MIG5" "$MIG6" "$TOTP" "$IAMUSERS" "$ACCOUNT" "$AUDITCHG" "$PRACT" "$MIG12" "$TERM" "$IMPORTS" "$PATIENT" "$MIG15" "$IDEM" "$MIG16" "$BOOK" "$SCHED" "$NOSHOW" "$ENCREPO" "$ENCCTL" "$QDISP" "$CHART" "$CHARTREPO" "$MIG19" "$SIGNCTL" "$REAUTH" "$MIG20" "$RXREPO" "$RXCTL" "$MIG21" "$LABCTL" "$DOCCTL" "$MIG22" "$RECV" "$PRICE" "$LOCS" "$DISP" "$DREPO" "$RXREM" "$SUBC" "$ADJC" "$OPNC" "$CRPT" "$OTCC" "$SRPT" "$INVREPO" "$INVCTL" "$PAYCTL" "$PAYREPO" "$QRCTL" "$CORCTL" "$OVCTL" "$SSCTL" "$SSLIB")
 BACKUP=$(mktemp -d)
 cp "${FILES[@]}" "$BACKUP"/
 restore() { for f in "${FILES[@]}"; do cp "$BACKUP/$(basename "$f")" "$f"; done; }
@@ -371,6 +373,23 @@ mutate M132 "diskon di atas batas yang sudah disetujui tidak ditandai" 'H03' \
   "sed -i \"s/l.discount_status in ('PENDING', 'APPROVED')/l.discount_status in ('PENDING')/\" $OVCTL && grep -q \"l.discount_status in ('PENDING')\" $OVCTL" ""
 mutate M133 "bayar tunai + QRIS melebihi tagihan tidak ditandai" 'H03' \
   "sed -i 's/x.total > i.patient_portion and/x.total > i.patient_portion * 2 and/' $OVCTL && grep -q 'x.total > i.patient_portion \* 2 and' $OVCTL" ""
+
+mutate M134 "kredensial SATUSEHAT tersimpan tanpa client secret" 'J01' \
+  "sed -i 's/      if (!secret) throw problem(400, .INT-400-SECRET./      if (false) throw problem(400, \x27INT-400-SECRET\x27/' $SSCTL && grep -q 'if (false) throw problem(400, .INT-400-SECRET' $SSCTL" ""
+mutate M135 "client secret SATUSEHAT disimpan tanpa enkripsi" 'J01' \
+  "sed -i 's/b.clientSecret ? encrypt(this.cfg.encryptionKeyHex, b.clientSecret) :/b.clientSecret ? Buffer.from(b.clientSecret) :/' $SSCTL && grep -q 'Buffer.from(b.clientSecret)' $SSCTL" ""
+mutate M136 "ganti lingkungan SATUSEHAT tidak mereset IHS" 'J06' \
+  "sed -i 's/^      if (switching) {$/      if (false) {/' $SSCTL && grep -q '^      if (false) {$' $SSCTL" ""
+mutate M137 "koneksi simulator dipakai worker di produksi" 'J05' \
+  "sed -i \"s/(conn.environment === 'SIMULATOR' \&\& o.allowSimulator === false)/false/\" $SSLIB && grep -q 'if (!conn || false) return null;' $SSLIB" ""
+mutate M138 "lookup IHS gagal diulang setiap putaran (tanpa jeda sehari)" 'J05' \
+  "sed -i \"s/ihs_checked_at < \\\$1::timestamptz - interval '1 day'/ihs_checked_at < \\\$1::timestamptz - interval '0 day'/\" $SSLIB && grep -q \"interval '0 day'\" $SSLIB" ""
+mutate M139 "pasien yang pemrosesannya dibatasi tetap dicari di SATUSEHAT" 'J05' \
+  "sed -i \"s/ and not processing_restricted$//\" $SSLIB && ! grep -q 'not processing_restricted' $SSLIB" ""
+mutate M140 "batas 7 hari lookup IHS otomatis diabaikan" 'J05' \
+  "sed -i \"s/created_at > \\\$1::timestamptz - interval '7 days'/created_at > \\\$1::timestamptz - interval '70 days'/\" $SSLIB && grep -q \"interval '70 days'\" $SSLIB" ""
+mutate M141 "kredensial ditolak di satu klinik menghentikan lookup semua klinik" 'J05' \
+  "sed -i 's/        if (!(e instanceof SatuSehatError)) throw e;/        throw e;/' $SSLIB && grep -q '^        throw e;$' $SSLIB" ""
 
 # Mutasi UI: suite Playwright (U##) sebagai detektor
 if [ "${MUTATION_E2E:-0}" = "1" ]; then

@@ -30,6 +30,7 @@ async function main() {
     pool,
     storage: createStorage(storageConfigFromEnv(process.env, cfg.APP_ENV)),
     exportOptions: { encryptionKeyHex: cfg.ENCRYPTION_KEY_HEX, ttlHours: cfg.EXPORT_TTL_HOURS, workDir: cfg.WORKER_TMP_DIR },
+    satusehatUrls: { sandbox: cfg.SATUSEHAT_SANDBOX_URL, production: cfg.SATUSEHAT_PRODUCTION_URL },
     sendMail: cfg.SMTP_URL ? mailer(cfg.SMTP_URL, cfg.MAIL_FROM) : undefined,
     notifyOptions: { clinicUrlTemplate: cfg.CLINIC_URL_TEMPLATE },
     appEnv: cfg.APP_ENV,

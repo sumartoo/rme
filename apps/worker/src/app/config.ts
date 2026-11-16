@@ -10,6 +10,8 @@ const Schema = z.object({
   WORKER_SELFTEST: z.enum(['0', '1']).default('0'),
   /** Kunci aplikasi (sama dengan API) — membungkus kunci arsip ekspor. */
   ENCRYPTION_KEY_HEX: z.string().regex(/^[0-9a-f]{64}$/i, 'ENCRYPTION_KEY_HEX harus 64 karakter hex'),
+  SATUSEHAT_SANDBOX_URL: z.string().url().default('https://api-satusehat-stg.dto.kemkes.go.id'),
+  SATUSEHAT_PRODUCTION_URL: z.string().url().default('https://api-satusehat.kemkes.go.id'),
   EXPORT_TTL_HOURS: z.coerce.number().int().min(1).max(168).default(24),
   /** Folder kerja sementara ekspor (Cloud Run: /tmp, memori). */
   WORKER_TMP_DIR: z.string().optional(),

@@ -11,6 +11,7 @@ import { SchedulingModule } from '@clinicrme/scheduling';
 import { ClinicalModule } from '@clinicrme/clinical';
 import { PharmacyModule } from '@clinicrme/pharmacy';
 import { BillingModule } from '@clinicrme/billing';
+import { IntegrationModule } from '@clinicrme/integration';
 import { PlatformModule } from '@clinicrme/platform';
 import { TenantModule } from '@clinicrme/tenant';
 import { CoreModule } from './core.module';
@@ -57,7 +58,7 @@ export class AppModule {
         PatientModule,
         SchedulingModule,
         ClinicalModule,
-        PharmacyModule, BillingModule,
+        PharmacyModule, BillingModule, IntegrationModule,
       ],
       controllers: [HealthController, ...(extra.controllers ?? [])],
       providers: [

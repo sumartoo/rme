@@ -97,6 +97,7 @@
     "@clinicrme/clinical": "workspace:*",
     "@clinicrme/db": "workspace:*",
     "@clinicrme/iam": "workspace:*",
+    "@clinicrme/integration": "workspace:*",
     "@clinicrme/masterdata": "workspace:*",
     "@clinicrme/patient": "workspace:*",
     "@clinicrme/pharmacy": "workspace:*",

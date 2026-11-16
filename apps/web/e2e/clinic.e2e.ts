@@ -1440,6 +1440,45 @@ test('W34 supervisor: tutup shift yang lupa ditutup & verifikasi, pelunasan piut
   await spv.close();
 });
 
+test('W35 SATUSEHAT (simulator): admin menyimpan kredensial, uji koneksi, sinkron master; pendaftaran mencari IHS pasien (Stage 12 batch 1)', async ({ page, browser }) => {
+  watchCsp(page);
+  await signInAdmin(page);
+  await page.getByTestId('side-menu').getByRole('link', { name: 'SATUSEHAT' }).click();
+  await expect(page.getByRole('heading', { name: 'Integrasi SATUSEHAT' })).toBeVisible();
+  const card = page.getByTestId('satusehat-facility').first();
+  await expect(card).toContainText('Belum terhubung.');
+  await card.getByLabel('Lingkungan').selectOption({ label: 'Simulator (uji lokal, bukan SATUSEHAT)' });
+  await card.getByLabel('Organization ID').fill('10000004');
+  await card.getByLabel('Client ID').fill('e2e-client-001');
+  await card.getByLabel('Client secret').fill('rahasia-simulator-e2e');   // pragma: allowlist secret — nilai sintetis
+  await card.getByRole('button', { name: 'Simpan kredensial' }).click();
+  await expect(card.getByRole('status').filter({ hasText: 'Kredensial disimpan.' })).toBeVisible();
+  await expect(card).toContainText('Organization 10000004 · client e2e••••001');
+  await expect(card.getByLabel('Client secret')).toHaveValue('');
+  await card.getByRole('button', { name: 'Uji koneksi' }).click();
+  await expect(card.getByRole('status').filter({ hasText: 'Terhubung ke SATUSEHAT simulator — Organisasi Simulasi 10000004' })).toBeVisible();
+  await expect(card.getByTestId('connection-test')).toContainText('Terhubung');
+  await card.getByRole('button', { name: 'Sinkron master' }).click();
+  await expect(card.getByTestId('sync-result')).toContainText(/Location: \d+ dibuat, 0 sudah ada, 0 gagal/);
+  await expect(card.getByTestId('location-row').filter({ hasText: 'Poli Gigi' })).toContainText('Terdaftar');
+  await card.getByRole('button', { name: 'Sinkron master' }).click();
+  await expect(card.getByTestId('sync-result')).toContainText(/Location: 0 dibuat, \d+ sudah ada, 0 gagal/);
+
+  const reg = await browser.newPage();
+  watchCsp(reg);
+  await login(reg, 'pendaftaran@klinik-web.test');
+  await reg.getByTestId('side-menu').getByRole('link', { name: 'Pasien' }).click();
+  await reg.getByLabel('Cari pasien').fill('siti rahmawati');
+  await reg.getByTestId('patient-row').filter({ hasText: '00000001' }).getByRole('link', { name: 'Siti Rahmawati', exact: true }).click();
+  const ihs = reg.getByTestId('ihs-status');
+  await ihs.getByRole('button', { name: 'Cari di SATUSEHAT' }).click();
+  await expect(reg.getByRole('status').filter({ hasText: /^IHS ditemukan: P\d{10}$/ })).toBeVisible();
+  await expect(ihs).toContainText('Terhubung');
+  await expect(ihs.getByRole('button', { name: 'Cari di SATUSEHAT' })).toHaveCount(0);
+  expect(cspViolations).toEqual([]);
+  await reg.close();
+});
+
 test('W06 keamanan: CSP bernonce, no-store; proxy hanya untuk klinik dari subdomain; tidak ada pelanggaran CSP', async ({ page }) => {
   const res = await page.goto('/login');
   const h = res!.headers();

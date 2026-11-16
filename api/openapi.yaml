@@ -7457,11 +7457,34 @@ paths:
         '403':
           $ref: '#/components/responses/Forbidden'
   /api/v1/integrations/satusehat:
+    get:
+      operationId: satusehatGet
+      tags:
+      - Integration
+      summary: Koneksi per fasilitas (tanpa rahasia), status Location & ringkasan IHS
+      x-requirements:
+      - INT-FR-001
+      - INT-FR-002
+      - INT-FR-003
+      x-permission: integration.read
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SatuSehatOverview'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
     put:
       operationId: satusehatConfigure
       tags:
       - Integration
-      summary: Simpan kredensial (ke Secret Manager)
+      summary: Simpan kredensial terenkripsi (OD-114); simulator ditolak di produksi
       x-requirements:
       - INT-FR-001
       x-permission: integration.manage
@@ -7491,10 +7514,16 @@ paths:
       operationId: satusehatTest
       tags:
       - Integration
-      summary: Uji koneksi
+      summary: 'Uji koneksi: token + Organization'
       x-requirements:
       - INT-FR-001
       x-permission: integration.manage
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FacilityRef'
       responses:
         '200':
           description: OK
@@ -7515,19 +7544,57 @@ paths:
       operationId: satusehatSyncMaster
       tags:
       - Integration
-      summary: Sinkron Organization/Location/Practitioner
+      summary: Sinkron Organization/Location/Practitioner (idempoten)
       x-requirements:
       - INT-FR-002
       x-permission: integration.manage
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FacilityRef'
       responses:
-        '202':
-          description: Diterima untuk diproses
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MasterSyncResult'
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /api/v1/patients/{patientId}/ihs-lookup:
+    post:
+      operationId: patientIhsLookup
+      tags:
+      - Integration
+      summary: Cari IHS pasien dari NIK di SATUSEHAT
+      x-requirements:
+      - INT-FR-003
+      x-permission: patient.update
+      parameters:
+      - $ref: '#/components/parameters/patientId'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IhsLookupResult'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
         '409':
           $ref: '#/components/responses/Conflict'
   /api/v1/integrations/satusehat/summary:
@@ -9116,6 +9183,18 @@ components:
           - NOT_FOUND
           - NOT_APPLICABLE
           - ERROR
+        ihsNumber:
+          type:
+          - string
+          - 'null'
+        ihsCheckedAt:
+          type:
+          - string
+          - 'null'
+        ihsLastError:
+          type:
+          - string
+          - 'null'
         status:
           type: string
           enum:
@@ -12725,6 +12804,7 @@ components:
         environment:
           type: string
           enum:
+          - SIMULATOR
           - SANDBOX
           - PRODUCTION
         clientId:
@@ -12732,13 +12812,13 @@ components:
         clientSecret:
           type: string
           writeOnly: true
+          description: Wajib saat pertama/ganti lingkungan; kosong = tetap
         organizationId:
           type: string
       required:
       - facilityId
       - environment
       - clientId
-      - clientSecret
       - organizationId
     IntegrationConnection:
       type: object
@@ -12747,19 +12827,142 @@ components:
         facilityId: *id002
         environment:
           type: string
-        lastTestAt: *id006
-        lastTestOk: *id001
+          enum:
+          - SIMULATOR
+          - SANDBOX
+          - PRODUCTION
+        clientIdMasked:
+          type: string
+        hasSecret: *id001
+        organizationId:
+          type: string
+        lastTestAt:
+          type:
+          - string
+          - 'null'
+        lastTestOk:
+          type:
+          - boolean
+          - 'null'
+        lastTestMessage:
+          type:
+          - string
+          - 'null'
+        lastSyncAt:
+          type:
+          - string
+          - 'null'
+        updatedAt: *id006
       required:
       - id
       - environment
+    SatuSehatOverview:
+      type: object
+      properties:
+        simulatorAllowed: *id001
+        facilities:
+          type: array
+          items:
+            type: object
+            properties:
+              facilityId: *id002
+              facilityName:
+                type: string
+              connection:
+                oneOf:
+                - $ref: '#/components/schemas/IntegrationConnection'
+                - type: 'null'
+              locations:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    unitId: *id002
+                    unitName:
+                      type: string
+                    branchName:
+                      type: string
+                    locationId:
+                      type:
+                      - string
+                      - 'null'
+                    status:
+                      type: string
+                    lastError:
+                      type:
+                      - string
+                      - 'null'
+                  required:
+                  - unitId
+            required:
+            - facilityId
+        identity:
+          type: object
+      required:
+      - facilities
+    FacilityRef:
+      type: object
+      properties:
+        facilityId: *id002
+      required:
+      - facilityId
     ConnectionTest:
       type: object
       properties:
         ok: *id001
         message:
           type: string
+        organizationName:
+          type:
+          - string
+          - 'null'
+        environment:
+          type: string
+        testedAt: *id006
       required:
       - ok
+    MasterSyncResult:
+      type: object
+      properties:
+        environment:
+          type: string
+        locations:
+          type: object
+          properties:
+            created: *id005
+            existing: *id005
+            failed: *id005
+        practitioners:
+          type: object
+          properties:
+            found: *id005
+            notFound: *id005
+            noNik: *id005
+            failed: *id005
+      required:
+      - locations
+      - practitioners
+    IhsLookupResult:
+      type: object
+      properties:
+        ihsStatus:
+          type: string
+          enum:
+          - FOUND
+          - NOT_FOUND
+          - ERROR
+        ihsNumber:
+          type:
+          - string
+          - 'null'
+        error:
+          type:
+          - string
+          - 'null'
+        environment:
+          type: string
+      required:
+      - ihsStatus
     SyncSummary:
       type: object
       properties:

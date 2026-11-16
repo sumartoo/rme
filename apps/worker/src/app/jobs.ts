@@ -8,6 +8,7 @@ import { expireExports, runNextExport, type ExportOptions } from '@clinicrme/db/
 import { dispatchNotifications, type NotifyOptions, type SendMail } from '@clinicrme/db/notifications';
 import { markNoShows } from '@clinicrme/db/no-show';
 import { closeExpiredRemainders } from '@clinicrme/db/rx-remainder';
+import { lookupPendingIhs, type SatuSehatUrls } from '@clinicrme/db/satusehat';
 import type { ObjectStorage } from '@clinicrme/storage';
 
 export interface JobDeps {
@@ -21,6 +22,8 @@ export interface JobDeps {
   sendMail?: SendMail;
   notifyOptions: NotifyOptions;
   appEnv: string;
+  /** Base URL SATUSEHAT sandbox/produksi (bawaan alamat resmi Kemenkes). */
+  satusehatUrls?: SatuSehatUrls;
   warn(obj: object, msg: string): void;
 }
 
@@ -43,6 +46,7 @@ const EXPORTS_PER_RUN = 3;
 export const NOTIFY_DISPATCH = 'notify.outbox.dispatch';
 export const NO_SHOW = 'scheduling.no_show';
 export const RX_REMAINDER = 'pharmacy.rx_remainder_close';
+export const SATUSEHAT_IHS_LOOKUP = 'integration.satusehat_ihs_lookup';
 const AUDIT_MONTHS_AHEAD = 2;
 
 export const jobs: JobDefinition[] = [
@@ -143,6 +147,15 @@ export const jobs: JobDefinition[] = [
     retryLimit: 0,
     cron: '7 * * * *',
     handler: async (_data, deps) => closeExpiredRemainders(deps.pool),
+  },
+  {
+    // OD-116 (DEC-044): IHS pasien ber-NIK yang belum ditemukan dicari ulang (PENDING segera, gagal sekali sehari, ≤ 7 hari)
+    name: SATUSEHAT_IHS_LOOKUP,
+    retryLimit: 0,
+    cron: '*/10 * * * *',
+    handler: async (_data, deps) => lookupPendingIhs(deps.pool, {
+      keyHex: deps.exportOptions.encryptionKeyHex, urls: deps.satusehatUrls, allowSimulator: deps.appEnv !== 'prod',
+    }),
   },
 ];
 
