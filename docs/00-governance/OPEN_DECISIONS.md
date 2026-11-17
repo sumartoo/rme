@@ -80,6 +80,23 @@ Rincian & usulan: [`docs/reports/stage-14/STAGE_PLAN.md`](../reports/stage-14/ST
 |---|---|---|
 | OD-132 | Unduhan CSV cepat (`?format=csv` di laporan) masih tersedia untuk semua yang boleh *melihat* laporan, tanpa watermark & tanpa izin `report.export` (perilaku sejak Stage 10/14 batch 1–2). Apakah dibatasi? | **Batasi ke `report.export`** dan arahkan ke ekspor seragam ber-watermark; FARMASI & TENANT_ADMIN perlu diberi `report.export` bila memang boleh mengekspor. Sampai diputuskan, tautan CSV cepat tetap ada (teraudit sebagai `REPORT_*_VIEWED` format csv) |
 
+## B8. Baru dari Stage 15 (menunggu PO)
+
+Rincian, perkiraan biaya & usulan: [`docs/reports/stage-15/STAGE_PLAN.md`](../reports/stage-15/STAGE_PLAN.md) §4–5. OD-016 sudah diputuskan (DEC-014).
+
+| ID | Pertanyaan | Usulan singkat |
+|---|---|---|
+| OD-133 | Profil infrastruktur produksi pilot | A — GCP hemat (Cloud SQL zonal + PITR); naik ke HA sebelum klinik ke-3 |
+| OD-134 | Lokasi data & DR (menjawab OD-049) | Semua di Jakarta (Permenkes 24/2022 Ps. 22); salinan cadangan kedua di Indonesia di luar GCP |
+| OD-048 | Pembatasan geografis | Indonesia saja + daftar pengecualian IP |
+| OD-135 | Lingkungan | prod GCP; staging GCP minimum, dimatikan saat tidak dipakai; dev tetap VPS |
+| OD-136 | Anggaran | Prod USD 400/bulan, staging USD 75; alert 50/80/100%; max instance |
+| OD-137 | Rate limit | 10 login/menit/IP, 300 req/menit/user, 3.000/menit/tenant; Cloud Armor 600/menit/IP |
+| OD-138 | Load & stress test | 300 pengguna bersamaan p95 < 500 ms; stress sampai 1.000; k6 |
+| OD-139 | Terraform & kredensial | Bootstrap oleh PO dari komputernya; lalu GitHub Actions + Workload Identity Federation |
+| OD-140 | Domain produksi | Wildcard `*.domain` + `admin.domain`, sertifikat terkelola; domain dipilih PO |
+| OD-141 | Pemantauan & dukungan | Alert email PO, status page statis, maintenance ≥ 48 jam |
+
 ## C. Ditetapkan di Stage Berikutnya
 
 Lihat `docs/APP_DESIGN.md` §13 dan masing-masing `docs/stages/STAGE_XX_*.md` (OD-003 s.d. OD-054).

@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | Stage | 14 — Reporting, Analytics & Dashboard (MVP) |
-| Status | **SELESAI — MENUNGGU PERSETUJUAN PO**. Tindak lanjut: uji mutasi lengkap M1–M214 di Actions setelah 1 Des; UAT laporan oleh manajer klinik di Stage 16 |
+| Status | **DISETUJUI** — DEC-049 (18 Nov 2026). Tindak lanjut: uji mutasi lengkap M1–M214 di Actions setelah 1 Des; UAT laporan oleh manajer klinik di Stage 16 |
 | Disusun oleh | Sumarto (dibantu Claude) |
 | Rincian | [STAGE_PLAN.md](STAGE_PLAN.md) · DEC-047 (OD-123–131), DEC-048 (OD-132) · [REPORT_CATALOG.md](../../02-architecture/REPORT_CATALOG.md) · [PERFORMANCE_TEST.md](PERFORMANCE_TEST.md) |
 | Repo kerja | `AtoAIs/atoai-rme-v2`, PR #49, #50, #51, #52, #53. Diverifikasi penuh di lokal lalu digabung tanpa CI (DEC-036) |
@@ -82,7 +82,7 @@ Klinik kini punya laporan standar dengan angka yang divalidasi:
 - [x] Matriks permission X01 mencakup semua endpoint baru; uji mutasi kontrol baru terdeteksi (M176–M214)
 - [ ] Uji mutasi lengkap M1–M214 di GitHub Actions — setelah kuota aktif 1 Des
 - [ ] UAT oleh manajer klinik — dijadwalkan di Stage 16 (pengingat UAT)
-- [ ] PO menyetujui Stage 14
+- [x] PO menyetujui Stage 14 — DEC-049
 
 ## 4. Keamanan & privasi
 

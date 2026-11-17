@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | Stage | 14 — Reporting, Analytics & Dashboard |
-| Status | **SELESAI — menunggu persetujuan PO** ([completion report](STAGE_COMPLETION_REPORT.md)). OD diputuskan DEC-047, DEC-048 |
+| Status | **DISETUJUI** — DEC-049 ([completion report](STAGE_COMPLETION_REPORT.md)). OD diputuskan DEC-047, DEC-048 |
 | Project Owner | Sumarto |
 | Urutan | Dikerjakan setelah Stage 12. **Stage 13 (aplikasi Android pasien) ditunda sampai setelah pilot** (DEC-046, sesuai DEC-012) |
 | Requirement | **MVP saja** (DEC-010): RPT-FR-001–009. LJT: RPT-FR-010 report builder tanpa SQL, RPT-FR-011 laporan terjadwal & distribusi, RPT-FR-012 waktu tunggu pasien |
@@ -66,7 +66,7 @@ Perkiraan: ±1 hari kerja per batch.
 - [x] Uji performa dengan volume target (OD-130)
 - [x] Matriks permission X01 mencakup semua endpoint baru; uji mutasi kontrol baru terdeteksi
 - [ ] UAT oleh manajer klinik — dijadwalkan di Stage 16 (dicatat sebagai pengingat UAT)
-- [ ] PO menyetujui Stage 14
+- [x] PO menyetujui Stage 14 — DEC-049
 
 ## 6. Risiko & catatan
 
