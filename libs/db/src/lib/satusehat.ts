@@ -16,6 +16,7 @@ export const DEFAULT_SATUSEHAT_URLS: SatuSehatUrls = {
 };
 export const NIK_SYSTEM = 'https://fhir.kemkes.go.id/id/nik';
 export const locationSystem = (orgId: string) => `http://sys-ids.kemkes.go.id/location/${orgId}`;
+export const encounterSystem = (orgId: string) => `http://sys-ids.kemkes.go.id/encounter/${orgId}`;
 
 /** AUTH = kredensial salah; VALIDATION = data ditolak (4xx, tidak di-retry); TRANSIENT = jaringan/5xx/429 (di-retry). */
 export type SatuSehatErrorKind = 'AUTH' | 'VALIDATION' | 'NOT_FOUND' | 'TRANSIENT';
@@ -151,10 +152,55 @@ export class SimulatorSatuSehatClient implements SatuSehatClient {
       simLocations.set(key, id);
       return { status: 201, body: { resourceType: 'Location', id } };
     }
+    if (method === 'GET' && p === '/Encounter') {
+      return { status: 200, body: bundle(simEncounters.has(ident) ? [{ resourceType: 'Encounter', id: simEncounters.get(ident) }] : []) };
+    }
+    if (method === 'POST' && p === '') return this.transaction(body);
     return classify({ status: 400, body: issue(`Operasi simulator tidak dikenal: ${method} ${p}`) });
+  }
+
+  /**
+   * Bundle transaction (OD-115). Validasi dasar profil rawat jalan; identifier Encounter unik per Organization. Nomor
+   * kunjungan berakhiran `-503` → gangguan; `-422` → ditolak; `-LOST` → tersimpan tetapi respons "hilang" (uji idempotensi).
+   */
+  private transaction(body: unknown): FhirResponse {
+    const b = body as { resourceType?: string; type?: string; entry?: { fullUrl?: string; resource?: Record<string, unknown>; request?: { method?: string; url?: string } }[] };
+    if (b?.resourceType !== 'Bundle' || b.type !== 'transaction' || !b.entry?.length) return classify({ status: 400, body: issue('Bundle transaction kosong/tidak valid', 'Bundle') });
+    const enc = b.entry.find((e) => e.resource?.['resourceType'] === 'Encounter')?.resource as
+      { identifier?: { system?: string; value?: string }[]; subject?: { reference?: string }; participant?: unknown[]; location?: unknown[]; period?: { start?: string } } | undefined;
+    const encNo = enc?.identifier?.[0]?.value ?? '';
+    if (encNo.endsWith('-503')) return classify({ status: 503, body: issue('Layanan sementara tidak tersedia') });
+    if (encNo.endsWith('-422')) return classify({ status: 422, body: issue('Encounter.period.start tidak boleh di masa depan', 'Encounter.period.start') });
+    const problems: string[] = [];
+    if (enc) {
+      const key = `${enc.identifier?.[0]?.system}|${encNo}`;
+      if (!enc.identifier?.[0]?.system?.startsWith('http://sys-ids.kemkes.go.id/encounter/')) problems.push('Encounter.identifier.system tidak valid');
+      if (!/^Patient\/P\d{10}$/.test(enc.subject?.reference ?? '')) problems.push('Encounter.subject harus Patient IHS');
+      if (!enc.participant?.length) problems.push('Encounter.participant wajib');
+      if (!enc.location?.length) problems.push('Encounter.location wajib');
+      if (!enc.period?.start) problems.push('Encounter.period.start wajib');
+      if (simEncounters.has(key)) problems.push(`Duplikat Encounter.identifier ${encNo}`);
+    }
+    for (const e of b.entry) {
+      const r = e.resource as { resourceType?: string; code?: { coding?: { system?: string; code?: string }[] } } | undefined;
+      const c = r?.code?.coding?.[0];
+      if (r?.resourceType === 'Condition' && (c?.system !== 'http://hl7.org/fhir/sid/icd-10' || !/^[A-Z]\d{2}(\.\d{1,2})?$/.test(c?.code ?? ''))) problems.push('Condition.code harus ICD-10');
+      if (r?.resourceType === 'Procedure' && c?.system !== 'http://hl7.org/fhir/sid/icd-9-cm') problems.push('Procedure.code harus ICD-9-CM');
+      if (r?.resourceType === 'Observation' && c?.system !== 'http://loinc.org') problems.push('Observation.code harus LOINC');
+    }
+    if (problems.length) return classify({ status: 400, body: { resourceType: 'OperationOutcome', issue: problems.map((t) => ({ severity: 'error', code: 'invalid', details: { text: t } })) } });
+    const entry = b.entry.map((e) => {
+      const type = String(e.resource?.['resourceType'] ?? 'Unknown');
+      const id = uuidFrom(`${type}:${e.fullUrl ?? Math.random()}:${Date.now()}:${Math.random()}`);
+      return { response: { status: '201 Created', location: `${type}/${id}/_history/1`, resourceID: id } };
+    });
+    if (enc) simEncounters.set(`${enc.identifier?.[0]?.system}|${encNo}`, entry[b.entry.findIndex((e) => e.resource?.['resourceType'] === 'Encounter')].response.resourceID);
+    if (encNo.endsWith('-LOST')) throw new SatuSehatError('TRANSIENT', 'SATUSEHAT tidak merespons (timeout)');
+    return { status: 200, body: { resourceType: 'Bundle', type: 'transaction-response', entry } };
   }
 }
 const simLocations = new Map<string, string>();
+const simEncounters = new Map<string, string>();
 const issue = (text: string, expr?: string) => ({ resourceType: 'OperationOutcome', issue: [{ severity: 'error', code: 'invalid', details: { text }, ...(expr ? { expression: [expr] } : {}) }] });
 const bundle = (resources: object[]) => ({ resourceType: 'Bundle', type: 'searchset', total: resources.length, entry: resources.map((resource) => ({ resource })) });
 const digits = (s: string, n: number) => BigInt(`0x${createHash('sha256').update(s).digest('hex').slice(0, 15)}`).toString().padStart(n, '0').slice(-n);
@@ -162,7 +208,7 @@ const uuidFrom = (s: string) => {
   const h = createHash('sha256').update(`sim-location:${s}`).digest('hex');
   return `${h.slice(0, 8)}-${h.slice(8, 12)}-4${h.slice(13, 16)}-a${h.slice(17, 20)}-${h.slice(20, 32)}`;
 };
-export const simulatorReset = () => simLocations.clear();
+export const simulatorReset = () => { simLocations.clear(); simEncounters.clear(); };
 
 export function createSatuSehatClient(conn: SatuSehatConnection, urls?: SatuSehatUrls, opts?: { timeoutMs?: number; fetchImpl?: typeof fetch }): SatuSehatClient {
   return conn.environment === 'SIMULATOR' ? new SimulatorSatuSehatClient(conn) : new HttpSatuSehatClient(conn, urls, opts);
@@ -279,7 +325,7 @@ async function activeConnection(c: PoolClient, keyHex: string): Promise<SatuSeha
     organizationId: r.organization_id } : null;
 }
 
-async function asTenant<T>(c: PoolClient, tenantId: string, fn: () => Promise<T>): Promise<T> {
+export async function asTenant<T>(c: PoolClient, tenantId: string, fn: () => Promise<T>): Promise<T> {
   await c.query('begin');
   try {
     await c.query('set local role clinicrme_app');

@@ -40,6 +40,11 @@
       "types": "./src/lib/satusehat.ts",
       "import": "./src/lib/satusehat.ts",
       "default": "./src/lib/satusehat.ts"
+    },
+    "./satusehat-encounter": {
+      "types": "./src/lib/satusehat-encounter.ts",
+      "import": "./src/lib/satusehat-encounter.ts",
+      "default": "./src/lib/satusehat-encounter.ts"
     }
   },
   "nx": {

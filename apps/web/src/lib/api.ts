@@ -351,6 +351,10 @@ export interface AnomalyReport { from: string; to: string; thresholds: { billing
 export type SatuSehatEnvironment = 'SIMULATOR' | 'SANDBOX' | 'PRODUCTION';
 export interface SatuSehatConnection { id: string; facilityId: string; environment: SatuSehatEnvironment; clientIdMasked: string; hasSecret: boolean; organizationId: string;
   lastTestAt: string | null; lastTestOk: boolean | null; lastTestMessage: string | null; lastSyncAt: string | null; updatedAt: string }
+export interface EncounterSyncStatus { configured: boolean; environment: SatuSehatEnvironment | null; signed?: boolean;
+  status: 'NOT_SIGNED' | 'QUEUED' | 'PENDING' | 'BLOCKED' | 'SENT' | 'ERROR' | 'DEAD' | 'SKIPPED' | null; attempts?: number; lastError?: string | null;
+  blocking?: string[]; warnings?: string[]; satusehatId?: string | null; lastSentAt?: string | null; nextAttemptAt?: string | null; updatedAt?: string | null;
+  resources: { resourceType: string; status: string; satusehatId: string | null }[] }
 export interface SatuSehatOverview { simulatorAllowed: boolean;
   facilities: { facilityId: string; facilityName: string; connection: SatuSehatConnection | null;
     locations: { unitId: string; unitName: string; branchName: string; locationId: string | null; status: string; lastError: string | null }[] }[];

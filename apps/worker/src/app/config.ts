@@ -8,6 +8,7 @@ const Schema = z.object({
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).default('info'),
   /** 1 = kirim job heartbeat ke diri sendiri, tunggu selesai, lalu keluar (smoke test CI). */
   WORKER_SELFTEST: z.enum(['0', '1']).default('0'),
+  WORKER_RUN_ONCE: z.string().max(500).optional(),
   /** Kunci aplikasi (sama dengan API) — membungkus kunci arsip ekspor. */
   ENCRYPTION_KEY_HEX: z.string().regex(/^[0-9a-f]{64}$/i, 'ENCRYPTION_KEY_HEX harus 64 karakter hex'),
   SATUSEHAT_SANDBOX_URL: z.string().url().default('https://api-satusehat-stg.dto.kemkes.go.id'),

@@ -1479,6 +1479,54 @@ test('W35 SATUSEHAT (simulator): admin menyimpan kredensial, uji koneksi, sinkro
   await reg.close();
 });
 
+test('W36 SATUSEHAT (simulator): RM disahkan → dalam antrean; tertahan dengan masalah yang dapat ditindaklanjuti; setelah dilengkapi → terkirim (Stage 12 batch 2)', async ({ page, browser }) => {
+  watchCsp(page);
+  // Worker sungguhan, sekali jalan: job integration.satusehat_send
+  const sendOnce = () => execFileSync(process.execPath, [join(ROOT, 'apps/worker/dist/main.js')], { cwd: ROOT, stdio: 'pipe', env: { ...process.env, APP_ENV: 'test',
+    LOG_LEVEL: 'warn', WORKER_DATABASE_URL: dbUrl(), ENCRYPTION_KEY_HEX: E2E_ENCRYPTION_KEY, STORAGE_DRIVER: 'fs', STORAGE_FS_DIR: STORAGE_DIR,
+    WORKER_RUN_ONCE: 'integration.satusehat_send', SMTP_URL: '' } });
+  const ctx = await browser.newContext();
+  const doc = await ctx.newPage();
+  watchCsp(doc);
+  await login(doc, 'dokter@klinik-web.test');
+  await doc.getByTestId('side-menu').getByRole('link', { name: 'Pasien' }).click();
+  await doc.getByLabel('Cari pasien').fill('siti rahmawati');
+  await doc.getByTestId('patient-row').filter({ hasText: '00000001' }).getByRole('link', { name: 'Siti Rahmawati', exact: true }).click();
+  await doc.getByRole('link', { name: 'Riwayat rekam medis' }).click();
+  await doc.getByTestId('record-entry').filter({ hasText: 'K02.9' }).first().locator('a[href^="/encounters/"]').click();
+  const panel = doc.getByTestId('satusehat-status');
+  await expect(panel).toContainText('Dalam antrean kirim');
+  await expect(panel).toContainText('(simulator)');
+
+  // IHS dokter dikosongkan admin (mis. salah isi) → kunjungan tertahan dengan pesan yang dapat ditindaklanjuti
+  await signInAdmin(page);
+  await page.getByTestId('side-menu').getByRole('link', { name: 'Tenaga kesehatan' }).click();
+  await page.getByTestId('practitioner-row').filter({ hasText: 'drg. Web Sintetis' }).getByRole('button', { name: 'Ubah' }).click();
+  const dlg = page.getByRole('dialog', { name: 'Ubah tenaga kesehatan' });
+  await expect(dlg.getByLabel('ID SATUSEHAT (IHS)')).toHaveValue(/^1\d{10}$/);   // terisi dari Sinkron master (W35)
+  await dlg.getByLabel('ID SATUSEHAT (IHS)').fill('');
+  await dlg.getByRole('button', { name: 'Simpan' }).click();
+  await expect(page.getByText('drg. Web Sintetis disimpan.')).toBeVisible();
+  sendOnce();
+  await doc.reload();
+  await expect(panel).toContainText('Tertahan — data belum lengkap');
+  await expect(doc.getByTestId('satusehat-blocking')).toContainText('Dokter drg. Web Sintetis belum punya IHS SATUSEHAT — lengkapi NIK lalu jalankan Sinkron master');
+
+  // Ditindaklanjuti: sinkron master mengisi kembali IHS dari NIK → terkirim pada putaran berikutnya
+  await page.getByTestId('side-menu').getByRole('link', { name: 'SATUSEHAT' }).click();
+  const card = page.getByTestId('satusehat-facility').first();
+  await card.getByRole('button', { name: 'Sinkron master' }).click();
+  await expect(card.getByTestId('sync-result')).toContainText(/Tenaga kesehatan: 1 ditemukan/);
+
+  sendOnce();
+  await doc.reload();
+  await expect(panel).toContainText('Terkirim');
+  await expect(panel).toContainText(/\d+ data/);
+  await expect(doc.getByTestId('satusehat-blocking')).toHaveCount(0);
+  expect(cspViolations).toEqual([]);
+  await ctx.close();
+});
+
 test('W06 keamanan: CSP bernonce, no-store; proxy hanya untuk klinik dari subdomain; tidak ada pelanggaran CSP', async ({ page }) => {
   const res = await page.goto('/login');
   const h = res!.headers();

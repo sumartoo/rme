@@ -225,6 +225,13 @@
       "when": 1795766400000,
       "tag": "0031_satusehat_connection",
       "breakpoints": false
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1795852800000,
+      "tag": "0032_satusehat_encounter",
+      "breakpoints": false
     }
   ]
 }

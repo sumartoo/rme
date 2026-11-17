@@ -36,6 +36,7 @@ All configuration comes from environment variables (12-factor) and is validated 
 | `EXPORT_TTL_HOURS` | api, worker | `24` | `24` (AC-PLT-FR-008-1) |
 | `PAYMENT_GATEWAY` / `PAYMENT_SIMULATOR_SECRET` / `QRIS_EXPIRY_MINUTES` | api | `SIMULATOR`; secret derived from `ENCRYPTION_KEY_HEX` when empty; `15` | Staging: `SIMULATOR` + secret from Secret Manager (required). Prod: the app refuses `SIMULATOR` — real provider adapter chosen before the pilot (OD-039) |
 | `SATUSEHAT_SANDBOX_URL` / `SATUSEHAT_PRODUCTION_URL` | api, worker | Official Kemenkes URLs (default); clinics use the in-app **Simulator** environment locally | Default official URLs. Per-facility credentials are entered in the app and stored encrypted (OD-114) until Stage 15 moves them to Secret Manager; the app refuses the Simulator in prod |
+| `WORKER_RUN_ONCE` | worker | Unset (optional: comma-separated job names, e.g. `integration.satusehat_send`) | Unset. When set, the worker runs those job handlers once directly (no queue) and exits — for operations and E2E |
 | `SMTP_URL` | worker | `smtp://localhost:1025` (Mailpit, inbox at `http://localhost:8025`); empty = sending off | Secret Manager; `smtps://` to the SMTP provider (to be decided before the pilot) |
 | `MAIL_FROM` / `CLINIC_URL_TEMPLATE` | worker | `ClinicRME <no-reply@clinicrme.local>` · `http://{code}.localhost:4200` | Verified sender domain · `https://{code}.<BASE_DOMAIN>` |
 | `API_INTERNAL_URL` | platform-admin, web (server) | `http://localhost:3000` (default) | Internal Cloud Run URL of the API; never exposed to the browser |

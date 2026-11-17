@@ -7569,6 +7569,33 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '409':
           $ref: '#/components/responses/Conflict'
+  /api/v1/encounters/{encounterId}/satusehat:
+    get:
+      operationId: encounterSatusehatStatus
+      tags:
+      - Integration
+      summary: Status pengiriman kunjungan ke SATUSEHAT + masalah yang dapat ditindaklanjuti
+      x-requirements:
+      - INT-FR-004
+      - INT-FR-008
+      x-permission: clinical.record.read
+      parameters:
+      - $ref: '#/components/parameters/encounterId'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EncounterSyncStatus'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
   /api/v1/patients/{patientId}/ihs-lookup:
     post:
       operationId: patientIhsLookup
@@ -12942,6 +12969,77 @@ components:
       required:
       - locations
       - practitioners
+    EncounterSyncStatus:
+      type: object
+      properties:
+        configured: *id001
+        environment:
+          type:
+          - string
+          - 'null'
+        signed: *id001
+        status:
+          type:
+          - string
+          - 'null'
+          enum:
+          - null
+          - NOT_SIGNED
+          - QUEUED
+          - PENDING
+          - BLOCKED
+          - SENT
+          - ERROR
+          - DEAD
+          - SKIPPED
+        attempts: *id005
+        lastError:
+          type:
+          - string
+          - 'null'
+        blocking:
+          type: array
+          items:
+            type: string
+        warnings:
+          type: array
+          items:
+            type: string
+        satusehatId:
+          type:
+          - string
+          - 'null'
+        lastSentAt:
+          type:
+          - string
+          - 'null'
+        nextAttemptAt:
+          type:
+          - string
+          - 'null'
+        updatedAt:
+          type:
+          - string
+          - 'null'
+        resources:
+          type: array
+          items:
+            type: object
+            properties:
+              resourceType:
+                type: string
+              status:
+                type: string
+              satusehatId:
+                type:
+                - string
+                - 'null'
+            required:
+            - resourceType
+            - status
+      required:
+      - configured
+      - status
     IhsLookupResult:
       type: object
       properties:

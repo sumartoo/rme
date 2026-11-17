@@ -222,6 +222,38 @@ export class SatuSehatController {
     });
   }
 
+  /**
+   * Status pengiriman kunjungan ke SATUSEHAT (INT-FR-008): terkirim / tertahan + daftar masalah yang dapat ditindaklanjuti /
+   * dicoba ulang / ditolak. Hanya data operasional, tanpa isi rekam medis.
+   */
+  @RequirePermission('clinical.record.read') @Get('encounters/:id/satusehat')
+  async encounterStatus(@Param('id') id: string) {
+    assertId(id, 'ENC-404', 'Kunjungan tidak ditemukan');
+    return this.db.withTenantTx(async (tx) => {
+      const [e] = await rows<{ facility_id: string; signed: boolean; satusehat_id: string | null }>(tx, sql`
+        select b.facility_id, exists (select 1 from clinical_note n where n.encounter_id = e.id and n.status = 'SIGNED') as signed, e.satusehat_id
+          from encounter e join branch b on b.id = e.branch_id where e.id = ${id}`);
+      if (!e) throw problem(404, 'ENC-404', 'Kunjungan tidak ditemukan');
+      const [c] = await rows<{ id: string; environment: SatuSehatEnvironment }>(tx, sql`
+        select id, environment from integration_connection where facility_id = ${e.facility_id} and kind = 'SATUSEHAT' and is_active`);
+      if (!c) return { configured: false, environment: null, signed: e.signed, status: null, resources: [] };
+      const [r] = await rows<{ id: string; status: string; attempts: number; last_error: string | null; problems: { blocking?: string[]; warnings?: string[] };
+                              satusehat_id: string | null; last_sent_at: string | null; next_attempt_at: string | null; updated_at: string }>(tx, sql`
+        select id, status, attempts, last_error, problems, satusehat_id, last_sent_at, next_attempt_at, updated_at from fhir_sync_record
+         where connection_id = ${c.id} and resource_type = 'Encounter' and local_type = 'encounter' and local_id = ${id}`);
+      const iso = (v: string | null | undefined) => (v ? new Date(v).toISOString() : null);
+      const kids = r ? await rows<{ resource_type: string; status: string; satusehat_id: string | null }>(tx, sql`
+        select resource_type, status, satusehat_id from fhir_sync_record where parent_id = ${r.id} order by resource_type, created_at`) : [];
+      return {
+        configured: true, environment: c.environment, signed: e.signed,
+        status: r?.status ?? (e.signed ? 'QUEUED' : 'NOT_SIGNED'), attempts: r?.attempts ?? 0, lastError: r?.last_error ?? null,
+        blocking: r?.problems?.blocking ?? [], warnings: r?.problems?.warnings ?? [], satusehatId: r?.satusehat_id ?? null,
+        lastSentAt: iso(r?.last_sent_at), nextAttemptAt: iso(r?.next_attempt_at), updatedAt: iso(r?.updated_at),
+        resources: kids.map((k) => ({ resourceType: k.resource_type, status: k.status, satusehatId: k.satusehat_id })),
+      };
+    });
+  }
+
   private client(conn: SatuSehatConnection): SatuSehatClient {
     if (conn.environment === 'SIMULATOR' && this.cfg.appEnv === 'prod') throw problem(400, 'INT-400-SIMULATOR', 'Simulator SATUSEHAT tidak dapat dipakai di produksi');
     return createSatuSehatClient(conn, this.cfg.satusehatUrls);

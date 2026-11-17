@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Uji mutasi kontrol keamanan (Stage 3 M1–M4 diulang di monorepo — RSK-020; M5 Stage 4; M6–M14 Stage 5; M15–M17 Stage 6; M18–M22 Stage 7; M23–M38 Stage 8; M39–M59 Stage 9; M60–M89 Stage 10; M90–M133 Stage 11; M134+ Stage 12).
+# Uji mutasi kontrol keamanan (Stage 3 M1–M4 diulang di monorepo — RSK-020; M5 Stage 4; M6–M14 Stage 5; M15–M17 Stage 6; M18–M22 Stage 7; M23–M38 Stage 8; M39–M59 Stage 9; M60–M89 Stage 10; M90–M133 Stage 11; M134–M151 Stage 12).
 # Setiap mutasi sengaja merusak satu kontrol, menjalankan suite integrasi API, dan LULUS hanya bila
 # uji yang menjaga kontrol itu GAGAL. Kode selalu dikembalikan (trap), juga bila skrip dihentikan.
 #
@@ -70,7 +70,8 @@ CORCTL=libs/billing/src/lib/correction.controller.ts
 OVCTL=libs/billing/src/lib/oversight.controller.ts
 SSCTL=libs/integration/src/lib/satusehat.controller.ts
 SSLIB=libs/db/src/lib/satusehat.ts
-FILES=("$AUTH" "$SESSION" "$MIG2" "$MIG3" "$GUARD" "$PGUARD" "$LAYOUT" "$EXPORT" "$MIG5" "$MIG6" "$TOTP" "$IAMUSERS" "$ACCOUNT" "$AUDITCHG" "$PRACT" "$MIG12" "$TERM" "$IMPORTS" "$PATIENT" "$MIG15" "$IDEM" "$MIG16" "$BOOK" "$SCHED" "$NOSHOW" "$ENCREPO" "$ENCCTL" "$QDISP" "$CHART" "$CHARTREPO" "$MIG19" "$SIGNCTL" "$REAUTH" "$MIG20" "$RXREPO" "$RXCTL" "$MIG21" "$LABCTL" "$DOCCTL" "$MIG22" "$RECV" "$PRICE" "$LOCS" "$DISP" "$DREPO" "$RXREM" "$SUBC" "$ADJC" "$OPNC" "$CRPT" "$OTCC" "$SRPT" "$INVREPO" "$INVCTL" "$PAYCTL" "$PAYREPO" "$QRCTL" "$CORCTL" "$OVCTL" "$SSCTL" "$SSLIB")
+SSENC=libs/db/src/lib/satusehat-encounter.ts
+FILES=("$AUTH" "$SESSION" "$MIG2" "$MIG3" "$GUARD" "$PGUARD" "$LAYOUT" "$EXPORT" "$MIG5" "$MIG6" "$TOTP" "$IAMUSERS" "$ACCOUNT" "$AUDITCHG" "$PRACT" "$MIG12" "$TERM" "$IMPORTS" "$PATIENT" "$MIG15" "$IDEM" "$MIG16" "$BOOK" "$SCHED" "$NOSHOW" "$ENCREPO" "$ENCCTL" "$QDISP" "$CHART" "$CHARTREPO" "$MIG19" "$SIGNCTL" "$REAUTH" "$MIG20" "$RXREPO" "$RXCTL" "$MIG21" "$LABCTL" "$DOCCTL" "$MIG22" "$RECV" "$PRICE" "$LOCS" "$DISP" "$DREPO" "$RXREM" "$SUBC" "$ADJC" "$OPNC" "$CRPT" "$OTCC" "$SRPT" "$INVREPO" "$INVCTL" "$PAYCTL" "$PAYREPO" "$QRCTL" "$CORCTL" "$OVCTL" "$SSCTL" "$SSLIB" "$SSENC")
 BACKUP=$(mktemp -d)
 cp "${FILES[@]}" "$BACKUP"/
 restore() { for f in "${FILES[@]}"; do cp "$BACKUP/$(basename "$f")" "$f"; done; }
@@ -390,6 +391,27 @@ mutate M140 "batas 7 hari lookup IHS otomatis diabaikan" 'J05' \
   "sed -i \"s/created_at > \\\$1::timestamptz - interval '7 days'/created_at > \\\$1::timestamptz - interval '70 days'/\" $SSLIB && grep -q \"interval '70 days'\" $SSLIB" ""
 mutate M141 "kredensial ditolak di satu klinik menghentikan lookup semua klinik" 'J05' \
   "sed -i 's/        if (!(e instanceof SatuSehatError)) throw e;/        throw e;/' $SSLIB && grep -q '^        throw e;$' $SSLIB" ""
+
+mutate M142 "kunjungan dikirim walau pasien belum punya IHS" 'U01' \
+  "sed -i \"s/  if (d.patient.ihsStatus !== 'FOUND' || !d.patient.ihs) {/  if (false) {/\" $SSENC && grep -q '^  if (false) {$' $SSENC" ""
+mutate M143 "kunjungan tanpa diagnosis primer tidak ditahan" 'U01' \
+  "sed -i \"s/  if (!d.conditions.some((c) => c.rank === 'PRIMER')) blocking.push/  if (false) blocking.push/\" $SSENC && grep -q 'if (false) blocking.push' $SSENC" ""
+mutate M144 "pasien yang membatasi pemrosesan tetap dikirim ke SATUSEHAT" 'U02' \
+  "sed -i 's/  if (d.data.patient.restricted) {/  if (false) {/' $SSENC && grep -q '^  if (false) {$' $SSENC" ""
+mutate M145 "percobaan ulang tidak mencari Encounter yang sudah tersimpan (duplikat)" 'U04' \
+  "sed -i 's/    if (!existing \&\& (prev?.attempts ?? 0) > 0) {/    if (false) {/' $SSENC && grep -q '^    if (false) {$' $SSENC" ""
+mutate M146 "jadwal backoff diabaikan (dicoba ulang setiap putaran)" 'U04' \
+  "sed -i 's/(r.next_attempt_at is null or r.next_attempt_at <= \$3::timestamptz)/true/' $SSENC && grep -q \"r.status = 'PENDING' and true\" $SSENC" ""
+mutate M147 "gangguan sementara dicoba ulang tanpa batas (tidak pernah DEAD)" 'U05' \
+  "sed -i 's/    const dead = attempts >= RETRY_BACKOFF_MIN.length;/    const dead = false;/' $SSENC && grep -q 'const dead = false;' $SSENC" ""
+mutate M148 "penolakan validasi SATUSEHAT dicoba ulang" 'U05' \
+  "sed -i \"s/    if (e.kind === 'VALIDATION' || e.kind === 'NOT_FOUND') {/    if (false) {/\" $SSENC && grep -q '^    if (false) {$' $SSENC" ""
+mutate M149 "kredensial ditolak di satu klinik menghentikan pengiriman semua klinik" 'U06' \
+  "sed -i 's/        total.failedTenants++;.*/        throw e;/' $SSENC && grep -q '^        throw e;$' $SSENC" ""
+mutate M150 "status pengiriman kunjungan dapat dibaca tanpa izin rekam medis" 'U02' \
+  "sed -i \"s/@RequirePermission('clinical.record.read') @Get('encounters\/:id\/satusehat')/@RequirePermission('billing.invoice.read') @Get('encounters\/:id\/satusehat')/\" $SSCTL && grep -q \"'billing.invoice.read') @Get('encounters\" $SSCTL" ""
+mutate M151 "audit pengiriman memuat identitas pasien" 'U03' \
+  "sed -i 's/JSON.stringify({ encounterNo: d.data.encounterNo,/JSON.stringify({ patient: d.data.patient.name, encounterNo: d.data.encounterNo,/' $SSENC && grep -q 'patient: d.data.patient.name' $SSENC" ""
 
 # Mutasi UI: suite Playwright (U##) sebagai detektor
 if [ "${MUTATION_E2E:-0}" = "1" ]; then

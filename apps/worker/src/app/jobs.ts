@@ -9,6 +9,7 @@ import { dispatchNotifications, type NotifyOptions, type SendMail } from '@clini
 import { markNoShows } from '@clinicrme/db/no-show';
 import { closeExpiredRemainders } from '@clinicrme/db/rx-remainder';
 import { lookupPendingIhs, type SatuSehatUrls } from '@clinicrme/db/satusehat';
+import { sendPendingEncounters } from '@clinicrme/db/satusehat-encounter';
 import type { ObjectStorage } from '@clinicrme/storage';
 
 export interface JobDeps {
@@ -47,6 +48,7 @@ export const NOTIFY_DISPATCH = 'notify.outbox.dispatch';
 export const NO_SHOW = 'scheduling.no_show';
 export const RX_REMAINDER = 'pharmacy.rx_remainder_close';
 export const SATUSEHAT_IHS_LOOKUP = 'integration.satusehat_ihs_lookup';
+export const SATUSEHAT_SEND = 'integration.satusehat_send';
 const AUDIT_MONTHS_AHEAD = 2;
 
 export const jobs: JobDefinition[] = [
@@ -154,6 +156,15 @@ export const jobs: JobDefinition[] = [
     retryLimit: 0,
     cron: '*/10 * * * *',
     handler: async (_data, deps) => lookupPendingIhs(deps.pool, {
+      keyHex: deps.exportOptions.encryptionKeyHex, urls: deps.satusehatUrls, allowSimulator: deps.appEnv !== 'prod',
+    }),
+  },
+  {
+    // OD-115/OD-119 (DEC-044): kunjungan disahkan → Bundle SATUSEHAT; tertahan dicek ulang, gangguan dicoba ulang dengan backoff
+    name: SATUSEHAT_SEND,
+    retryLimit: 0,
+    cron: '*/5 * * * *',
+    handler: async (_data, deps) => sendPendingEncounters(deps.pool, {
       keyHex: deps.exportOptions.encryptionKeyHex, urls: deps.satusehatUrls, allowSimulator: deps.appEnv !== 'prod',
     }),
   },

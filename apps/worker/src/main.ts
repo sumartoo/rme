@@ -20,9 +20,6 @@ function mailer(url: string, from: string) {
 async function main() {
   const cfg = loadWorkerConfig();
   const log = pino({ level: cfg.LOG_LEVEL, redact: { paths: REDACT_PATHS, censor: REDACT_CENSOR }, base: { app: 'worker', env: cfg.APP_ENV } });
-  const boss = new PgBoss({ connectionString: cfg.WORKER_DATABASE_URL, application_name: 'clinicrme-worker' });
-  boss.on('error', (err) => log.error({ err }, 'pg-boss error'));
-  await boss.start();
   // Pool job: query sistem, dan job tenant yang selalu SET LOCAL ROLE clinicrme_app (tenant-export)
   const pool = new Pool({ connectionString: cfg.WORKER_DATABASE_URL, max: 3, application_name: 'clinicrme-worker-jobs' });
   const deps: JobDeps = {
@@ -37,6 +34,22 @@ async function main() {
     warn: (obj, msg) => log.warn(obj, msg),
   };
 
+  if (cfg.WORKER_RUN_ONCE) {
+    // Operasional/uji: jalankan job tertentu sekali secara langsung (tanpa antrean) lalu keluar, mis. WORKER_RUN_ONCE=integration.satusehat_send
+    const names = cfg.WORKER_RUN_ONCE.split(',').map((x) => x.trim()).filter(Boolean);
+    const unknown = names.filter((n) => !jobs.some((j) => j.name === n));
+    if (unknown.length) throw new Error(`Job tidak dikenal: ${unknown.join(', ')}`);
+    for (const name of names) {
+      const result = await (jobs.find((j) => j.name === name) as (typeof jobs)[number]).handler(null, deps);
+      log.info({ job: name, result }, 'job sekali selesai');
+    }
+    await pool.end();
+    process.exit(0);
+  }
+
+  const boss = new PgBoss({ connectionString: cfg.WORKER_DATABASE_URL, application_name: 'clinicrme-worker' });
+  boss.on('error', (err) => log.error({ err }, 'pg-boss error'));
+  await boss.start();
   const startupJobs = new Map<string, string | null>();
   for (const job of jobs) {
     await boss.createQueue(job.name, { retryLimit: job.retryLimit });

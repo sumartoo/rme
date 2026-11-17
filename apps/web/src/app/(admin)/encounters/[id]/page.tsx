@@ -8,6 +8,7 @@ import { ENCOUNTER_STATUS, PAYER_TYPE_LABEL, SEX_LABEL, fmtDate } from '../../..
 import { can, useSession } from '../../../../lib/session';
 import { DocumentsTab, LabTab } from './lab-docs';
 import { RxTab } from './rx';
+import { SatuSehatPanel } from './satusehat';
 import { SignPanel } from './sign';
 import { AllergyHistoryTab, DiagnosisTab, SoapTab, VitalsTab, VITAL_LABELS } from './tabs';
 
@@ -72,6 +73,7 @@ export default function EncounterPage() {
       </Card>
       {error ? <Alert tone="error">{error}</Alert> : null}
       <SignPanel chart={chart} onSaved={load} />
+      {can(s, 'clinical.record.read') && chart.note?.status === 'SIGNED' ? <SatuSehatPanel encounterId={e.id} refreshKey={chart.note.signedAt ?? ''} /> : null}
       <div className="flex flex-wrap gap-1 border-b" role="tablist" aria-label="Bagian rekam medis">
         {TABS.map((t) => (
           <button key={t.key} type="button" role="tab" aria-selected={tab === t.key}
