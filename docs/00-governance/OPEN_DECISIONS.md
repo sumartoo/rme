@@ -58,6 +58,22 @@ Rincian & usulan: [`docs/reports/stage-12/STAGE_PLAN.md`](../reports/stage-12/ST
 | OD-121 | Pengujian tanpa sandbox | Simulator bawaan; tanpa kredensial → disetujui bersyarat |
 | OD-122 | Dasar pengiriman & privasi | Kewajiban fasyankes, tanpa opt-out; konfirmasi PPDP |
 
+## B6. Baru dari Stage 14 (⏳ menunggu keputusan PO)
+
+Rincian & usulan: [`docs/reports/stage-14/STAGE_PLAN.md`](../reports/stage-14/STAGE_PLAN.md) §4. OD-046 & OD-047 sudah diputuskan (DEC-016).
+
+| ID | Pertanyaan | Usulan singkat |
+|---|---|---|
+| OD-123 | Cakupan Stage 14 | Laporan standar MVP; builder, jadwal, waktu tunggu = LJT |
+| OD-124 | Definisi kunjungan | Encounter tidak batal, tanggal kedatangan (zona waktu cabang) |
+| OD-125 | 10 besar diagnosis | RM disahkan, diagnosis berlaku, bawaan primer |
+| OD-126 | Dasar pendapatan | Tagihan terbit per layanan/penjamin + penerimaan kas per metode |
+| OD-127 | Closing kasir & piutang | Rekap shift per hari/kasir; umur dari jatuh tempo |
+| OD-128 | Ekspor & watermark | XLSX/CSV/PDF berwatermark; > 10.000 baris asinkron, tautan 24 jam |
+| OD-129 | Cakupan cabang & data pasien | Ikut penugasan role; agregat tanpa identitas (kecuali REG-10) |
+| OD-130 | Batas & performa | ≤ 366 hari, 30 detik; uji 3 tahun × 300 kunjungan/hari |
+| OD-131 | Isi dashboard manajer | Kunjungan, antrean, kas, tagihan, stok kritis, SATUSEHAT |
+
 ## C. Ditetapkan di Stage Berikutnya
 
 Lihat `docs/APP_DESIGN.md` §13 dan masing-masing `docs/stages/STAGE_XX_*.md` (OD-003 s.d. OD-054).

@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | Phase | E — Integrasi & Kanal |
-| Status | Belum dimulai |
+| Status | **Ditunda sampai setelah pilot** — DEC-046 (seluruh POR-FR berstatus Lanjutan, DEC-012) |
 | Prasyarat | Stage 12 disetujui |
 | Modul | `portal`, `notification`, aplikasi `android/` |
 
