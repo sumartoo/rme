@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | Phase | E — Integrasi & Kanal |
-| Status | Berjalan — OD diputuskan DEC-044 ([STAGE_PLAN](../reports/stage-12/STAGE_PLAN.md)) |
+| Status | Disetujui bersyarat — DEC-045; syarat sebelum pilot: validasi sandbox SATUSEHAT (OD-058) ([completion report](../reports/stage-12/STAGE_COMPLETION_REPORT.md), [STAGE_PLAN](../reports/stage-12/STAGE_PLAN.md)) |
 | Prasyarat | Stage 11 disetujui |
 | Modul | `integration`, `terminology` |
 

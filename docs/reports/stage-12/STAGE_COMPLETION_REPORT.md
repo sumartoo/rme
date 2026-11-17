@@ -3,10 +3,10 @@
 | | |
 |---|---|
 | Stage | 12 — FHIR & SATUSEHAT Integration |
-| Status | **DIAJUKAN — disetujui bersyarat** (OD-121). Syarat sebelum pilot: validasi di sandbox SATUSEHAT dengan kredensial OD-058 |
+| Status | **DISETUJUI BERSYARAT** — DEC-045 (17 Nov 2026). Syarat sebelum pilot: validasi di sandbox SATUSEHAT dengan kredensial OD-058. Tindak lanjut: uji mutasi lengkap M1–M175 di Actions setelah 1 Des |
 | Disusun oleh | Sumarto (dibantu Claude) |
 | Rincian | [STAGE_PLAN.md](STAGE_PLAN.md) · keputusan DEC-044 (OD-009, OD-042, OD-058, OD-114–OD-122) · [SATUSEHAT_INTEGRATION.md](../../02-architecture/SATUSEHAT_INTEGRATION.md) · [FHIR_MAPPING.md](../../02-architecture/FHIR_MAPPING.md) |
-| Repo kerja | `AtoAIs/atoai-rme-v2`, PR #41, #43, #45, dan PR batch 4. Kuota GitHub Actions AtoAIs habis sampai 1 Des 2026, jadi setiap batch diverifikasi penuh di lokal lalu digabung tanpa CI (DEC-036) |
+| Repo kerja | `AtoAIs/atoai-rme-v2`, PR #41, #43, #45, #46. Kuota GitHub Actions AtoAIs habis sampai 1 Des 2026, jadi setiap batch diverifikasi penuh di lokal lalu digabung tanpa CI (DEC-036) |
 | Lingkungan uji | **Simulator SATUSEHAT** bawaan (OD-121). Demo VPS belum diperbarui ke Stage 10–12 |
 
 > **Batas klaim.** ClinicRME **belum** boleh disebut "terintegrasi" atau "compliant SATUSEHAT". Seluruh pengujian Stage 12 berjalan terhadap
@@ -83,7 +83,7 @@ Klinik kini dapat mengirim data rawat jalan ke SATUSEHAT tanpa mengganggu pelaya
 - [x] Tidak ada klaim "SATUSEHAT compliant/terintegrasi resmi" — UI & dokumen menyebut "belum divalidasi sandbox"
 - [x] Matriks permission X01 mencakup semua endpoint baru; uji mutasi kontrol baru terdeteksi (M134–M175)
 - [ ] Uji mutasi lengkap M1–M175 di GitHub Actions — setelah kuota aktif 1 Des (bersama S8-1, S9-2, S10-2, Stage 11)
-- [ ] PO menyetujui Stage 12
+- [x] PO menyetujui Stage 12 — DEC-045 (bersyarat: validasi sandbox sebelum pilot)
 
 ## 4. Keamanan & privasi
 
@@ -138,4 +138,4 @@ Klinik kini dapat mengirim data rawat jalan ke SATUSEHAT tanpa mengganggu pelaya
 
 | Peran | Nama | Keputusan | Tanggal | Catatan |
 |---|---|---|---|---|
-| Project Owner | Sumarto | ☐ Disetujui bersyarat / ☐ Revisi | | Syarat: validasi sandbox SATUSEHAT (OD-058) sebelum pilot |
+| Project Owner | Sumarto | ☑ Disetujui bersyarat | 17 Nov 2026 | DEC-045. Syarat: validasi sandbox SATUSEHAT (OD-058) sebelum pilot |
