@@ -155,22 +155,30 @@ export class SimulatorSatuSehatClient implements SatuSehatClient {
     if (method === 'GET' && p === '/Encounter') {
       return { status: 200, body: bundle(simEncounters.has(ident) ? [{ resourceType: 'Encounter', id: simEncounters.get(ident) }] : []) };
     }
+    if (method === 'GET' && (p === '/MedicationRequest' || p === '/MedicationDispense')) {
+      const k = `${p.slice(1)}|${ident}`;
+      return { status: 200, body: bundle(simMeds.has(k) ? [{ resourceType: p.slice(1), id: simMeds.get(k) }] : []) };
+    }
     if (method === 'POST' && p === '') return this.transaction(body);
     return classify({ status: 400, body: issue(`Operasi simulator tidak dikenal: ${method} ${p}`) });
   }
 
   /**
    * Bundle transaction (OD-115). Validasi dasar profil rawat jalan; identifier Encounter unik per Organization. Nomor
-   * kunjungan berakhiran `-503` → gangguan; `-422` → ditolak; `-LOST` → tersimpan tetapi respons "hilang" (uji idempotensi).
+   * kunjungan berakhiran (atau identifier resep mengandung) `-503` → gangguan; `-422` → ditolak; `-LOST` → tersimpan tetapi respons
+   * "hilang" (uji idempotensi). Entry PUT (update) didukung; MedicationRequest/Dispense wajib Medication berkode KFA.
    */
   private transaction(body: unknown): FhirResponse {
     const b = body as { resourceType?: string; type?: string; entry?: { fullUrl?: string; resource?: Record<string, unknown>; request?: { method?: string; url?: string } }[] };
     if (b?.resourceType !== 'Bundle' || b.type !== 'transaction' || !b.entry?.length) return classify({ status: 400, body: issue('Bundle transaction kosong/tidak valid', 'Bundle') });
-    const enc = b.entry.find((e) => e.resource?.['resourceType'] === 'Encounter')?.resource as
+    const enc = b.entry.find((e) => e.resource?.['resourceType'] === 'Encounter' && e.request?.method !== 'PUT')?.resource as
       { identifier?: { system?: string; value?: string }[]; subject?: { reference?: string }; participant?: unknown[]; location?: unknown[]; period?: { start?: string } } | undefined;
     const encNo = enc?.identifier?.[0]?.value ?? '';
-    if (encNo.endsWith('-503')) return classify({ status: 503, body: issue('Layanan sementara tidak tersedia') });
-    if (encNo.endsWith('-422')) return classify({ status: 422, body: issue('Encounter.period.start tidak boleh di masa depan', 'Encounter.period.start') });
+    // Bundle obat: skenario uji dari nilai identifier resep (mis. nomor resep mengandung -503)
+    const medIds = b.entry.flatMap((e) => ((e.resource as { identifier?: { value?: string }[] } | undefined)?.identifier ?? []).map((i) => i.value ?? ''));
+    const hit = (t: string) => (enc ? encNo.endsWith(t) : medIds.some((v) => v.includes(t)));
+    if (hit('-503')) return classify({ status: 503, body: issue('Layanan sementara tidak tersedia') });
+    if (hit('-422')) return classify({ status: 422, body: issue(enc ? 'Encounter.period.start tidak boleh di masa depan' : 'Dosis tidak sesuai profil', enc ? 'Encounter.period.start' : 'MedicationRequest.dosageInstruction') });
     const problems: string[] = [];
     if (enc) {
       const key = `${enc.identifier?.[0]?.system}|${encNo}`;
@@ -181,26 +189,64 @@ export class SimulatorSatuSehatClient implements SatuSehatClient {
       if (!enc.period?.start) problems.push('Encounter.period.start wajib');
       if (simEncounters.has(key)) problems.push(`Duplikat Encounter.identifier ${encNo}`);
     }
+    const medKeys: string[] = [];
     for (const e of b.entry) {
-      const r = e.resource as { resourceType?: string; code?: { coding?: { system?: string; code?: string }[] } } | undefined;
+      const r = e.resource as { resourceType?: string; id?: string; code?: { coding?: { system?: string; code?: string }[] }; clinicalStatus?: unknown;
+        verificationStatus?: { coding?: { code?: string }[] }; identifier?: { system?: string; value?: string }[]; contained?: { resourceType?: string; id?: string;
+        code?: { coding?: { system?: string; code?: string }[] }; ingredient?: { itemCodeableConcept?: { coding?: { system?: string }[] } }[] }[];
+        medicationReference?: { reference?: string }; subject?: { reference?: string }; encounter?: { reference?: string }; context?: { reference?: string };
+        authorizingPrescription?: { reference?: string }[]; requester?: { reference?: string } } | undefined;
       const c = r?.code?.coding?.[0];
+      if (e.request?.method === 'PUT' && e.request.url !== `${r?.resourceType}/${r?.id}`) problems.push('PUT harus ke URL resource yang sama');
       if (r?.resourceType === 'Condition' && (c?.system !== 'http://hl7.org/fhir/sid/icd-10' || !/^[A-Z]\d{2}(\.\d{1,2})?$/.test(c?.code ?? ''))) problems.push('Condition.code harus ICD-10');
+      if (r?.resourceType === 'Condition' && r.verificationStatus?.coding?.[0]?.code === 'entered-in-error' && r.clinicalStatus) {
+        problems.push('Condition entered-in-error tidak boleh memiliki clinicalStatus');
+      }
       if (r?.resourceType === 'Procedure' && c?.system !== 'http://hl7.org/fhir/sid/icd-9-cm') problems.push('Procedure.code harus ICD-9-CM');
       if (r?.resourceType === 'Observation' && c?.system !== 'http://loinc.org') problems.push('Observation.code harus LOINC');
+      if (r?.resourceType === 'MedicationRequest' || r?.resourceType === 'MedicationDispense') {
+        const t = r.resourceType;
+        const sys = (r.identifier ?? []).map((i) => i.system ?? '');
+        if (!sys.some((x) => x.startsWith('http://sys-ids.kemkes.go.id/prescription/')) || !sys.some((x) => x.startsWith('http://sys-ids.kemkes.go.id/prescription-item/'))) {
+          problems.push(`${t}.identifier resep & item resep wajib`);
+        }
+        const med = r.contained?.find((x) => x.resourceType === 'Medication' && `#${x.id}` === r.medicationReference?.reference);
+        const kfa = med?.code?.coding?.some((x) => x.system === 'http://sys-ids.kemkes.go.id/kfa' && !!x.code)
+          || (med?.ingredient?.length && med.ingredient.every((g) => g.itemCodeableConcept?.coding?.some((x) => x.system === 'http://sys-ids.kemkes.go.id/kfa')));
+        if (!kfa) problems.push(`${t}: Medication harus berkode KFA`);
+        if (!/^Patient\/P\d{10}$/.test(r.subject?.reference ?? '')) problems.push(`${t}.subject harus Patient IHS`);
+        if (!/^Encounter\//.test((t === 'MedicationRequest' ? r.encounter : r.context)?.reference ?? '')) problems.push(`${t} harus merujuk Encounter`);
+        if (t === 'MedicationRequest' && !/^Practitioner\//.test(r.requester?.reference ?? '')) problems.push('MedicationRequest.requester wajib');
+        if (t === 'MedicationDispense' && !/^MedicationRequest\//.test(r.authorizingPrescription?.[0]?.reference ?? '')) problems.push('MedicationDispense.authorizingPrescription wajib');
+        const item = r.identifier?.find((i) => i.system?.startsWith('http://sys-ids.kemkes.go.id/prescription-item/'));
+        const key = `${t}|${item?.system}|${item?.value}`;
+        if (simMeds.has(key)) problems.push(`Duplikat ${t}.identifier ${item?.value}`);
+        medKeys.push(key);
+      }
     }
     if (problems.length) return classify({ status: 400, body: { resourceType: 'OperationOutcome', issue: problems.map((t) => ({ severity: 'error', code: 'invalid', details: { text: t } })) } });
     const entry = b.entry.map((e) => {
       const type = String(e.resource?.['resourceType'] ?? 'Unknown');
+      if (e.request?.method === 'PUT') {
+        const id = String(e.resource?.['id']);
+        return { response: { status: '200 OK', location: `${type}/${id}/_history/2`, resourceID: id } };
+      }
       const id = uuidFrom(`${type}:${e.fullUrl ?? Math.random()}:${Date.now()}:${Math.random()}`);
       return { response: { status: '201 Created', location: `${type}/${id}/_history/1`, resourceID: id } };
     });
-    if (enc) simEncounters.set(`${enc.identifier?.[0]?.system}|${encNo}`, entry[b.entry.findIndex((e) => e.resource?.['resourceType'] === 'Encounter')].response.resourceID);
-    if (encNo.endsWith('-LOST')) throw new SatuSehatError('TRANSIENT', 'SATUSEHAT tidak merespons (timeout)');
+    const encIdx = b.entry.findIndex((e) => e.resource?.['resourceType'] === 'Encounter' && e.request?.method === 'POST');
+    if (enc && encIdx >= 0) simEncounters.set(`${enc.identifier?.[0]?.system}|${encNo}`, entry[encIdx].response.resourceID);
+    let mi = 0;
+    b.entry.forEach((e, i) => {
+      if (e.resource?.['resourceType'] === 'MedicationRequest' || e.resource?.['resourceType'] === 'MedicationDispense') simMeds.set(medKeys[mi++], entry[i].response.resourceID);
+    });
+    if (hit('-LOST')) throw new SatuSehatError('TRANSIENT', 'SATUSEHAT tidak merespons (timeout)');
     return { status: 200, body: { resourceType: 'Bundle', type: 'transaction-response', entry } };
   }
 }
 const simLocations = new Map<string, string>();
 const simEncounters = new Map<string, string>();
+const simMeds = new Map<string, string>();
 const issue = (text: string, expr?: string) => ({ resourceType: 'OperationOutcome', issue: [{ severity: 'error', code: 'invalid', details: { text }, ...(expr ? { expression: [expr] } : {}) }] });
 const bundle = (resources: object[]) => ({ resourceType: 'Bundle', type: 'searchset', total: resources.length, entry: resources.map((resource) => ({ resource })) });
 const digits = (s: string, n: number) => BigInt(`0x${createHash('sha256').update(s).digest('hex').slice(0, 15)}`).toString().padStart(n, '0').slice(-n);
@@ -208,7 +254,7 @@ const uuidFrom = (s: string) => {
   const h = createHash('sha256').update(`sim-location:${s}`).digest('hex');
   return `${h.slice(0, 8)}-${h.slice(8, 12)}-4${h.slice(13, 16)}-a${h.slice(17, 20)}-${h.slice(20, 32)}`;
 };
-export const simulatorReset = () => { simLocations.clear(); simEncounters.clear(); };
+export const simulatorReset = () => { simLocations.clear(); simEncounters.clear(); simMeds.clear(); };
 
 export function createSatuSehatClient(conn: SatuSehatConnection, urls?: SatuSehatUrls, opts?: { timeoutMs?: number; fetchImpl?: typeof fetch }): SatuSehatClient {
   return conn.environment === 'SIMULATOR' ? new SimulatorSatuSehatClient(conn) : new HttpSatuSehatClient(conn, urls, opts);

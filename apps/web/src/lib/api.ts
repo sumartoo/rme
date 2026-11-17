@@ -204,8 +204,9 @@ export interface ClinicalNote { id: string; templateCode: TemplateCode; subjecti
   plan: string | null; structured: Record<string, unknown>; status: 'DRAFT' | 'SIGNED'; signedAt: string | null; signedByName: string | null;
   signerSip: string | null; signMethod: 'PASSWORD' | 'TOTP' | null; substituteReason: string | null; contentHash: string | null;
   addenda: Addendum[]; updatedAt: string; updatedByName: string | null; version: number }
+export interface AddendumDiagnosis { conceptId: string; code: string; display: string; rank: 'PRIMER' | 'SEKUNDER'; caseStatus: 'BARU' | 'LAMA'; note: string | null }
 export interface Addendum { id: string; reason: string; content: string; authorId: string; authorName: string; authorSip: string | null;
-  signMethod: 'PASSWORD' | 'TOTP' | null; signedAt: string; contentHash: string }
+  signMethod: 'PASSWORD' | 'TOTP' | null; signedAt: string; contentHash: string; diagnoses: AddendumDiagnosis[] | null }
 export interface MedicalRecordEntry { encounterId: string; encounterNo: string; localDate: string; unitName: string; practitionerName: string;
   status: EncounterStatus; note: ClinicalNote | null; diagnoses: Diagnosis[]; procedures: Procedure[]; vitals: VitalSet | null }
 export interface VitalSet { recordedAt: string; recordedByName: string | null; values: Record<string, number> }
@@ -354,7 +355,11 @@ export interface SatuSehatConnection { id: string; facilityId: string; environme
 export interface EncounterSyncStatus { configured: boolean; environment: SatuSehatEnvironment | null; signed?: boolean;
   status: 'NOT_SIGNED' | 'QUEUED' | 'PENDING' | 'BLOCKED' | 'SENT' | 'ERROR' | 'DEAD' | 'SKIPPED' | null; attempts?: number; lastError?: string | null;
   blocking?: string[]; warnings?: string[]; satusehatId?: string | null; lastSentAt?: string | null; nextAttemptAt?: string | null; updatedAt?: string | null;
-  resources: { resourceType: string; status: string; satusehatId: string | null }[] }
+  version?: number | null;
+  resources: { id: string; resourceType: string; localType: string; status: string; satusehatId: string | null; blocking: string[]; warnings: string[];
+    lastError: string | null; enteredInError: boolean; version: number }[] }
+export interface SatuSehatIssue { id: string; resourceType: string; localType: string; status: 'ERROR' | 'DEAD' | 'BLOCKED'; attempts: number; lastError: string | null;
+  blocking: string[]; updatedAt: string; resendRequestedAt: string | null; encounterId: string | null; encounterNo: string | null; resendable: boolean }
 export interface SatuSehatOverview { simulatorAllowed: boolean;
   facilities: { facilityId: string; facilityName: string; connection: SatuSehatConnection | null;
     locations: { unitId: string; unitName: string; branchName: string; locationId: string | null; status: string; lastError: string | null }[] }[];

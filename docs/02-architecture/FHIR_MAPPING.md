@@ -91,9 +91,48 @@ nilai angka; tindakan tanpa kode ICD-9-CM.
 `status` completed · `code` `http://hl7.org/fhir/sid/icd-9-cm` (`service_item.icd9cm_code`) · `subject` · `encounter` ·
 `performedPeriod` = `performed_at` · `performer` dokter.
 
-## 7. Perlu dicek di sandbox sebelum gate
+## 7. MedicationRequest & MedicationDispense (batch 3; OD-118)
+
+Dikirim setelah Encounter terkirim, satu Bundle per resep (MedicationRequest per item) dan per penyerahan (MedicationDispense per
+baris). Medication dilampirkan sebagai `contained` (sesuai catatan koleksi Postman resmi v5.1 versi ketiga).
+
+| Elemen | Sumber |
+|---|---|
+| `identifier` | `http://sys-ids.kemkes.go.id/prescription/{org}` = `prescription_no`; `…/prescription-item/{org}` = `{prescription_no}-{line_no}` (penyerahan berikutnya untuk item yang sama: `-{urutan}`) |
+| `contained` Medication | non-racikan: `code` `http://sys-ids.kemkes.go.id/kfa` = `drug_item.kfa_code`, ekstensi MedicationType `NC`; racikan: `ingredient[]` per komponen berkode KFA, ekstensi `SD` |
+| MedicationRequest | `status` active (completed bila resep selesai), `intent` order, `category` outpatient, `subject`, `encounter`, `authoredOn` = `issued_at`, `requester` = dokter penulis (IHS), `dosageInstruction` (teks, frekuensi/hari, rute sebagai teks, dosis), `dispenseRequest` (jumlah, lama hari) |
+| MedicationDispense | `status` completed, `category` outpatient, `subject`, `context` Encounter, `performer` apoteker bila punya IHS (tanpa IHS → peringatan), `authorizingPrescription` = MedicationRequest terkirim, `quantity`, `whenPrepared`/`whenHandedOver` = waktu penyerahan |
+
+Tertahan (BLOCKED): obat/komponen racikan tanpa kode KFA ("butuh kode KFA — isi di Master obat"), dokter penulis resep tanpa IHS,
+penyerahan yang resepnya belum terkirim. Percobaan ulang setelah gangguan lebih dulu mencari per identifier item resep (tanpa duplikat).
+
+## 8. Koreksi diagnosis lewat addendum (batch 3; OD-120)
+
+Addendum dapat membawa **daftar lengkap diagnosis pengganti** (tepat satu primer; ikut di-hash). Diagnosis saat pengesahan tetap
+terkunci; yang berlaku = addendum terakhir. Worker hanya mengirim addendum diagnosis **terbaru** per catatan (yang lebih lama → SKIPPED
+"digantikan"), dibandingkan per kode ICD-10 dengan Condition yang sudah terkirim:
+
+| Perubahan | Dikirim |
+|---|---|
+| Diagnosis baru | `POST Condition` |
+| Diagnosis dihapus | `PUT Condition/{id}` dengan `verificationStatus` `entered-in-error` (tanpa `clinicalStatus`, FHIR con-5) |
+| Selalu | `PUT Encounter/{id}` dengan `diagnosis[]` terbaru (primer = rank 1). Encounter tidak dihapus |
+
+`fhir_sync_record.resource_version` naik setiap update; `entered_in_error_at` dicatat. Keterbatasan: bila respons hilang tepat setelah
+Condition baru tersimpan, percobaan ulang dapat membuat Condition ganda (Condition tidak punya identifier lokal) — dicek di rekonsiliasi (batch 4).
+
+## 9. Kirim ulang & dead-letter (batch 3; OD-119)
+
+- Halaman Integrasi › SATUSEHAT › **Perlu tindakan**: kiriman DEAD / ERROR / BLOCKED (tanpa nama pasien). Tombol **Kirim ulang** (izin
+  `integration.manage`, teraudit) menjadwalkan ERROR/DEAD pada putaran worker berikutnya; worker lebih dulu mencari resource per identifier.
+- Kiriman yang menjadi DEAD → satu email ke admin klinik per koneksi selama email sebelumnya belum terkirim (hanya jumlah, tanpa data pasien).
+  Notifikasi in-app = daftar "Perlu tindakan" & panel status di halaman kunjungan.
+
+## 10. Perlu dicek di sandbox sebelum gate
 
 - Elemen wajib terbaru di playbook (mis. `Encounter.class` & `statusHistory` per tahap, kategori Observation, kode display).
 - Apakah Observation tanda vital wajib dikirim per pengukuran atau cukup nilai terakhir.
 - Data ICD-10 resmi (UAT S7-1) — data uji saat ini sintetis.
-- Batch 3: MedicationRequest/MedicationDispense (KFA), pembaruan setelah addendum, kirim ulang manual.
+- Ekstensi MedicationType & kodenya (NC/SD), identifier penyerahan sebagian, apakah `MedicationDispense.location` (Location apotek) wajib.
+- Rute pemberian saat ini dikirim sebagai teks — padanan kode resmi perlu dicek.
+- Update Encounter (PUT) & Condition entered-in-error diterima SATUSEHAT sesuai harapan.

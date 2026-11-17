@@ -83,13 +83,24 @@ export async function noteOf(tx: Tx, encounterId: string) {
   return n ? { ...noteDto(n), addenda: await addendaOf(tx, n.id) } : null;
 }
 
+export interface DxChange { conceptId: string; code: string; display: string; rank: 'PRIMER' | 'SEKUNDER'; caseStatus: 'BARU' | 'LAMA'; note: string | null }
 export async function addendaOf(tx: Tx, noteId: string) {
   return (await rows<{ id: string; reason: string; content: string; author_id: string; author_name: string; author_sip: string | null;
-                       sign_method: string | null; signed_at: string; content_hash: string }>(tx, sql`
-    select a.id, a.reason, a.content, a.author_id, p.full_name as author_name, a.author_sip, a.sign_method, a.signed_at, a.content_hash
+                       sign_method: string | null; signed_at: string; content_hash: string; changes: { diagnoses?: DxChange[] } | null }>(tx, sql`
+    select a.id, a.reason, a.content, a.author_id, p.full_name as author_name, a.author_sip, a.sign_method, a.signed_at, a.content_hash, a.changes
       from clinical_addendum a join practitioner p on p.id = a.author_id where a.note_id = ${noteId} order by a.signed_at, a.id`))
     .map((a) => ({ id: a.id, reason: a.reason, content: a.content, authorId: a.author_id, authorName: a.author_name, authorSip: a.author_sip,
-      signMethod: a.sign_method, signedAt: a.signed_at, contentHash: a.content_hash }));
+      signMethod: a.sign_method, signedAt: a.signed_at, contentHash: a.content_hash, diagnoses: a.changes?.diagnoses ?? null }));
+}
+
+/** Diagnosis yang berlaku: daftar dari addendum terakhir yang mengubah diagnosis, atau diagnosis saat pengesahan. */
+export async function effectiveDiagnosesOf(tx: Tx, encounterId: string): Promise<DxChange[]> {
+  const [a] = await rows<{ changes: { diagnoses: DxChange[] } }>(tx, sql`
+    select a.changes from clinical_addendum a join clinical_note n on n.id = a.note_id
+     where n.encounter_id = ${encounterId} and a.changes ? 'diagnoses' order by a.signed_at desc, a.id desc limit 1`);
+  if (a) return a.changes.diagnoses;
+  return (await diagnosesOf(tx, encounterId)).map((d) => ({ conceptId: d.conceptId, code: d.code, display: d.display, rank: d.rank as DxChange['rank'],
+    caseStatus: d.caseStatus as DxChange['caseStatus'], note: d.note }));
 }
 
 export async function vitalsOf(tx: Tx, encounterId: string) {

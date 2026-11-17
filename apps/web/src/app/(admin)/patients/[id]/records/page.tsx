@@ -46,6 +46,7 @@ export default function MedicalRecordsPage() {
               <div key={a.id} className="rounded-md border p-2" data-testid="record-addendum">
                 <p className="text-xs text-muted-foreground">Addendum {fmtDateTime(a.signedAt)} · {a.authorName} · {a.reason}</p>
                 <p className="whitespace-pre-wrap">{a.content}</p>
+                {a.diagnoses ? <p><b>Diagnosis diperbarui:</b> {a.diagnoses.map((d) => `${d.code} ${d.display}${d.rank === 'PRIMER' ? ' (primer)' : ''}`).join('; ')}</p> : null}
               </div>
             ))}
           </CardContent>

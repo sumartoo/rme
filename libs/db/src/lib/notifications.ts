@@ -14,7 +14,7 @@ export interface Mail { to: string; subject: string; text: string }
 export type SendMail = (m: Mail) => Promise<void>;
 export interface NotifyOptions { clinicUrlTemplate: string; consoleName?: string }
 
-export const NOTIFICATION_EVENTS = ['INVITATION_CREATED', 'PASSWORD_RESET_REQUESTED', 'SUPPORT_ACCESS_GRANTED', 'SUPPORT_ACCESS_REVOKED'] as const;
+export const NOTIFICATION_EVENTS = ['INVITATION_CREATED', 'PASSWORD_RESET_REQUESTED', 'SUPPORT_ACCESS_GRANTED', 'SUPPORT_ACCESS_REVOKED', 'SATUSEHAT_DEAD_LETTER'] as const;
 export const MAX_ATTEMPTS = 5;
 
 interface Event { id: string; tenant_id: string; event_type: string; aggregate_id: string; attempts: number }
@@ -107,15 +107,30 @@ async function render(c: PoolClient, e: Event, opts: NotifyOptions): Promise<Mai
       ].join('\n'),
     }];
   }
+  const admins = async () => (await c.query<{ email: string }>(`
+    select distinct u.email from app.app_user u
+      join app.user_role_assignment a on a.user_id = u.id and (a.valid_to is null or a.valid_to > now())
+      join app.role r on r.id = a.role_id and r.code = 'TENANT_ADMIN'
+     where u.status = 'ACTIVE' order by u.email`)).rows;
+  if (e.event_type === 'SATUSEHAT_DEAD_LETTER') {
+    // OD-119: kiriman SATUSEHAT yang gagal setelah semua percobaan — hanya jumlah, tanpa data pasien
+    const { rows: [k] } = await c.query<{ dead: number; facility: string; environment: string }>(`
+      select (select count(*)::int from app.fhir_sync_record r where r.connection_id = ic.id and r.status = 'DEAD') as dead, f.name as facility, ic.environment
+        from app.integration_connection ic join app.facility f on f.id = ic.facility_id where ic.id = $1`, [e.aggregate_id]);
+    if (!k || k.dead === 0) return [];
+    const env = k.environment === 'PRODUCTION' ? '' : ` (${k.environment.toLowerCase()})`;
+    const text = [
+      `${k.dead} data dari ${k.facility} gagal dikirim ke SATUSEHAT${env} setelah beberapa kali dicoba otomatis.`, '',
+      'Periksa daftar "Perlu tindakan" lalu klik "Kirim ulang" setelah gangguan selesai:',
+      `${url}/integrations/satusehat`, '',
+      'Email ini tidak memuat data pasien.',
+    ];
+    return (await admins()).map((a) => ({ to: a.email, subject: `[ClinicRME] ${k.dead} kiriman SATUSEHAT gagal — ${t.display_name}`, text: text.join('\n') }));
+  }
   // Break-glass: kabari SEMUA tenant admin aktif (OD-076)
   const { rows: [g] } = await c.query<{ reason: string; starts_at: Date; expires_at: Date; revoked_at: Date | null; support_name: string }>(
     `select * from app.support_grant_for_notification($1)`, [e.aggregate_id]);
   if (!g) return [];
-  const { rows: admins } = await c.query<{ email: string }>(`
-    select distinct u.email from app.app_user u
-      join app.user_role_assignment a on a.user_id = u.id and (a.valid_to is null or a.valid_to > now())
-      join app.role r on r.id = a.role_id and r.code = 'TENANT_ADMIN'
-     where u.status = 'ACTIVE' order by u.email`);
   const granted = e.event_type === 'SUPPORT_ACCESS_GRANTED';
   const subject = granted ? `[ClinicRME] Akses dukungan dibuka untuk ${t.display_name}` : `[ClinicRME] Akses dukungan ditutup untuk ${t.display_name}`;
   const text = granted ? [
@@ -129,5 +144,5 @@ async function render(c: PoolClient, e: Event, opts: NotifyOptions): Promise<Mai
     `Akses dukungan ClinicRME (${g.support_name}) untuk ${t.display_name} telah ditutup pada ${fmt(g.revoked_at)}.`,
     `Alasan awal: ${g.reason}`, '', `Riwayat akses tercatat di log audit klinik: ${url}`,
   ];
-  return admins.map((a) => ({ to: a.email, subject, text: text.join('\n') }));
+  return (await admins()).map((a) => ({ to: a.email, subject, text: text.join('\n') }));
 }

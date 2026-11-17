@@ -5,7 +5,7 @@ import { mkdtempSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { authenticator } from 'otplib';
-import { addClinicBillingEncounter, addClinicDrugStock, addClinicRole, addClinicTariffs, addClinicUser, seedClinic, setLinkToken } from '../../../tools/e2e/seed-clinic';
+import { addClinicBillingEncounter, addClinicDrugStock, addClinicRole, addClinicTariffs, addClinicUser, markLatestSatuSehatAddendumDead, seedClinic, setLinkToken } from '../../../tools/e2e/seed-clinic';
 import { CLINIC_URL, E2E_ENCRYPTION_KEY, STORAGE_DIR, USER_PASSWORD, dbUrl } from '../../../tools/e2e/config';
 
 /**
@@ -1479,12 +1479,13 @@ test('W35 SATUSEHAT (simulator): admin menyimpan kredensial, uji koneksi, sinkro
   await reg.close();
 });
 
+/** Worker sungguhan, sekali jalan: job integration.satusehat_send (Stage 12). */
+const sendOnce = () => execFileSync(process.execPath, [join(ROOT, 'apps/worker/dist/main.js')], { cwd: ROOT, stdio: 'pipe', env: { ...process.env, APP_ENV: 'test',
+  LOG_LEVEL: 'warn', WORKER_DATABASE_URL: dbUrl(), ENCRYPTION_KEY_HEX: E2E_ENCRYPTION_KEY, STORAGE_DRIVER: 'fs', STORAGE_FS_DIR: STORAGE_DIR,
+  WORKER_RUN_ONCE: 'integration.satusehat_send', SMTP_URL: '' } });
+
 test('W36 SATUSEHAT (simulator): RM disahkan → dalam antrean; tertahan dengan masalah yang dapat ditindaklanjuti; setelah dilengkapi → terkirim (Stage 12 batch 2)', async ({ page, browser }) => {
   watchCsp(page);
-  // Worker sungguhan, sekali jalan: job integration.satusehat_send
-  const sendOnce = () => execFileSync(process.execPath, [join(ROOT, 'apps/worker/dist/main.js')], { cwd: ROOT, stdio: 'pipe', env: { ...process.env, APP_ENV: 'test',
-    LOG_LEVEL: 'warn', WORKER_DATABASE_URL: dbUrl(), ENCRYPTION_KEY_HEX: E2E_ENCRYPTION_KEY, STORAGE_DRIVER: 'fs', STORAGE_FS_DIR: STORAGE_DIR,
-    WORKER_RUN_ONCE: 'integration.satusehat_send', SMTP_URL: '' } });
   const ctx = await browser.newContext();
   const doc = await ctx.newPage();
   watchCsp(doc);
@@ -1523,6 +1524,58 @@ test('W36 SATUSEHAT (simulator): RM disahkan → dalam antrean; tertahan dengan 
   await expect(panel).toContainText('Terkirim');
   await expect(panel).toContainText(/\d+ data/);
   await expect(doc.getByTestId('satusehat-blocking')).toHaveCount(0);
+  expect(cspViolations).toEqual([]);
+  await ctx.close();
+});
+
+test('W37 SATUSEHAT (simulator): addendum mengganti diagnosis → terkirim sebagai update; kiriman gagal tampil di "Perlu tindakan" dan dapat dikirim ulang (Stage 12 batch 3)', async ({ page, browser }) => {
+  watchCsp(page);
+  const ctx = await browser.newContext();
+  const doc = await ctx.newPage();
+  watchCsp(doc);
+  await login(doc, 'dokter@klinik-web.test');
+  await doc.getByTestId('side-menu').getByRole('link', { name: 'Pasien' }).click();
+  await doc.getByLabel('Cari pasien').fill('siti rahmawati');
+  await doc.getByTestId('patient-row').filter({ hasText: '00000001' }).getByRole('link', { name: 'Siti Rahmawati', exact: true }).click();
+  await doc.getByRole('link', { name: 'Riwayat rekam medis' }).click();
+  await doc.getByTestId('record-entry').filter({ hasText: 'K02.9' }).first().locator('a[href^="/encounters/"]').click();
+  await expect(doc.getByTestId('satusehat-status')).toContainText('Terkirim');
+
+  await doc.getByRole('button', { name: 'Tambah addendum' }).click();
+  const ad = doc.getByRole('dialog', { name: 'Tambah addendum' });
+  await ad.getByLabel('Alasan *').fill('Koreksi diagnosis setelah pemeriksaan ulang');
+  await ad.getByLabel('Isi addendum *').fill('Nyeri spontan; diagnosis kerja pulpitis.');
+  await ad.getByLabel('Ubah diagnosis').check();
+  await expect(ad.getByTestId('addendum-dx-row')).toContainText('K02.9');
+  await ad.getByLabel('Tambah diagnosis').fill('pulpitis');
+  await ad.getByRole('button', { name: /K04\.0/ }).click();
+  await ad.getByLabel('Jenis K04.0').selectOption('PRIMER');
+  await expect(ad.getByLabel('Jenis K02.9')).toHaveValue('SEKUNDER');
+  await ad.getByLabel('Kata sandi Anda').fill(USER_PASSWORD);
+  await ad.getByRole('button', { name: 'Simpan addendum' }).click();
+  await expect(doc.getByTestId('addendum-diagnoses').last()).toHaveText('Diagnosis diperbarui: K02.9 Karies gigi, tidak spesifik; K04.0 Pulpitis (primer)');
+
+  sendOnce();
+  await doc.reload();
+  await expect(doc.getByTestId('satusehat-status')).toContainText('Terkirim');
+  await expect(doc.getByTestId('satusehat-followups')).toHaveCount(0);
+
+  // Gangguan berkepanjangan (disimulasikan) → admin melihat "Perlu tindakan" lalu mengirim ulang
+  await markLatestSatuSehatAddendumDead();
+  await signInAdmin(page);
+  await page.getByTestId('side-menu').getByRole('link', { name: 'SATUSEHAT' }).click();
+  const issues = page.getByTestId('satusehat-facility').first().getByTestId('satusehat-issues');
+  const row = issues.getByTestId('issue-row').filter({ hasText: 'Koreksi diagnosis' });
+  await expect(row).toContainText('Gagal setelah beberapa percobaan');
+  await expect(row).toContainText('SATUSEHAT sementara gagal (HTTP 503)');
+  await expect(issues).not.toContainText('Siti Rahmawati');
+  await row.getByRole('button', { name: 'Kirim ulang' }).click();
+  await expect(issues.getByRole('status')).toHaveText('Dijadwalkan dikirim ulang pada putaran berikutnya (± 5 menit).');
+  await expect(row).toHaveCount(0);
+  sendOnce();
+  await doc.reload();
+  await expect(doc.getByTestId('satusehat-status')).toContainText('Terkirim');
+  await expect(doc.getByTestId('satusehat-followups')).toHaveCount(0);
   expect(cspViolations).toEqual([]);
   await ctx.close();
 });

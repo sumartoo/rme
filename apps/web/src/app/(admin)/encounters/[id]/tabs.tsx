@@ -186,7 +186,7 @@ export function SoapTab({ chart, onSaved }: TabProps) {
   );
 }
 
-function ConceptSearch({ system, label, onPick }: { system: 'ICD10' | 'ICD9CM'; label: string; onPick: (c: Concept) => void }) {
+export function ConceptSearch({ system, label, onPick }: { system: 'ICD10' | 'ICD9CM'; label: string; onPick: (c: Concept) => void }) {
   const [q, setQ] = useState('');
   const [items, setItems] = useState<Concept[]>([]);
   useEffect(() => {

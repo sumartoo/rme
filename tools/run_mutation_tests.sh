@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Uji mutasi kontrol keamanan (Stage 3 M1–M4 diulang di monorepo — RSK-020; M5 Stage 4; M6–M14 Stage 5; M15–M17 Stage 6; M18–M22 Stage 7; M23–M38 Stage 8; M39–M59 Stage 9; M60–M89 Stage 10; M90–M133 Stage 11; M134–M151 Stage 12).
+# Uji mutasi kontrol keamanan (Stage 3 M1–M4 diulang di monorepo — RSK-020; M5 Stage 4; M6–M14 Stage 5; M15–M17 Stage 6; M18–M22 Stage 7; M23–M38 Stage 8; M39–M59 Stage 9; M60–M89 Stage 10; M90–M133 Stage 11; M134–M164 Stage 12).
 # Setiap mutasi sengaja merusak satu kontrol, menjalankan suite integrasi API, dan LULUS hanya bila
 # uji yang menjaga kontrol itu GAGAL. Kode selalu dikembalikan (trap), juga bila skrip dihentikan.
 #
@@ -64,6 +64,7 @@ SRPT=libs/pharmacy/src/lib/stock-report.controller.ts
 INVREPO=libs/billing/src/lib/invoice.repo.ts
 INVCTL=libs/billing/src/lib/invoice.controller.ts
 PAYCTL=libs/billing/src/lib/payment.controller.ts
+SHIFTREPO=libs/billing/src/lib/shift.repo.ts
 PAYREPO=libs/billing/src/lib/payment.repo.ts
 QRCTL=libs/billing/src/lib/qris.controller.ts
 CORCTL=libs/billing/src/lib/correction.controller.ts
@@ -71,7 +72,9 @@ OVCTL=libs/billing/src/lib/oversight.controller.ts
 SSCTL=libs/integration/src/lib/satusehat.controller.ts
 SSLIB=libs/db/src/lib/satusehat.ts
 SSENC=libs/db/src/lib/satusehat-encounter.ts
-FILES=("$AUTH" "$SESSION" "$MIG2" "$MIG3" "$GUARD" "$PGUARD" "$LAYOUT" "$EXPORT" "$MIG5" "$MIG6" "$TOTP" "$IAMUSERS" "$ACCOUNT" "$AUDITCHG" "$PRACT" "$MIG12" "$TERM" "$IMPORTS" "$PATIENT" "$MIG15" "$IDEM" "$MIG16" "$BOOK" "$SCHED" "$NOSHOW" "$ENCREPO" "$ENCCTL" "$QDISP" "$CHART" "$CHARTREPO" "$MIG19" "$SIGNCTL" "$REAUTH" "$MIG20" "$RXREPO" "$RXCTL" "$MIG21" "$LABCTL" "$DOCCTL" "$MIG22" "$RECV" "$PRICE" "$LOCS" "$DISP" "$DREPO" "$RXREM" "$SUBC" "$ADJC" "$OPNC" "$CRPT" "$OTCC" "$SRPT" "$INVREPO" "$INVCTL" "$PAYCTL" "$PAYREPO" "$QRCTL" "$CORCTL" "$OVCTL" "$SSCTL" "$SSLIB" "$SSENC")
+SSFU=libs/db/src/lib/satusehat-followup.ts
+INTEG=libs/clinical/src/lib/integrity.ts
+FILES=("$AUTH" "$SESSION" "$MIG2" "$MIG3" "$GUARD" "$PGUARD" "$LAYOUT" "$EXPORT" "$MIG5" "$MIG6" "$TOTP" "$IAMUSERS" "$ACCOUNT" "$AUDITCHG" "$PRACT" "$MIG12" "$TERM" "$IMPORTS" "$PATIENT" "$MIG15" "$IDEM" "$MIG16" "$BOOK" "$SCHED" "$NOSHOW" "$ENCREPO" "$ENCCTL" "$QDISP" "$CHART" "$CHARTREPO" "$MIG19" "$SIGNCTL" "$REAUTH" "$MIG20" "$RXREPO" "$RXCTL" "$MIG21" "$LABCTL" "$DOCCTL" "$MIG22" "$RECV" "$PRICE" "$LOCS" "$DISP" "$DREPO" "$RXREM" "$SUBC" "$ADJC" "$OPNC" "$CRPT" "$OTCC" "$SRPT" "$INVREPO" "$INVCTL" "$PAYCTL" "$PAYREPO" "$QRCTL" "$CORCTL" "$OVCTL" "$SSCTL" "$SSLIB" "$SSENC" "$SSFU" "$INTEG" "$SHIFTREPO")
 BACKUP=$(mktemp -d)
 cp "${FILES[@]}" "$BACKUP"/
 restore() { for f in "${FILES[@]}"; do cp "$BACKUP/$(basename "$f")" "$f"; done; }
@@ -323,7 +326,7 @@ mutate M107 "selisih kas di atas toleransi tidak wajib keterangan" 'L03' \
 mutate M108 "shift kasir dapat ditutup oleh kasir lain" 'L03' \
   "sed -i 's/      if (s.cashier_id !== ctx().userId) throw/      if (false) throw/' $PAYCTL && grep -q '      if (false) throw' $PAYCTL" ""
 mutate M109 "kas yang diharapkan tidak menghitung pembayaran tunai" 'L03' \
-  "sed -i \"s/where p.shift_id = s.id and p.method = 'TUNAI'), 0)::text as cash_in/where p.shift_id = s.id and false), 0)::text as cash_in/\" $PAYCTL && grep -q 'and false), 0)::text as cash_in' $PAYCTL" ""
+  "sed -i \"s/where p.shift_id = s.id and p.method = 'TUNAI'), 0)::text as cash_in/where p.shift_id = s.id and false), 0)::text as cash_in/\" $SHIFTREPO && grep -q 'and false), 0)::text as cash_in' $SHIFTREPO" ""
 mutate M110 "penjualan obat bebas tidak menjadi PAID saat tagihan lunas" 'L06' \
   "sed -i \"s/    await tx.execute(sql\\\`update otc_sale set status = 'PAID'/    await tx.execute(sql\\\`update otc_sale set status = 'AWAITING_PAYMENT'/\" $PAYREPO && grep -q \"set status = 'AWAITING_PAYMENT' where id\" $PAYREPO" ""
 
@@ -350,7 +353,7 @@ mutate M120 "pengaju refund dapat menyetujui refund-nya sendiri" 'R05' \
 mutate M121 "refund disetujui tidak menghitung ulang status tagihan" 'R05' \
   "sed -i 's/      const status = await settleInvoice(tx, r.invoice_id);/      const status = \x27TIDAK\x27;/' $CORCTL && grep -q \"const status = 'TIDAK';\" $CORCTL" ""
 mutate M122 "kas shift yang diharapkan tidak dikurangi refund tunai" 'R05' \
-  "sed -i 's/Number(s.cash_in) - Number(s.cash_refund)/Number(s.cash_in) - 0/' $PAYCTL && grep -q 'Number(s.cash_in) - 0' $PAYCTL" ""
+  "sed -i 's/Number(s.cash_in) - Number(s.cash_refund)/Number(s.cash_in) - 0/' $SHIFTREPO && grep -q 'Number(s.cash_in) - 0' $SHIFTREPO" ""
 mutate M123 "refund tunai disetujui walau shift pengaju sudah ditutup" 'R05' \
   "sed -i \"s/      if (r.method === 'TUNAI' \&\& r.shift_status !== 'OPEN') {/      if (false) {/\" $CORCTL && grep -q '      if (false) {' $CORCTL" ""
 
@@ -412,6 +415,33 @@ mutate M150 "status pengiriman kunjungan dapat dibaca tanpa izin rekam medis" 'U
   "sed -i \"s/@RequirePermission('clinical.record.read') @Get('encounters\/:id\/satusehat')/@RequirePermission('billing.invoice.read') @Get('encounters\/:id\/satusehat')/\" $SSCTL && grep -q \"'billing.invoice.read') @Get('encounters\" $SSCTL" ""
 mutate M151 "audit pengiriman memuat identitas pasien" 'U03' \
   "sed -i 's/JSON.stringify({ encounterNo: d.data.encounterNo,/JSON.stringify({ patient: d.data.patient.name, encounterNo: d.data.encounterNo,/' $SSENC && grep -q 'patient: d.data.patient.name' $SSENC" ""
+
+mutate M152 "obat tanpa kode KFA tetap dikirim" 'V01' \
+  "sed -i 's/    : (!it.kfa_code ? \[/    : (false ? [/' $SSFU && grep -q ': (false ? \[' $SSFU" ""
+mutate M153 "resep dikirim sebelum Encounter terkirim" 'V01' \
+  "sed -i \"s/er.local_id = e.id and er.status = 'SENT'/er.local_id = e.id/g\" $SSFU && ! grep -q \"er.local_id = e.id and er.status = 'SENT'\" $SSFU" ""
+mutate M154 "penyerahan obat dikirim walau resepnya belum terkirim" 'V02' \
+  "sed -i \"s/      ...(l.mr_status !== 'SENT' ? \[/      ...(false ? [/\" $SSFU && grep -q '      ...(false ? \[' $SSFU" ""
+mutate M155 "percobaan ulang resep tidak mencari MedicationRequest yang sudah tersimpan (duplikat)" 'V03' \
+  "sed -i 's/      if ((i.attempts ?? 0) > 0) {/      if (false) {/' $SSFU && grep -q '^      if (false) {$' $SSFU" ""
+mutate M156 "dead-letter tanpa notifikasi admin" 'V03' \
+  "sed -i 's/total.followUp.DEAD > deadBefore)/total.followUp.DEAD > deadBefore + 999)/' $SSENC && grep -q 'deadBefore + 999' $SSENC" ""
+mutate M157 "notifikasi dead-letter menumpuk (tanpa dedup)" 'V03' \
+  "sed -i \"s/     where not exists (select 1 from app.outbox_event where event_type = 'SATUSEHAT_DEAD_LETTER'.*/     where true\\\`, [connectionId]);/\" $SSFU && grep -q '     where true' $SSFU" ""
+mutate M158 "kiriman tertahan/terkirim dapat dikirim ulang manual" 'V04' \
+  "sed -i \"s/      if (r.status !== 'ERROR' \&\& r.status !== 'DEAD') throw/      if (false) throw/\" $SSCTL && grep -q '      if (false) throw' $SSCTL" ""
+mutate M159 "kirim ulang manual tanpa izin integration.manage" 'V04' \
+  "sed -i \"s/@RequirePermission('integration.manage') @NoBody() @Post('integrations\/satusehat\/records/@RequirePermission('billing.invoice.read') @NoBody() @Post('integrations\/satusehat\/records/\" $SSCTL && grep -q \"'billing.invoice.read') @NoBody() @Post('integrations\" $SSCTL" ""
+mutate M160 "diagnosis yang dihapus addendum tidak dikirim entered-in-error" 'V05' \
+  "sed -i 's/  const removed = current.filter((x) => !newCodes.has(x.code));/  const removed = current.filter(() => false);/' $SSFU && grep -q 'current.filter(() => false)' $SSFU" ""
+mutate M161 "semua addendum diagnosis dikirim (yang lama tidak digantikan)" 'V06' \
+  "sed -i 's/select distinct on (a.note_id) a.id, a.signed_at/select a.id, a.signed_at/' $SSFU && ! grep -q 'distinct on (a.note_id)' $SSFU" ""
+mutate M162 "perubahan diagnosis addendum tidak ikut di-hash" 'C16b' \
+  "sed -i 's/stableStringify(changes ? { v: 1, ...rest, changes } : { v: 1, ...rest })/stableStringify({ v: 1, ...rest })/' $INTEG && grep -q 'stableStringify({ v: 1, ...rest })' $INTEG" ""
+mutate M163 "addendum dengan diagnosis yang sama diterima" 'C16b' \
+  "sed -i 's/        if (sig(list) === sig(await effectiveDiagnosesOf(tx, n.encounter_id))) {/        if (false) {/' $SIGNCTL && grep -q '^        if (false) {$' $SIGNCTL" ""
+mutate M164 "obat pasien yang membatasi pemrosesan tetap dikirim" 'V06' \
+  "sed -i 's/^  if (h.restricted) {/  if (false) {/' $SSFU && ! grep -q 'if (h.restricted)' $SSFU" ""
 
 # Mutasi UI: suite Playwright (U##) sebagai detektor
 if [ "${MUTATION_E2E:-0}" = "1" ]; then

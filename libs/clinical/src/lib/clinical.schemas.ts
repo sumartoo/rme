@@ -29,10 +29,15 @@ const soap = { subjective: optText(10_000), objective: optText(10_000), assessme
 export const NoteBody = z.object({ templateCode: z.enum(TEMPLATE_CODES).optional(), ...soap, structured: z.record(z.string(), z.unknown()).optional() }).strict();
 export const AnamnesisBody = z.object({ subjective: z.string().trim().max(10_000) }).strict();
 
-export const DiagnosesBody = z.array(z.object({
+const DiagnosisItem = z.object({
   conceptId: Uuid, rank: z.enum(['PRIMER', 'SEKUNDER']), caseStatus: z.enum(['BARU', 'LAMA']).default('BARU'), note: optText(500),
-}).strict()).max(20)
+}).strict();
+export const DiagnosesBody = z.array(DiagnosisItem).max(20)
   .refine((d) => d.filter((x) => x.rank === 'PRIMER').length <= 1, 'Hanya satu diagnosis primer')
+  .refine((d) => new Set(d.map((x) => x.conceptId)).size === d.length, 'Diagnosis yang sama tercantum dua kali');
+/** Diagnosis pengganti lewat addendum (OD-120): daftar lengkap, tepat satu primer. */
+export const AddendumDiagnoses = z.array(DiagnosisItem).min(1).max(20)
+  .refine((d) => d.filter((x) => x.rank === 'PRIMER').length === 1, 'Tepat satu diagnosis primer')
   .refine((d) => new Set(d.map((x) => x.conceptId)).size === d.length, 'Diagnosis yang sama tercantum dua kali');
 
 export const ProcedureBody = z.object({

@@ -15,7 +15,7 @@ import { testConfig } from './support/test-config';
 const HOST = 'klinik-a.clinicrme.test';
 const A = (n: number) => `aaaaaaaa-0000-0000-0000-${String(n).padStart(12, '0')}`;
 const BRANCH = A(10), UNIT = A(11), DR = A(20);
-const ICD10_R50 = 'c1000000-0000-0000-0000-000000000001';
+const ICD10_R50 = 'c1000000-0000-0000-0000-000000000001', ICD10_J06 = 'c1000000-0000-0000-0000-000000000002';
 const DR2 = A(28), DR3 = A(29), DOK2 = A(32), DOK3 = A(33), PERAWAT = A(27);
 const KEY = 'a'.repeat(64);
 let app: INestApplication;
@@ -196,6 +196,37 @@ describe('Addendum & integritas (CLN-FR-019; ADR-0006)', () => {
     await expect(su(`${app_} update app.clinical_addendum set content = 'ubah' where id = '${r.body.id}'`)).rejects.toThrow(/permission denied|IMMUTABLE/);
     await expect(su(`insert into app.clinical_addendum(tenant_id, note_id, reason, content, author_id, content_hash)
                      values ($1, $2, 'x', 'x', $3, 'x')`, [ids.tenantA, draft.noteId, DR])).rejects.toThrow(/sudah disahkan/);
+  });
+
+  test('C16b addendum mengganti diagnosis (OD-120): daftar lengkap tepat satu primer, ICD-10 berlaku, ikut di-hash; catatan & diagnosis asli tetap', async () => {
+    const e = await ready(P[9]);
+    await sign(e.id, dokter);
+    const url = `/api/v1/clinical-notes/${e.noteId}/addenda`;
+    const base = { reason: 'Koreksi diagnosis', content: 'Hasil anamnesis ulang: ISPA.', password: PASSWORD };
+    expect((await post(url, dokter).send({ ...base, diagnoses: [{ conceptId: ICD10_J06, rank: 'SEKUNDER' }] })).status).toBe(400);
+    expect((await post(url, dokter).send({ ...base, diagnoses: [{ conceptId: ICD10_J06, rank: 'PRIMER' }, { conceptId: ICD10_R50, rank: 'PRIMER' }] })).status).toBe(400);
+    expect((await post(url, dokter).send({ ...base, diagnoses: [{ conceptId: randomUUID(), rank: 'PRIMER' }] })).body.code).toBe('CLN-400-CONCEPT');
+    expect((await post(url, dokter).send({ ...base, diagnoses: [{ conceptId: ICD10_R50, rank: 'PRIMER' }] })).body.code).toBe('CLN-400-DX-UNCHANGED');
+    const r = await post(url, dokter).send({ ...base, diagnoses: [{ conceptId: ICD10_J06, rank: 'PRIMER' }, { conceptId: ICD10_R50, rank: 'SEKUNDER', caseStatus: 'LAMA' }] });
+    expect(r.status).toBe(201);
+    expect(r.body.diagnoses).toEqual([
+      { conceptId: ICD10_J06, code: 'J06.9', display: 'ISPA akut, tidak spesifik', rank: 'PRIMER', caseStatus: 'BARU', note: null },
+      { conceptId: ICD10_R50, code: 'R50.9', display: 'Demam, tidak spesifik', rank: 'SEKUNDER', caseStatus: 'LAMA', note: null },
+    ]);
+    const chart = (await get(`/api/v1/encounters/${e.id}/chart`, dokter)).body;
+    expect(chart.diagnoses.map((d: { code: string }) => d.code)).toEqual(['R50.9']);   // diagnosis saat pengesahan tetap terkunci
+    expect(chart.note.addenda[0].diagnoses).toHaveLength(2);
+    // Sama dengan addendum terakhir → ditolak; perubahan diagnosis di luar aplikasi terdeteksi verifikasi hash
+    expect((await post(url, dokter).send({ ...base, diagnoses: [{ conceptId: ICD10_R50, rank: 'SEKUNDER', caseStatus: 'LAMA' }, { conceptId: ICD10_J06, rank: 'PRIMER' }] })).body.code)
+      .toBe('CLN-400-DX-UNCHANGED');
+    expect((await get(`/api/v1/clinical-notes/${e.noteId}/verify`, dokter)).body.addenda).toEqual([{ id: r.body.id, valid: true }]);
+    await su(`alter table app.clinical_addendum disable trigger trg_addendum_immutable;
+              update app.clinical_addendum set changes = jsonb_set(changes, '{diagnoses,0,rank}', '"SEKUNDER"') where id = '${r.body.id}';
+              alter table app.clinical_addendum enable trigger trg_addendum_immutable`);
+    expect((await get(`/api/v1/clinical-notes/${e.noteId}/verify`, dokter)).body.addenda[0].valid).toBe(false);
+    const [a] = await su(`select change_summary from app.audit_log where action = 'CLINICAL_ADDENDUM_SIGNED' and resource_id = $1`, [r.body.id]);
+    expect(a.change_summary).toMatchObject({ diagnosesChanged: 2 });
+    expect(JSON.stringify(a.change_summary)).not.toMatch(/J06|ISPA/);
   });
 
   test('C17 perubahan di luar aplikasi (trigger dimatikan superuser) terdeteksi oleh verifikasi hash', async () => {

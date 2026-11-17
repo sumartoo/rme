@@ -232,6 +232,13 @@
       "when": 1795852800000,
       "tag": "0032_satusehat_encounter",
       "breakpoints": false
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1795939200000,
+      "tag": "0033_satusehat_medication_resend",
+      "breakpoints": false
     }
   ]
 }

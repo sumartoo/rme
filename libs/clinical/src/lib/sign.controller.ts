@@ -3,13 +3,15 @@ import { sql } from 'drizzle-orm';
 import { z } from 'zod';
 import { type AppConfig, BodySchema, CONFIG, RequirePermission, assertId, ctx, problem, problemWith } from '@clinicrme/shared';
 import { Db, type Tx, audit, rows } from '@clinicrme/db';
-import { ENC_NOT_FOUND, addendaOf, diagnosesOf, noteOf, proceduresOf, vitalsOf } from './chart.repo';
+import { type DxChange, ENC_NOT_FOUND, addendaOf, diagnosesOf, effectiveDiagnosesOf, noteOf, proceduresOf, vitalsOf } from './chart.repo';
+import { AddendumDiagnoses } from './clinical.schemas';
 import { ISO, addendumHash, noteContentHash, serverNow } from './integrity';
 import { REAUTH_MESSAGE, ReauthFields, hasReauth, reauthenticate } from './reauth';
 
 export const SignBody = z.object({ ...ReauthFields, substituteReason: z.string().trim().min(5).max(500).optional() })
   .strict().refine(hasReauth, REAUTH_MESSAGE);
-export const AddendumBody = z.object({ ...ReauthFields, reason: z.string().trim().min(5).max(500), content: z.string().trim().min(1).max(10_000) })
+export const AddendumBody = z.object({ ...ReauthFields, reason: z.string().trim().min(5).max(500), content: z.string().trim().min(1).max(10_000),
+  diagnoses: AddendumDiagnoses.optional() })
   .strict().refine(hasReauth, REAUTH_MESSAGE);
 const NOTE_404 = ['CLN-404-NOTE', 'Catatan klinis tidak ditemukan'] as const;
 const DOCTOR_TYPES = ['DOKTER', 'DOKTER_GIGI', 'DOKTER_SPESIALIS'];
@@ -100,13 +102,33 @@ export class SignController {
     return this.db.withTenantTx(async (tx) => {
       const { n, signer } = await pre(tx);
       const signedAt = await serverNow(tx);
+      // OD-120: addendum dapat mengganti daftar diagnosis (catatan & diagnosis asli tetap terkunci; yang berlaku = addendum terakhir)
+      let changes: { diagnoses: DxChange[] } | undefined;
+      if (b.diagnoses) {
+        const ids = b.diagnoses.map((d) => d.conceptId);
+        const found = await rows<{ id: string; code: string; display: string }>(tx, sql`
+          select c.id, c.code, c.display_id as display from concept c join code_system s on s.id = c.system_id
+           where c.id = any(${`{${ids.join(',')}}`}::uuid[]) and c.is_active and s.is_current and s.code = 'ICD10'`);
+        const bad = ids.filter((x) => !found.some((o) => o.id === x));
+        if (bad.length) throw problemWith(400, 'CLN-400-CONCEPT', 'Kode diagnosis bukan ICD-10 versi berlaku', { conceptIds: bad });
+        const list = b.diagnoses.map((d) => {
+          const c = found.find((o) => o.id === d.conceptId)!;
+          return { conceptId: d.conceptId, code: c.code, display: c.display, rank: d.rank, caseStatus: d.caseStatus, note: d.note ?? null };
+        });
+        const sig = (x: DxChange[]) => JSON.stringify(x.map((d) => [d.conceptId, d.rank, d.caseStatus, d.note ?? null]).sort());
+        if (sig(list) === sig(await effectiveDiagnosesOf(tx, n.encounter_id))) {
+          throw problem(400, 'CLN-400-DX-UNCHANGED', 'Diagnosis pada addendum sama dengan yang berlaku');
+        }
+        changes = { diagnoses: list };
+      }
       const hash = addendumHash({ noteHash: n.content_hash!, noteId, reason: b.reason, content: b.content, authorId: signer.practitioner_id,
-        authorUserId: ctx().userId!, signedAt });
+        authorUserId: ctx().userId!, signedAt, changes });
       const [{ id }] = await rows<{ id: string }>(tx, sql`
-        insert into clinical_addendum(tenant_id, note_id, reason, content, author_id, signed_at, content_hash, author_user_id, author_sip, sign_method)
+        insert into clinical_addendum(tenant_id, note_id, reason, content, author_id, signed_at, content_hash, author_user_id, author_sip, sign_method, changes)
         values (app.current_tenant_id(), ${noteId}, ${b.reason}, ${b.content}, ${signer.practitioner_id}, ${signedAt}::timestamptz, ${hash},
-                ${ctx().userId}, ${signer.sip_number}, ${method}) returning id`);
-      await audit(tx, 'CLINICAL_ADDENDUM_SIGNED', 'clinical_addendum', id, n.patient_id, { noteId, encounterId: n.encounter_id, method, contentHash: hash });
+                ${ctx().userId}, ${signer.sip_number}, ${method}, ${changes ? JSON.stringify(changes) : null}::jsonb) returning id`);
+      await audit(tx, 'CLINICAL_ADDENDUM_SIGNED', 'clinical_addendum', id, n.patient_id, { noteId, encounterId: n.encounter_id, method, contentHash: hash,
+        ...(changes ? { diagnosesChanged: changes.diagnoses.length } : {}) });
       return (await addendaOf(tx, noteId)).find((a) => a.id === id);
     });
   }
@@ -123,14 +145,15 @@ export class SignController {
       if (!n) throw problem(404, ...NOTE_404);
       if (n.status !== 'SIGNED') throw problem(409, 'CLN-409-NOT-SIGNED', 'Catatan belum disahkan');
       const recomputed = await noteContentHash(tx, noteId, { practitionerId: n.signed_by, userId: n.signer_user_id, sip: n.signer_sip, signedAt: n.signed_at_iso });
-      const adds = await rows<{ id: string; reason: string; content: string; author_id: string; author_user_id: string; signed_at_iso: string; content_hash: string }>(tx, sql`
-        select id, reason, content, author_id, author_user_id, ${ISO(sql`signed_at`)} as signed_at_iso, content_hash
+      const adds = await rows<{ id: string; reason: string; content: string; author_id: string; author_user_id: string; signed_at_iso: string; content_hash: string;
+                                changes: unknown }>(tx, sql`
+        select id, reason, content, author_id, author_user_id, ${ISO(sql`signed_at`)} as signed_at_iso, content_hash, changes
           from clinical_addendum where note_id = ${noteId} order by signed_at, id`);
       await audit(tx, 'CLINICAL_NOTE_VERIFIED', 'clinical_note', noteId, n.patient_id);
       return {
         noteId, contentHash: n.content_hash, valid: recomputed === n.content_hash,
         addenda: adds.map((a) => ({ id: a.id, valid: a.content_hash === addendumHash({ noteHash: n.content_hash!, noteId, reason: a.reason, content: a.content,
-          authorId: a.author_id, authorUserId: a.author_user_id, signedAt: a.signed_at_iso }) })),
+          authorId: a.author_id, authorUserId: a.author_user_id, signedAt: a.signed_at_iso, changes: a.changes ?? undefined }) })),
       };
     });
   }

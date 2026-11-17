@@ -45,6 +45,11 @@
       "types": "./src/lib/satusehat-encounter.ts",
       "import": "./src/lib/satusehat-encounter.ts",
       "default": "./src/lib/satusehat-encounter.ts"
+    },
+    "./satusehat-followup": {
+      "types": "./src/lib/satusehat-followup.ts",
+      "import": "./src/lib/satusehat-followup.ts",
+      "default": "./src/lib/satusehat-followup.ts"
     }
   },
   "nx": {

@@ -1,4 +1,4 @@
-import { Body, Controller, Get, HttpCode, Inject, Param, Post, Put } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, Inject, Param, Post, Put, Query } from '@nestjs/common';
 import { sql } from 'drizzle-orm';
 import { z } from 'zod';
 import { BodySchema, CONFIG, NoBody, RequirePermission, Uuid, assertId, ctx, problem, type AppConfig } from '@clinicrme/shared';
@@ -17,6 +17,9 @@ const ConfigureBody = z.object({
   organizationId: z.string().trim().min(3).max(100),
 }).strict();
 const FacilityBody = z.object({ facilityId: Uuid }).strict();
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+/** Unit kiriman yang dapat dikirim ulang/ditindaklanjuti: kunjungan, item resep, baris penyerahan, addendum diagnosis. */
+const RESENDABLE_SQL = sql`('encounter', 'prescription_item', 'dispense_line', 'clinical_addendum')`;
 const NOT_CONFIGURED = ['INT-404-CONNECTION', 'Koneksi SATUSEHAT fasilitas ini belum diatur'] as const;
 
 interface ConnRow { id: string; facility_id: string; environment: SatuSehatEnvironment; client_id: string; secret_encrypted: Buffer; organization_id: string;
@@ -238,19 +241,84 @@ export class SatuSehatController {
         select id, environment from integration_connection where facility_id = ${e.facility_id} and kind = 'SATUSEHAT' and is_active`);
       if (!c) return { configured: false, environment: null, signed: e.signed, status: null, resources: [] };
       const [r] = await rows<{ id: string; status: string; attempts: number; last_error: string | null; problems: { blocking?: string[]; warnings?: string[] };
-                              satusehat_id: string | null; last_sent_at: string | null; next_attempt_at: string | null; updated_at: string }>(tx, sql`
-        select id, status, attempts, last_error, problems, satusehat_id, last_sent_at, next_attempt_at, updated_at from fhir_sync_record
+                              satusehat_id: string | null; last_sent_at: string | null; next_attempt_at: string | null; updated_at: string; resource_version: number }>(tx, sql`
+        select id, status, attempts, last_error, problems, satusehat_id, last_sent_at, next_attempt_at, updated_at, resource_version from fhir_sync_record
          where connection_id = ${c.id} and resource_type = 'Encounter' and local_type = 'encounter' and local_id = ${id}`);
       const iso = (v: string | null | undefined) => (v ? new Date(v).toISOString() : null);
-      const kids = r ? await rows<{ resource_type: string; status: string; satusehat_id: string | null }>(tx, sql`
-        select resource_type, status, satusehat_id from fhir_sync_record where parent_id = ${r.id} order by resource_type, created_at`) : [];
+      const kids = r ? await rows<{ id: string; resource_type: string; local_type: string; status: string; satusehat_id: string | null; problems: { blocking?: string[]; warnings?: string[] };
+                                    last_error: string | null; entered_in_error_at: string | null; resource_version: number }>(tx, sql`
+        select id, resource_type, local_type, status, satusehat_id, problems, last_error, entered_in_error_at, resource_version from fhir_sync_record
+         where parent_id = ${r.id} order by resource_type, created_at`) : [];
       return {
         configured: true, environment: c.environment, signed: e.signed,
         status: r?.status ?? (e.signed ? 'QUEUED' : 'NOT_SIGNED'), attempts: r?.attempts ?? 0, lastError: r?.last_error ?? null,
         blocking: r?.problems?.blocking ?? [], warnings: r?.problems?.warnings ?? [], satusehatId: r?.satusehat_id ?? null,
         lastSentAt: iso(r?.last_sent_at), nextAttemptAt: iso(r?.next_attempt_at), updatedAt: iso(r?.updated_at),
-        resources: kids.map((k) => ({ resourceType: k.resource_type, status: k.status, satusehatId: k.satusehat_id })),
+        version: r?.resource_version ?? null,
+        resources: kids.map((k) => ({ id: k.id, resourceType: k.resource_type, localType: k.local_type, status: k.status, satusehatId: k.satusehat_id,
+          blocking: k.problems?.blocking ?? [], warnings: k.problems?.warnings ?? [], lastError: k.last_error, enteredInError: !!k.entered_in_error_at,
+          version: k.resource_version })),
       };
+    });
+  }
+
+  /**
+   * "Perlu tindakan" (OD-119, INT-FR-009): kiriman yang ditolak (ERROR), gagal setelah semua percobaan (DEAD), atau tertahan karena data
+   * belum lengkap (BLOCKED). Hanya nomor kunjungan & pesan operasional — tanpa nama pasien / isi rekam medis.
+   */
+  @RequirePermission('integration.read') @Get('integrations/satusehat/records')
+  async records(@Query('facilityId') facilityId?: string) {
+    if (!facilityId || !UUID_RE.test(facilityId)) throw problem(400, 'GEN-400-VALIDATION', 'facilityId wajib');
+    return this.db.withTenantTx(async (tx) => {
+      const [c] = await rows<{ id: string }>(tx, sql`select id from integration_connection where facility_id = ${facilityId} and kind = 'SATUSEHAT' and is_active`);
+      if (!c) return { data: [], nextCursor: null, counts: { ERROR: 0, DEAD: 0, BLOCKED: 0 } };
+      const data = await rows<{ id: string; resource_type: string; local_type: string; status: string; attempts: number; last_error: string | null;
+        problems: { blocking?: string[] }; updated_at: string; resend_requested_at: string | null; encounter_id: string | null; encounter_no: string | null }>(tx, sql`
+        select r.id, r.resource_type, r.local_type, r.status, r.attempts, r.last_error, r.problems, r.updated_at, r.resend_requested_at,
+               e.id as encounter_id, e.encounter_no
+          from fhir_sync_record r
+          left join fhir_sync_record p on p.id = r.parent_id
+          left join encounter e on e.id = case when r.local_type = 'encounter' then r.local_id else p.local_id end
+         where r.connection_id = ${c.id} and r.status in ('ERROR', 'DEAD', 'BLOCKED')
+           and r.local_type in ${RESENDABLE_SQL}
+         order by case r.status when 'DEAD' then 0 when 'ERROR' then 1 else 2 end, r.updated_at desc limit 200`);
+      const counts = { ERROR: 0, DEAD: 0, BLOCKED: 0 } as Record<string, number>;
+      for (const x of await rows<{ status: string; n: number }>(tx, sql`
+        select status, count(*)::int as n from fhir_sync_record where connection_id = ${c.id} and status in ('ERROR', 'DEAD', 'BLOCKED')
+           and local_type in ${RESENDABLE_SQL} group by status`)) counts[x.status] = x.n;
+      return {
+        counts, nextCursor: null,
+        data: data.map((x) => ({ id: x.id, resourceType: x.resource_type, localType: x.local_type, status: x.status, attempts: x.attempts, lastError: x.last_error,
+          blocking: x.problems?.blocking ?? [], updatedAt: new Date(x.updated_at).toISOString(),
+          resendRequestedAt: x.resend_requested_at ? new Date(x.resend_requested_at).toISOString() : null, encounterId: x.encounter_id, encounterNo: x.encounter_no,
+          resendable: x.status === 'ERROR' || x.status === 'DEAD' })),
+      };
+    });
+  }
+
+  /**
+   * Kirim ulang manual (OD-119): kiriman ERROR/DEAD dijadwalkan dikirim pada putaran worker berikutnya. Idempoten — worker lebih dulu
+   * mencari resource per identifier lokal sehingga tidak membuat data ganda. Teraudit.
+   */
+  @RequirePermission('integration.manage') @NoBody() @Post('integrations/satusehat/records/:id/retry') @HttpCode(200)
+  async resend(@Param('id') id: string) {
+    assertId(id, 'INT-404-RECORD', 'Data kiriman tidak ditemukan');
+    return this.db.withTenantTx(async (tx) => {
+      const [r] = await rows<{ id: string; status: string; local_type: string; resource_type: string; is_active: boolean; parent_local: string | null; local_id: string }>(tx, sql`
+        select r.id, r.status, r.local_type, r.resource_type, ic.is_active, p.local_id as parent_local, r.local_id
+          from fhir_sync_record r join integration_connection ic on ic.id = r.connection_id left join fhir_sync_record p on p.id = r.parent_id
+         where r.id = ${id} and r.local_type in ${RESENDABLE_SQL} for update of r`);
+      if (!r) throw problem(404, 'INT-404-RECORD', 'Data kiriman tidak ditemukan');
+      if (!r.is_active) throw problem(409, 'INT-409-INACTIVE', 'Koneksi SATUSEHAT untuk data ini sudah tidak aktif');
+      if (r.status === 'PENDING') return { id, status: 'PENDING', alreadyQueued: true };
+      if (r.status !== 'ERROR' && r.status !== 'DEAD') throw problem(409, 'INT-409-NOT-RESENDABLE', 'Hanya kiriman yang ditolak atau gagal yang dapat dikirim ulang');
+      await tx.execute(sql`update fhir_sync_record set status = 'PENDING', next_attempt_at = now(), resend_requested_at = now(), resend_requested_by = ${ctx().userId},
+                           updated_at = now() where id = ${id}`);
+      const encounterId = r.local_type === 'encounter' ? r.local_id : r.parent_local;
+      const [pt] = encounterId ? await rows<{ patient_id: string }>(tx, sql`select patient_id from encounter where id = ${encounterId}`) : [];
+      await audit(tx, 'SATUSEHAT_RESEND_REQUESTED', 'fhir_sync_record', id, pt?.patient_id ?? null,
+        { resourceType: r.resource_type, localType: r.local_type, previousStatus: r.status });
+      return { id, status: 'PENDING', alreadyQueued: false };
     });
   }
 

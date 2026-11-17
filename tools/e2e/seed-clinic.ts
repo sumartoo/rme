@@ -147,3 +147,21 @@ export async function addClinicBillingEncounter(o: { patientName: string; branch
     await c.end();
   }
 }
+
+/**
+ * Simulasikan gangguan SATUSEHAT berkepanjangan (Stage 12 batch 3): kiriman koreksi diagnosis terakhir klinik E2E ditandai DEAD,
+ * seperti setelah 5 percobaan gagal. Hanya untuk uji — memperlihatkan daftar "Perlu tindakan" & kirim ulang.
+ */
+export async function markLatestSatuSehatAddendumDead(): Promise<void> {
+  const c = new Client({ connectionString: dbUrl() });
+  await c.connect();
+  try {
+    const { rowCount } = await c.query(`
+      UPDATE app.fhir_sync_record SET status = 'DEAD', attempts = 5, last_error = 'SATUSEHAT sementara gagal (HTTP 503)', next_attempt_at = NULL
+       WHERE id = (SELECT r.id FROM app.fhir_sync_record r JOIN app.tenant t ON t.id = r.tenant_id
+                    WHERE t.code = $1 AND r.local_type = 'clinical_addendum' AND r.status = 'SENT' ORDER BY r.updated_at DESC LIMIT 1)`, [CLINIC_CODE]);
+    if (rowCount !== 1) throw new Error('Tidak ada kiriman addendum untuk ditandai');
+  } finally {
+    await c.end();
+  }
+}

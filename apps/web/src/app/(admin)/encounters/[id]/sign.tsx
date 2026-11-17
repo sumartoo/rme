@@ -1,7 +1,8 @@
 'use client';
 import { useState } from 'react';
-import { Alert, Badge, Button, Card, CardContent, CardHeader, CardTitle, Dialog, Field, Input, Textarea } from '@clinicrme/ui';
-import { ApiError, EncounterChart, api, errorText } from '../../../../lib/api';
+import { Alert, Badge, Button, Card, CardContent, CardHeader, CardTitle, Dialog, Field, Input, Select, Textarea } from '@clinicrme/ui';
+import { type AddendumDiagnosis, ApiError, EncounterChart, api, errorText } from '../../../../lib/api';
+import { ConceptSearch } from './tabs';
 import { fmtDateTime } from '../../../../lib/format';
 import { can, useSession } from '../../../../lib/session';
 
@@ -96,12 +97,16 @@ export function SignPanel({ chart, onSaved }: { chart: EncounterChart; onSaved: 
                 <div key={a.id} className="rounded-md border p-3" data-testid="addendum-row">
                   <p className="text-xs text-muted-foreground">{fmtDateTime(a.signedAt)} · {a.authorName}{a.authorSip ? ` (SIP ${a.authorSip})` : ''} · alasan: {a.reason}</p>
                   <p className="whitespace-pre-wrap">{a.content}</p>
+                  {a.diagnoses ? (
+                    <p className="mt-1 text-sm" data-testid="addendum-diagnoses"><b>Diagnosis diperbarui:</b>{' '}
+                      {a.diagnoses.map((d) => `${d.code} ${d.display}${d.rank === 'PRIMER' ? ' (primer)' : ''}`).join('; ')}</p>
+                  ) : null}
                 </div>
               ))}
             </div>
           ) : null}
         </CardContent>
-        {open === 'addendum' ? <AddendumDialog noteId={n.id} onClose={() => setOpen(undefined)} onDone={async () => { setOpen(undefined); setVerify(undefined); await onSaved(); }} /> : null}
+        {open === 'addendum' ? <AddendumDialog noteId={n.id} current={currentDiagnoses(chart)} onClose={() => setOpen(undefined)} onDone={async () => { setOpen(undefined); setVerify(undefined); await onSaved(); }} /> : null}
       </Card>
     );
   }
@@ -154,16 +159,28 @@ function SignDialog({ chart, onClose, onDone }: { chart: EncounterChart; onClose
   );
 }
 
-function AddendumDialog({ noteId, onClose, onDone }: { noteId: string; onClose: () => void; onDone: () => Promise<void> }) {
+/** Diagnosis yang berlaku: dari addendum terakhir yang mengubah diagnosis, atau diagnosis saat pengesahan (OD-120). */
+function currentDiagnoses(chart: EncounterChart): AddendumDiagnosis[] {
+  const last = [...(chart.note?.addenda ?? [])].reverse().find((a) => a.diagnoses);
+  if (last?.diagnoses) return last.diagnoses;
+  return chart.diagnoses.map((d) => ({ conceptId: d.conceptId, code: d.code, display: d.display, rank: d.rank, caseStatus: d.caseStatus, note: d.note }));
+}
+
+function AddendumDialog({ noteId, current, onClose, onDone }: { noteId: string; current: AddendumDiagnosis[]; onClose: () => void; onDone: () => Promise<void> }) {
   const [reason, setReason] = useState('');
   const [content, setContent] = useState('');
+  const [changeDx, setChangeDx] = useState(false);
+  const [dx, setDx] = useState<AddendumDiagnosis[]>(current);
+  const primaries = dx.filter((d) => d.rank === 'PRIMER').length;
+  const dxOk = !changeDx || (dx.length > 0 && primaries === 1);
   const [re, setRe] = useState<{ mode: 'PASSWORD' | 'TOTP'; secret: string }>({ mode: 'PASSWORD', secret: '' });
   const [error, setError] = useState<string>();
   const [busy, setBusy] = useState(false);
   async function submit(e: React.FormEvent) {
     e.preventDefault(); setBusy(true);
     try {
-      await api(`/clinical-notes/${noteId}/addenda`, { method: 'POST', body: { reason: reason.trim(), content: content.trim(), ...reauthBody(re) } });
+      await api(`/clinical-notes/${noteId}/addenda`, { method: 'POST', body: { reason: reason.trim(), content: content.trim(), ...reauthBody(re),
+        ...(changeDx ? { diagnoses: dx.map((d) => ({ conceptId: d.conceptId, rank: d.rank, caseStatus: d.caseStatus, note: d.note })) } : {}) } });
       await onDone();
     } catch (err) { setError(errorText(err, 'Gagal menyimpan addendum')); setRe((r) => ({ ...r, secret: '' })); }
     finally { setBusy(false); }
@@ -174,10 +191,33 @@ function AddendumDialog({ noteId, onClose, onDone }: { noteId: string; onClose: 
         {error ? <Alert tone="error">{error}</Alert> : null}
         <Field id="ad-reason" label="Alasan *"><Input id="ad-reason" maxLength={500} value={reason} onChange={(e) => setReason(e.target.value)} /></Field>
         <Field id="ad-content" label="Isi addendum *"><Textarea id="ad-content" rows={4} maxLength={10_000} value={content} onChange={(e) => setContent(e.target.value)} /></Field>
+        <label className="flex items-center gap-2 text-sm">
+          <input type="checkbox" checked={changeDx} onChange={(e) => setChangeDx(e.target.checked)} /> Ubah diagnosis
+        </label>
+        {changeDx ? (
+          <div className="grid gap-2 rounded-md border p-3" data-testid="addendum-dx-editor">
+            <p className="text-xs text-muted-foreground">Daftar lengkap diagnosis yang berlaku setelah addendum (tepat satu primer). Diagnosis asli tetap tersimpan.</p>
+            {dx.map((d) => (
+              <div key={d.conceptId} className="flex flex-wrap items-center gap-2 text-sm" data-testid="addendum-dx-row">
+                <span className="font-mono">{d.code}</span><span className="flex-1">{d.display}</span>
+                <Select aria-label={`Jenis ${d.code}`} value={d.rank} onChange={(e) => setDx(dx.map((x) => x.conceptId === d.conceptId ? { ...x, rank: e.target.value as AddendumDiagnosis['rank'] }
+                  : e.target.value === 'PRIMER' && x.rank === 'PRIMER' ? { ...x, rank: 'SEKUNDER' } : x))}>
+                  <option value="PRIMER">Primer</option><option value="SEKUNDER">Sekunder</option>
+                </Select>
+                <Button type="button" size="sm" variant="outline" onClick={() => setDx(dx.filter((x) => x.conceptId !== d.conceptId))}>Hapus {d.code}</Button>
+              </div>
+            ))}
+            <ConceptSearch system="ICD10" label="Tambah diagnosis" onPick={(c) => {
+              if (dx.some((d) => d.conceptId === c.id)) return;
+              setDx([...dx, { conceptId: c.id, code: c.code, display: c.display, rank: dx.some((d) => d.rank === 'PRIMER') ? 'SEKUNDER' : 'PRIMER', caseStatus: 'BARU', note: null }]);
+            }} />
+            {!dxOk ? <p className="text-xs text-destructive">Pilih tepat satu diagnosis primer.</p> : null}
+          </div>
+        ) : null}
         <Reauth value={re} onChange={setRe} />
         <div className="flex justify-end gap-2">
           <Button type="button" variant="outline" onClick={onClose}>Batal</Button>
-          <Button type="submit" loading={busy} disabled={reason.trim().length < 5 || !content.trim() || !reauthOk(re)}>Simpan addendum</Button>
+          <Button type="submit" loading={busy} disabled={reason.trim().length < 5 || !content.trim() || !reauthOk(re) || !dxOk}>Simpan addendum</Button>
         </div>
       </form>
     </Dialog>

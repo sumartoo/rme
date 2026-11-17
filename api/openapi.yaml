@@ -4880,7 +4880,7 @@ paths:
       operationId: addendumCreate
       tags:
       - Clinical
-      summary: Addendum atas catatan yang disahkan
+      summary: Addendum atas catatan yang disahkan; opsional mengganti daftar diagnosis (OD-120)
       x-requirements:
       - CLN-FR-019
       - INT-FR-012
@@ -7655,7 +7655,7 @@ paths:
       operationId: satusehatRecords
       tags:
       - Integration
-      summary: Daftar status per resource & error
+      summary: 'Perlu tindakan: kiriman ditolak/gagal/tertahan per fasilitas (?facilityId=) + jumlah per status'
       x-requirements:
       - INT-FR-008
       - INT-FR-009
@@ -7693,7 +7693,7 @@ paths:
       operationId: satusehatRetry
       tags:
       - Integration
-      summary: Kirim ulang (teraudit, idempoten)
+      summary: Kirim ulang kiriman ERROR/DEAD pada putaran worker berikutnya (teraudit, idempoten per identifier lokal)
       x-requirements:
       - INT-FR-009
       x-permission: integration.manage
@@ -10855,6 +10855,31 @@ components:
         code:
           type: string
           pattern: ^\d{6}$
+        diagnoses:
+          type: array
+          minItems: 1
+          maxItems: 20
+          description: Daftar diagnosis pengganti (OD-120); tepat satu PRIMER
+          items:
+            type: object
+            properties:
+              conceptId: *id002
+              rank:
+                type: string
+                enum:
+                - PRIMER
+                - SEKUNDER
+              caseStatus:
+                type: string
+                enum:
+                - BARU
+                - LAMA
+              note:
+                type: string
+                maxLength: 500
+            required:
+            - conceptId
+            - rank
       required:
       - reason
       - content
@@ -10879,6 +10904,36 @@ components:
         signedAt: *id006
         contentHash:
           type: string
+        diagnoses:
+          type:
+          - array
+          - 'null'
+          items:
+            type: object
+            properties:
+              conceptId: *id002
+              code:
+                type: string
+              display:
+                type: string
+              rank:
+                type: string
+                enum:
+                - PRIMER
+                - SEKUNDER
+              caseStatus:
+                type: string
+                enum:
+                - BARU
+                - LAMA
+              note:
+                type:
+                - string
+                - 'null'
+            required:
+            - conceptId
+            - code
+            - rank
       required:
       - id
       - reason
@@ -13021,12 +13076,19 @@ components:
           type:
           - string
           - 'null'
+        version:
+          type:
+          - integer
+          - 'null'
         resources:
           type: array
           items:
             type: object
             properties:
+              id: *id002
               resourceType:
+                type: string
+              localType:
                 type: string
               status:
                 type: string
@@ -13034,6 +13096,20 @@ components:
                 type:
                 - string
                 - 'null'
+              blocking:
+                type: array
+                items:
+                  type: string
+              warnings:
+                type: array
+                items:
+                  type: string
+              lastError:
+                type:
+                - string
+                - 'null'
+              enteredInError: *id001
+              version: *id005
             required:
             - resourceType
             - status
@@ -13089,17 +13165,38 @@ components:
           type: string
           enum:
           - PENDING
+          - BLOCKED
           - SENT
           - ERROR
           - DEAD
           - SKIPPED
         attempts: *id005
         lastError:
-          type: string
+          type:
+          - string
+          - 'null'
         lastSentAt: *id006
+        blocking:
+          type: array
+          items:
+            type: string
+        updatedAt: *id006
+        resendRequestedAt:
+          type:
+          - string
+          - 'null'
+        encounterId:
+          type:
+          - string
+          - 'null'
+        encounterNo:
+          type:
+          - string
+          - 'null'
+        resendable: *id001
+        alreadyQueued: *id001
       required:
       - id
-      - resourceType
       - status
     ReconciliationRow:
       type: object

@@ -33,8 +33,12 @@ export async function noteContentHash(tx: Tx, noteId: string, signer: { practiti
   return sha256Hex(stableStringify({ v: 1, noteId, note: n, vitals, diagnoses, procedures, signer }));
 }
 
-export const addendumHash = (a: { noteHash: string; noteId: string; reason: string; content: string; authorId: string; authorUserId: string; signedAt: string }) =>
-  sha256Hex(stableStringify({ v: 1, ...a }));
+/** `changes` (perubahan diagnosis, OD-120) ikut di-hash hanya bila ada — hash addendum lama tetap sama. */
+export const addendumHash = (a: { noteHash: string; noteId: string; reason: string; content: string; authorId: string; authorUserId: string; signedAt: string;
+                                  changes?: unknown }) => {
+  const { changes, ...rest } = a;
+  return sha256Hex(stableStringify(changes ? { v: 1, ...rest, changes } : { v: 1, ...rest }));
+};
 
 /** Waktu server dalam format yang sama dengan penyimpanan (mikrodetik, UTC) — dipakai di hash & kolom signed_at. */
 export async function serverNow(tx: Tx): Promise<string> {

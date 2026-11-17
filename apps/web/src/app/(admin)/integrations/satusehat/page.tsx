@@ -1,7 +1,8 @@
 'use client';
 import { FormEvent, useCallback, useEffect, useState } from 'react';
 import { Alert, Badge, Button, Card, CardContent, CardDescription, CardHeader, CardTitle, Field, Input, Select, TBody, TD, TH, THead, TR, Table } from '@clinicrme/ui';
-import { MasterSyncResult, SatuSehatEnvironment, SatuSehatOverview, api, errorText } from '../../../../lib/api';
+import Link from 'next/link';
+import { MasterSyncResult, SatuSehatEnvironment, SatuSehatIssue, SatuSehatOverview, api, errorText } from '../../../../lib/api';
 import { fmtDateTime } from '../../../../lib/format';
 import { can, useSession } from '../../../../lib/session';
 
@@ -133,7 +134,67 @@ function FacilityCard({ f, manage, simulatorAllowed, onChanged }: { f: SatuSehat
             ))}
           </TBody>
         </Table>
+        {c ? <IssueList facilityId={f.facilityId} manage={manage} /> : null}
       </CardContent>
     </Card>
+  );
+}
+
+const ISSUE_LABEL: Record<string, { text: string; tone: 'warning' | 'danger' }> = {
+  DEAD: { text: 'Gagal setelah beberapa percobaan', tone: 'danger' }, ERROR: { text: 'Ditolak SATUSEHAT', tone: 'danger' },
+  BLOCKED: { text: 'Tertahan — data belum lengkap', tone: 'warning' },
+};
+const KIND_LABEL: Record<string, string> = { encounter: 'Kunjungan', prescription_item: 'Resep obat', dispense_line: 'Penyerahan obat', clinical_addendum: 'Koreksi diagnosis' };
+
+/**
+ * Perlu tindakan (OD-119, INT-FR-009): kiriman gagal/ditolak dapat dikirim ulang (teraudit, tanpa data ganda); yang tertahan
+ * dicek ulang otomatis setelah data dilengkapi. Tanpa nama pasien.
+ */
+function IssueList({ facilityId, manage }: { facilityId: string; manage: boolean }) {
+  const [items, setItems] = useState<SatuSehatIssue[]>();
+  const [counts, setCounts] = useState<Record<string, number>>({});
+  const [notice, setNotice] = useState<string>();
+  const [error, setError] = useState<string>();
+  const load = useCallback(async () => {
+    try {
+      const r = await api<{ data: SatuSehatIssue[]; counts: Record<string, number> }>(`/integrations/satusehat/records?facilityId=${facilityId}`);
+      setItems(r.data); setCounts(r.counts);
+    } catch (e) { setError(errorText(e, 'Gagal memuat daftar kiriman')); }
+  }, [facilityId]);
+  useEffect(() => { void load(); }, [load]);
+  async function retry(it: SatuSehatIssue) {
+    try {
+      const r = await api<{ alreadyQueued: boolean }>(`/integrations/satusehat/records/${it.id}/retry`, { method: 'POST' });
+      setNotice(r.alreadyQueued ? 'Sudah dijadwalkan.' : 'Dijadwalkan dikirim ulang pada putaran berikutnya (± 5 menit).'); setError(undefined);
+      await load();
+    } catch (e) { setError(errorText(e, 'Gagal menjadwalkan kirim ulang')); }
+  }
+  if (!items) return null;
+  return (
+    <div className="grid gap-2 border-t pt-3" data-testid="satusehat-issues">
+      <div className="flex flex-wrap items-center gap-2">
+        <b>Perlu tindakan</b>
+        <span className="text-xs text-muted-foreground" data-testid="issue-counts">Gagal {counts['DEAD'] ?? 0} · Ditolak {counts['ERROR'] ?? 0} · Tertahan {counts['BLOCKED'] ?? 0}</span>
+      </div>
+      {notice ? <p role="status" className="text-sm text-green-700">{notice}</p> : null}
+      {error ? <Alert tone="error">{error}</Alert> : null}
+      {items.length === 0 ? <p className="text-sm text-muted-foreground">Tidak ada kiriman yang perlu ditindaklanjuti.</p> : (
+        <Table>
+          <THead><TR><TH>Data</TH><TH>Kunjungan</TH><TH>Status</TH><TH>Keterangan</TH>{manage ? <TH /> : null}</TR></THead>
+          <TBody>
+            {items.map((it) => (
+              <TR key={it.id} data-testid="issue-row">
+                <TD>{KIND_LABEL[it.localType] ?? it.resourceType}</TD>
+                <TD>{it.encounterId ? <Link className="underline" href={`/encounters/${it.encounterId}`}>{it.encounterNo}</Link> : '—'}</TD>
+                <TD><Badge tone={ISSUE_LABEL[it.status].tone}>{ISSUE_LABEL[it.status].text}</Badge>
+                  {it.status !== 'BLOCKED' ? <span className="block text-xs text-muted-foreground">{it.attempts}× dicoba · {fmtDateTime(it.updatedAt)}</span> : null}</TD>
+                <TD className="text-xs">{[...it.blocking, ...(it.status !== 'BLOCKED' && it.lastError && !it.blocking.includes(it.lastError) ? [it.lastError] : [])].map((b) => <div key={b}>{b}</div>)}</TD>
+                {manage ? <TD className="text-right">{it.resendable ? <Button size="sm" variant="outline" onClick={() => void retry(it)}>Kirim ulang</Button> : null}</TD> : null}
+              </TR>
+            ))}
+          </TBody>
+        </Table>
+      )}
+    </div>
   );
 }

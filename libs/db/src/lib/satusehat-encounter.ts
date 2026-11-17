@@ -5,6 +5,7 @@ import {
   SatuSehatError, asTenant, createSatuSehatClient, encounterSystem,
   type SatuSehatClient, type SatuSehatConnection, type SatuSehatEnvironment, type SatuSehatUrls,
 } from './satusehat';
+import { notifyDeadLetter, sendFollowUps } from './satusehat-followup';
 
 /**
  * Kunjungan rawat jalan → SATUSEHAT (Stage 12 batch 2; INT-FR-004, 008; OD-115, OD-118, OD-119 / DEC-044).
@@ -69,7 +70,21 @@ export function validateEncounter(d: EncounterData): Problems {
   return { blocking, warnings };
 }
 
-export interface BuiltBundle { bundle: Record<string, unknown>; entries: { resourceType: string; localType: string; localId: string }[]; hash: string }
+export interface BuiltBundle { bundle: Record<string, unknown>; entries: { resourceType: string; localType: string; localId: string; code?: string }[]; hash: string }
+
+/** Condition diagnosis kunjungan; `enteredInError` = koreksi addendum (tanpa clinicalStatus, FHIR con-5) — OD-120. */
+export function conditionResource(code: string, display: string, patient: { reference: string; display?: string }, encRef: string,
+                                  o: { id?: string; enteredInError?: boolean } = {}) {
+  return {
+    resourceType: 'Condition', ...(o.id ? { id: o.id } : {}),
+    ...(o.enteredInError
+      ? { verificationStatus: { coding: [{ system: 'http://terminology.hl7.org/CodeSystem/condition-ver-status', code: 'entered-in-error', display: 'Entered in Error' }] } }
+      : { clinicalStatus: { coding: [{ system: 'http://terminology.hl7.org/CodeSystem/condition-clinical', code: 'active', display: 'Active' }] } }),
+    category: [{ coding: [{ system: 'http://terminology.hl7.org/CodeSystem/condition-category', code: 'encounter-diagnosis', display: 'Encounter Diagnosis' }] }],
+    code: { coding: [{ system: ICD10_SYSTEM, code, display }] },
+    subject: patient, encounter: { reference: encRef },
+  };
+}
 
 /**
  * Bundle transaction (OD-115). Bila Encounter sudah ada di SATUSEHAT (mis. pembaruan addendum, batch 3), `existingEncounterId`
@@ -79,46 +94,18 @@ export function buildEncounterBundle(d: EncounterData, orgId: string, existingEn
   const encRef = existingEncounterId ? `Encounter/${existingEncounterId}` : `urn:uuid:${d.id}`;
   const patient = { reference: `Patient/${d.patient.ihs}`, display: d.patient.name };
   const practitioner = { reference: `Practitioner/${d.practitioner.ihs}`, display: d.practitioner.name };
-  const start = d.arrivedAt as string;
-  const inProg = d.consultStartedAt ?? start;
-  const end = d.consultEndedAt ?? d.finishedAt ?? d.signedAt;
   const entries: BuiltBundle['entries'] = [];
   const entry: Record<string, unknown>[] = [];
   const conds = d.conditions.filter((c) => c.system === 'ICD10');
   const rankOrder = [...conds].sort((a, b) => (a.rank === b.rank ? 0 : a.rank === 'PRIMER' ? -1 : 1));
   if (!existingEncounterId) {
     entries.push({ resourceType: 'Encounter', localType: 'encounter', localId: d.id });
-    entry.push({
-      fullUrl: `urn:uuid:${d.id}`, request: { method: 'POST', url: 'Encounter' },
-      resource: {
-        resourceType: 'Encounter', status: 'finished',
-        identifier: [{ system: encounterSystem(orgId), value: d.encounterNo }],
-        class: { system: 'http://terminology.hl7.org/CodeSystem/v3-ActCode', code: 'AMB', display: 'ambulatory' },
-        subject: patient,
-        participant: [{ type: [{ coding: [{ system: 'http://terminology.hl7.org/CodeSystem/v3-ParticipationType', code: 'ATND', display: 'attender' }] }],
-          individual: practitioner }],
-        period: { start, end },
-        location: [{ location: { reference: `Location/${d.unit.locationId}`, display: d.unit.name } }],
-        diagnosis: rankOrder.map((c, i) => ({ condition: { reference: `urn:uuid:${c.id}`, display: c.display },
-          use: { coding: [{ system: 'http://terminology.hl7.org/CodeSystem/diagnosis-role', code: 'DD', display: 'Discharge diagnosis' }] }, rank: i + 1 })),
-        statusHistory: [
-          { status: 'arrived', period: { start, end: inProg } },
-          { status: 'in-progress', period: { start: inProg, end } },
-          { status: 'finished', period: { start: end, end } },
-        ],
-        serviceProvider: { reference: `Organization/${orgId}` },
-      },
-    });
+    entry.push({ fullUrl: `urn:uuid:${d.id}`, request: { method: 'POST', url: 'Encounter' },
+      resource: encounterResource(d, orgId, rankOrder.map((c) => ({ reference: `urn:uuid:${c.id}`, display: c.display, primary: c.rank === 'PRIMER' }))) });
   }
   for (const c of conds) {
-    entries.push({ resourceType: 'Condition', localType: 'condition_dx', localId: c.id });
-    entry.push({ fullUrl: `urn:uuid:${c.id}`, request: { method: 'POST', url: 'Condition' }, resource: {
-      resourceType: 'Condition',
-      clinicalStatus: { coding: [{ system: 'http://terminology.hl7.org/CodeSystem/condition-clinical', code: 'active', display: 'Active' }] },
-      category: [{ coding: [{ system: 'http://terminology.hl7.org/CodeSystem/condition-category', code: 'encounter-diagnosis', display: 'Encounter Diagnosis' }] }],
-      code: { coding: [{ system: ICD10_SYSTEM, code: c.code, display: c.display }] },
-      subject: patient, encounter: { reference: encRef },
-    } });
+    entries.push({ resourceType: 'Condition', localType: 'condition_dx', localId: c.id, code: c.code });
+    entry.push({ fullUrl: `urn:uuid:${c.id}`, request: { method: 'POST', url: 'Condition' }, resource: conditionResource(c.code, c.display, patient, encRef) });
   }
   for (const o of d.observations) {
     const m = VITAL_LOINC[o.code];
@@ -148,6 +135,32 @@ export function buildEncounterBundle(d: EncounterData, orgId: string, existingEn
   return { bundle, entries, hash: createHash('sha256').update(JSON.stringify(bundle)).digest('hex') };
 }
 
+/** Resource Encounter (dipakai saat kirim pertama & saat update diagnosis lewat addendum — OD-120). */
+export function encounterResource(d: EncounterData, orgId: string, diagnosis: { reference: string; display: string; primary: boolean }[], id?: string) {
+  const start = d.arrivedAt as string;
+  const inProg = d.consultStartedAt ?? start;
+  const end = d.consultEndedAt ?? d.finishedAt ?? d.signedAt;
+  const ordered = [...diagnosis].sort((a, b) => Number(b.primary) - Number(a.primary));
+  return {
+    resourceType: 'Encounter', ...(id ? { id } : {}), status: 'finished',
+    identifier: [{ system: encounterSystem(orgId), value: d.encounterNo }],
+    class: { system: 'http://terminology.hl7.org/CodeSystem/v3-ActCode', code: 'AMB', display: 'ambulatory' },
+    subject: { reference: `Patient/${d.patient.ihs}`, display: d.patient.name },
+    participant: [{ type: [{ coding: [{ system: 'http://terminology.hl7.org/CodeSystem/v3-ParticipationType', code: 'ATND', display: 'attender' }] }],
+      individual: { reference: `Practitioner/${d.practitioner.ihs}`, display: d.practitioner.name } }],
+    period: { start, end },
+    location: [{ location: { reference: `Location/${d.unit.locationId}`, display: d.unit.name } }],
+    diagnosis: ordered.map((c, i) => ({ condition: { reference: c.reference, display: c.display },
+      use: { coding: [{ system: 'http://terminology.hl7.org/CodeSystem/diagnosis-role', code: 'DD', display: 'Discharge diagnosis' }] }, rank: i + 1 })),
+    statusHistory: [
+      { status: 'arrived', period: { start, end: inProg } },
+      { status: 'in-progress', period: { start: inProg, end } },
+      { status: 'finished', period: { start: end, end } },
+    ],
+    serviceProvider: { reference: `Organization/${orgId}` },
+  };
+}
+
 /** ID dari `response.location` ("Encounter/<id>/_history/1") per entry, berurutan sesuai permintaan (FHIR transaction). */
 export function parseTransactionResponse(body: Record<string, unknown>, count: number): (string | null)[] {
   const e = ((body as { entry?: { response?: { location?: string; resourceID?: string } }[] }).entry ?? []);
@@ -164,8 +177,10 @@ export interface SendOptions { keyHex: string; urls?: SatuSehatUrls; batch?: num
 export type SendOutcome = 'SENT' | 'BLOCKED' | 'SKIPPED' | 'ERROR' | 'RETRY' | 'DEAD' | 'LOCKED';
 
 /** Worker: per tenant & per koneksi aktif, kunjungan disahkan yang belum terkirim / tertahan / waktunya dicoba ulang. */
-export async function sendPendingEncounters(pool: Pool, o: SendOptions): Promise<Record<SendOutcome, number> & { failedTenants: number }> {
-  const total = { SENT: 0, BLOCKED: 0, SKIPPED: 0, ERROR: 0, RETRY: 0, DEAD: 0, LOCKED: 0, failedTenants: 0 };
+export async function sendPendingEncounters(pool: Pool, o: SendOptions):
+    Promise<Record<SendOutcome, number> & { failedTenants: number; followUp: Record<SendOutcome, number>; deadLetterNotices: number }> {
+  const total = { SENT: 0, BLOCKED: 0, SKIPPED: 0, ERROR: 0, RETRY: 0, DEAD: 0, LOCKED: 0, failedTenants: 0, deadLetterNotices: 0,
+    followUp: { SENT: 0, BLOCKED: 0, SKIPPED: 0, ERROR: 0, RETRY: 0, DEAD: 0, LOCKED: 0 } };
   const c = await pool.connect();
   try {
     const { rows: ts } = await c.query<{ id: string }>(`select id from app.tenant where status in ('TRIAL','ACTIVE','GRACE') order by id`);
@@ -183,7 +198,12 @@ export async function sendPendingEncounters(pool: Pool, o: SendOptions): Promise
                where b.facility_id = $2 and e.status <> 'CANCELLED'
                  and (r.id is null or r.status = 'BLOCKED' or (r.status = 'PENDING' and (r.next_attempt_at is null or r.next_attempt_at <= $3::timestamptz)))
                order by n.signed_at limit $4`, [conn.id, conn.facilityId, now, o.batch ?? 20]);
+            const deadBefore = total.DEAD + total.followUp.DEAD;
             for (const e of rows) total[await sendEncounter(c, client, conn, e.id, { now: o.now })]++;
+            // Batch 3: resep, penyerahan obat, koreksi diagnosis lewat addendum — setelah Encounter terkirim
+            await sendFollowUps(c, client, conn, { now: o.now, batch: o.batch, into: total.followUp });
+            // OD-119: dead-letter → notifikasi email admin klinik (satu antrean per koneksi; tidak menumpuk)
+            if (total.DEAD + total.followUp.DEAD > deadBefore) total.deadLetterNotices += await notifyDeadLetter(c, conn.id);
           }
         });
       } catch (e) {
@@ -257,12 +277,12 @@ export async function sendEncounter(c: PoolClient, client: SatuSehatClient, conn
     for (const [i, x] of built.entries.entries()) {
       if (x.resourceType === 'Encounter') continue;
       await c.query(`
-        insert into app.fhir_sync_record(tenant_id, connection_id, resource_type, local_type, local_id, status, attempts, satusehat_id, last_sent_at, parent_id)
-        values (app.current_tenant_id(), $1, $2, $3, $4, 'SENT', 1, $5, $6::timestamptz, $7)
+        insert into app.fhir_sync_record(tenant_id, connection_id, resource_type, local_type, local_id, status, attempts, satusehat_id, last_sent_at, parent_id, local_code)
+        values (app.current_tenant_id(), $1, $2, $3, $4, 'SENT', 1, $5, $6::timestamptz, $7, $8)
         on conflict (tenant_id, connection_id, resource_type, local_type, local_id) do update
           set status = 'SENT', satusehat_id = excluded.satusehat_id, last_sent_at = excluded.last_sent_at, parent_id = excluded.parent_id,
               attempts = fhir_sync_record.attempts + 1, last_error = null, updated_at = now()`,
-        [conn.id, x.resourceType, x.localType, x.localId, ids[i], now.toISOString(), parent]);
+        [conn.id, x.resourceType, x.localType, x.localId, ids[i], now.toISOString(), parent, x.code ?? null]);
     }
     await c.query(`update app.encounter set satusehat_id = $2 where id = $1 and satusehat_id is distinct from $2`, [encounterId, encId]);
     const count = (t: string) => built.entries.filter((x) => x.resourceType === t).length;
@@ -285,7 +305,7 @@ export async function sendEncounter(c: PoolClient, client: SatuSehatClient, conn
   }
 }
 
-async function loadEncounter(c: PoolClient, conn: SatuSehatConnection, id: string): Promise<{ data: EncounterData; patientId: string } | null> {
+export async function loadEncounter(c: PoolClient, conn: SatuSehatConnection, id: string): Promise<{ data: EncounterData; patientId: string } | null> {
   const { rows: [e] } = await c.query<{ id: string; encounter_no: string; status: string; arrived_at: Date | null; consult_started_at: Date | null; consult_ended_at: Date | null;
     finished_at: Date | null; signed_at: Date | null; patient_id: string; ihs_number: string | null; ihs_status: string; patient_name: string; restricted: boolean;
     pr_ihs: string | null; pr_name: string; unit_name: string; location_id: string | null }>(`
@@ -323,7 +343,7 @@ async function loadEncounter(c: PoolClient, conn: SatuSehatConnection, id: strin
   };
 }
 
-async function activeConnections(c: PoolClient, keyHex: string): Promise<SatuSehatConnection[]> {
+export async function activeConnections(c: PoolClient, keyHex: string): Promise<SatuSehatConnection[]> {
   const { rows } = await c.query<{ id: string; facility_id: string; environment: SatuSehatEnvironment; client_id: string; secret_encrypted: Buffer; organization_id: string }>(`
     select id, facility_id, environment, client_id, secret_encrypted, organization_id from app.integration_connection where kind = 'SATUSEHAT' and is_active order by facility_id`);
   return rows.map((r) => ({ id: r.id, facilityId: r.facility_id, environment: r.environment, clientId: r.client_id, clientSecret: decrypt(keyHex, r.secret_encrypted),
