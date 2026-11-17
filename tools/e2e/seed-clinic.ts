@@ -61,7 +61,7 @@ export async function addClinicRole(code: string, name: string, permissions: str
 }
 
 /** Obat + harga jual + stok satu batch di lokasi bawaan cabang pertama klinik E2E (data sintetis). */
-export async function addClinicDrugStock(o: { code: string; name: string; drugClass: string; uomCode: string; price: number; qty: number; batchNo: string }): Promise<string> {
+export async function addClinicDrugStock(o: { code: string; name: string; drugClass: string; uomCode: string; price: number; qty: number; batchNo: string; expiryDays?: number }): Promise<string> {
   const c = new Client({ connectionString: dbUrl() });
   await c.connect();
   try {
@@ -71,7 +71,7 @@ export async function addClinicDrugStock(o: { code: string; name: string; drugCl
       [t.id, o.code, o.name, o.drugClass, o.uomCode]);
     await c.query(`INSERT INTO app.drug_price(tenant_id, drug_item_id, sell_price, valid_from) VALUES ($1, $2, $3, current_date - 1)`, [t.id, d.id, o.price]);
     const { rows: [b] } = await c.query(`INSERT INTO app.stock_batch(tenant_id, drug_item_id, batch_no, expiry_date, unit_cost)
-      VALUES ($1, $2, $3, current_date + 365, $4) RETURNING id`, [t.id, d.id, o.batchNo, Math.round(o.price / 2)]);
+      VALUES ($1, $2, $3, current_date + $5::int, $4) RETURNING id`, [t.id, d.id, o.batchNo, Math.round(o.price / 2), o.expiryDays ?? 365]);
     const { rows: [l] } = await c.query(`SELECT l.id, br.name FROM app.stock_location l JOIN app.branch br ON br.id = l.branch_id
        WHERE l.tenant_id = $1 AND l.is_default AND br.is_active ORDER BY br.code LIMIT 1`, [t.id]);
     await c.query(`INSERT INTO app.stock_movement(tenant_id, batch_id, location_id, movement_type, qty, ref_type, ref_id)

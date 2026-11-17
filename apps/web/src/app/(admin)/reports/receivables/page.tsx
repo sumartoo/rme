@@ -4,6 +4,7 @@ import { Alert, Card, CardContent, Input, Select, TBody, TD, TH, THead, TR, Tabl
 import { api, errorText } from '../../../../lib/api';
 import { fmtRupiah, todayWib } from '../../../../lib/format';
 import { useSession } from '../../../../lib/session';
+import { ExportButton } from '../export-button';
 
 interface AgingRow { payerId: string; payerName: string; count: number; notDue: string; d1_30: string; d31_60: string; d61_90: string; over90: string; total: string }
 interface Aging { rows: AgingRow[]; asOf: string; totals: Omit<AgingRow, 'payerId' | 'payerName'> }
@@ -26,7 +27,7 @@ export default function ReceivableAgingPage() {
     <div className="grid gap-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="text-xl font-semibold">Umur piutang penjamin</h1>
-        <a className="text-sm underline" href={`/api/v1/reports/receivables?${qs}&format=csv`} data-testid="report-csv">Unduh CSV</a>
+        <ExportButton code="receivables" params={Object.fromEntries(new URLSearchParams(qs))} csvHref={`/api/v1/reports/receivables?${qs}&format=csv`} />
       </div>
       <div className="flex flex-wrap items-end gap-3">
         <label className="grid gap-1 text-xs">Posisi per tanggal<Input aria-label="Posisi per tanggal" type="date" className="w-40" value={asOf} onChange={(e) => setAsOf(e.target.value)} /></label>

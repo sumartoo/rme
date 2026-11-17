@@ -93,7 +93,10 @@
     "zod": "^4.6.7",
     "@clinicrme/db": "workspace:*",
     "@clinicrme/storage": "workspace:*",
-    "nodemailer": "^10.3.1"
+    "nodemailer": "^10.3.1",
+    "exceljs": "4.4.0",
+    "drizzle-orm": "^0.45.4",
+    "pdfmake": "^0.3.13"
   },
   "devDependencies": {
     "@types/pg": "^8.23.1",

@@ -1,7 +1,7 @@
 import { Module } from '@nestjs/common';
-import { ClinicalReportController } from './clinical-report.controller';
-import { FinanceReportController } from './finance-report.controller';
+import { ReportExportController } from './report-export.controller';
+import { ReportController } from './report.controller';
 
-/** Laporan standar (Stage 14). Butuh Db global (CoreModule). */
-@Module({ controllers: [ClinicalReportController, FinanceReportController] })
+/** Laporan standar & ekspor (Stage 14). Butuh Db & STORAGE global (CoreModule). */
+@Module({ controllers: [ReportController, ReportExportController] })
 export class ReportingModule {}

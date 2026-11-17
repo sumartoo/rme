@@ -1,5 +1,5 @@
 'use client';
-import { FormEvent, useCallback, useEffect, useState } from 'react';
+import { FormEvent, useCallback, useEffect, useRef, useState } from 'react';
 import { Alert, Badge, Button, Card, CardContent, Dialog, Field, Input, Select, TBody, TD, TH, THead, TR, Table } from '@clinicrme/ui';
 import { CashierShift, api, errorText } from '../../../../lib/api';
 import { PAYMENT_METHOD_LABEL, fmtDateTime, fmtRupiah } from '../../../../lib/format';
@@ -20,9 +20,14 @@ export default function ShiftsPage() {
   const [notice, setNotice] = useState<string>();
   const [verifying, setVerifying] = useState<CashierShift>();
   const [closing, setClosing] = useState<CashierShift>();
+  // Respons lama (filter sebelumnya) yang datang belakangan diabaikan agar daftar selalu sesuai filter terakhir
+  const seq = useRef(0);
   const load = useCallback(async () => {
-    try { setItems(await api<CashierShift[]>(`/cashier-shifts${status ? `?status=${status}` : ''}`)); setError(undefined); }
-    catch (e) { setError(errorText(e, 'Gagal memuat shift')); }
+    const n = ++seq.current;
+    try {
+      const r = await api<CashierShift[]>(`/cashier-shifts${status ? `?status=${status}` : ''}`);
+      if (n === seq.current) { setItems(r); setError(undefined); }
+    } catch (e) { if (n === seq.current) setError(errorText(e, 'Gagal memuat shift')); }
   }, [status]);
   useEffect(() => { void load(); }, [load]);
   const done = (msg: string) => { setVerifying(undefined); setClosing(undefined); setNotice(msg); void load(); };

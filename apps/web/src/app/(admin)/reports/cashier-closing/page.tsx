@@ -4,6 +4,7 @@ import { Alert, Badge, Card, CardContent, TBody, TD, TH, THead, TR, Table } from
 import { api, errorText } from '../../../../lib/api';
 import { fmtRupiah } from '../../../../lib/format';
 import { ReportFilters, defaultFilters, filterQs } from '../report-filters';
+import { ExportButton } from '../export-button';
 
 interface ClosingRow { shiftId: string; date: string; branchName: string; cashierName: string; status: string; statusLabel: string; openingCash: string; cashIn: string;
   cashRefunds: string; expectedCash: string; countedCash: string | null; variance: string | null; nonCash: string; verifiedByName: string | null; varianceNote: string | null }
@@ -26,7 +27,7 @@ export default function CashierClosingReportPage() {
     <div className="grid gap-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="text-xl font-semibold">Closing kasir</h1>
-        <a className="text-sm underline" href={`/api/v1/reports/cashier-closing?${qs}&format=csv`} data-testid="report-csv">Unduh CSV</a>
+        <ExportButton code="cashier-closing" params={Object.fromEntries(new URLSearchParams(qs))} csvHref={`/api/v1/reports/cashier-closing?${qs}&format=csv`} />
       </div>
       <ReportFilters value={f} onChange={setF} payer={false} />
       {error ? <Alert tone="error">{error}</Alert> : null}

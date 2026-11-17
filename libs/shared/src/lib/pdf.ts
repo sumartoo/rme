@@ -18,10 +18,14 @@ export type Content = string | Record<string, unknown> | Content[];
 
 /** PDF deterministik (tanggal pembuatan tetap = waktu terbit) dengan font standar. */
 export function renderPdf(content: Content[], meta: { title: string; issuedAt: Date; pageSize?: string | { width: number; height: number | 'auto' };
-  pageMargins?: [number, number, number, number]; fontSize?: number }): Promise<Buffer> {
+  pageMargins?: [number, number, number, number]; fontSize?: number; pageOrientation?: 'portrait' | 'landscape'; watermark?: string; footer?: string }): Promise<Buffer> {
   return pdfmake.createPdf({
     info: { title: meta.title, creator: 'ClinicRME', producer: 'ClinicRME', creationDate: meta.issuedAt },
     pageSize: meta.pageSize ?? 'A4', pageMargins: meta.pageMargins ?? [48, 40, 48, 48],
+    ...(meta.pageOrientation ? { pageOrientation: meta.pageOrientation } : {}),
+    // Watermark diagonal tipis di setiap halaman (ekspor laporan, OD-128)
+    ...(meta.watermark ? { watermark: { text: meta.watermark, color: '#9ca3af', opacity: 0.12, bold: true, fontSize: 28 } } : {}),
+    ...(meta.footer ? { footer: (page: number, pages: number) => ({ text: `${meta.footer} · Hal. ${page}/${pages}`, fontSize: 7, color: '#555555', margin: [48, 12, 48, 0] }) } : {}),
     defaultStyle: { font: 'Helvetica', fontSize: meta.fontSize ?? 10, lineHeight: 1.25 },
     styles: { title: { fontSize: 13, bold: true, alignment: 'center', margin: [0, 8, 0, 2] }, small: { fontSize: 8, color: '#555555' },
       label: { bold: true }, clinic: { fontSize: 12, bold: true } },

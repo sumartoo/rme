@@ -74,6 +74,12 @@ Rincian & usulan: [`docs/reports/stage-14/STAGE_PLAN.md`](../reports/stage-14/ST
 | OD-130 | Batas & performa | ≤ 366 hari, 30 detik; uji 3 tahun × 300 kunjungan/hari |
 | OD-131 | Isi dashboard manajer | Kunjungan, antrean, kas, tagihan, stok kritis, SATUSEHAT |
 
+## B7. Baru dari Stage 14 batch 3 (menunggu PO)
+
+| OD | Pertanyaan | Usulan |
+|---|---|---|
+| OD-132 | Unduhan CSV cepat (`?format=csv` di laporan) masih tersedia untuk semua yang boleh *melihat* laporan, tanpa watermark & tanpa izin `report.export` (perilaku sejak Stage 10/14 batch 1–2). Apakah dibatasi? | **Batasi ke `report.export`** dan arahkan ke ekspor seragam ber-watermark; FARMASI & TENANT_ADMIN perlu diberi `report.export` bila memang boleh mengekspor. Sampai diputuskan, tautan CSV cepat tetap ada (teraudit sebagai `REPORT_*_VIEWED` format csv) |
+
 ## C. Ditetapkan di Stage Berikutnya
 
 Lihat `docs/APP_DESIGN.md` §13 dan masing-masing `docs/stages/STAGE_XX_*.md` (OD-003 s.d. OD-054).

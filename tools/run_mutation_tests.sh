@@ -58,9 +58,9 @@ RXREM=libs/db/src/lib/rx-remainder.ts
 SUBC=libs/pharmacy/src/lib/substitution.controller.ts
 ADJC=libs/pharmacy/src/lib/adjustments.controller.ts
 OPNC=libs/pharmacy/src/lib/opname.controller.ts
-CRPT=libs/pharmacy/src/lib/controlled-report.controller.ts
+CRPT=libs/db/src/lib/reports/pharmacy.ts
 OTCC=libs/pharmacy/src/lib/otc.controller.ts
-SRPT=libs/pharmacy/src/lib/stock-report.controller.ts
+SRPT=libs/db/src/lib/reports/pharmacy.ts
 INVREPO=libs/billing/src/lib/invoice.repo.ts
 INVCTL=libs/billing/src/lib/invoice.controller.ts
 PAYCTL=libs/billing/src/lib/payment.controller.ts
@@ -74,11 +74,16 @@ SSLIB=libs/db/src/lib/satusehat.ts
 SSENC=libs/db/src/lib/satusehat-encounter.ts
 SSFU=libs/db/src/lib/satusehat-followup.ts
 SSREC=libs/db/src/lib/satusehat-reconcile.ts
-RPTCLIN=libs/reporting/src/lib/clinical-report.controller.ts
-RPTCOM=libs/reporting/src/lib/report-common.ts
-RPTFIN=libs/reporting/src/lib/finance-report.controller.ts
+RPTCLIN=libs/db/src/lib/reports/clinical.ts
+RPTCTRL=libs/reporting/src/lib/report.controller.ts
+RPTEXP=libs/reporting/src/lib/report-export.controller.ts
+RPTJOB=libs/db/src/lib/reports/export-job.ts
+RPTPHM=libs/db/src/lib/reports/pharmacy.ts
+RPTRENDER=libs/db/src/lib/reports/render.ts
+RPTCOM=libs/db/src/lib/reports/common.ts
+RPTFIN=libs/db/src/lib/reports/finance.ts
 INTEG=libs/clinical/src/lib/integrity.ts
-FILES=("$AUTH" "$SESSION" "$MIG2" "$MIG3" "$GUARD" "$PGUARD" "$LAYOUT" "$EXPORT" "$MIG5" "$MIG6" "$TOTP" "$IAMUSERS" "$ACCOUNT" "$AUDITCHG" "$PRACT" "$MIG12" "$TERM" "$IMPORTS" "$PATIENT" "$MIG15" "$IDEM" "$MIG16" "$BOOK" "$SCHED" "$NOSHOW" "$ENCREPO" "$ENCCTL" "$QDISP" "$CHART" "$CHARTREPO" "$MIG19" "$SIGNCTL" "$REAUTH" "$MIG20" "$RXREPO" "$RXCTL" "$MIG21" "$LABCTL" "$DOCCTL" "$MIG22" "$RECV" "$PRICE" "$LOCS" "$DISP" "$DREPO" "$RXREM" "$SUBC" "$ADJC" "$OPNC" "$CRPT" "$OTCC" "$SRPT" "$INVREPO" "$INVCTL" "$PAYCTL" "$PAYREPO" "$QRCTL" "$CORCTL" "$OVCTL" "$SSCTL" "$SSLIB" "$SSENC" "$SSFU" "$INTEG" "$SHIFTREPO" "$SSREC" "$RPTCLIN" "$RPTCOM" "$RPTFIN")
+FILES=("$AUTH" "$SESSION" "$MIG2" "$MIG3" "$GUARD" "$PGUARD" "$LAYOUT" "$EXPORT" "$MIG5" "$MIG6" "$TOTP" "$IAMUSERS" "$ACCOUNT" "$AUDITCHG" "$PRACT" "$MIG12" "$TERM" "$IMPORTS" "$PATIENT" "$MIG15" "$IDEM" "$MIG16" "$BOOK" "$SCHED" "$NOSHOW" "$ENCREPO" "$ENCCTL" "$QDISP" "$CHART" "$CHARTREPO" "$MIG19" "$SIGNCTL" "$REAUTH" "$MIG20" "$RXREPO" "$RXCTL" "$MIG21" "$LABCTL" "$DOCCTL" "$MIG22" "$RECV" "$PRICE" "$LOCS" "$DISP" "$DREPO" "$RXREM" "$SUBC" "$ADJC" "$OPNC" "$CRPT" "$OTCC" "$INVREPO" "$INVCTL" "$PAYCTL" "$PAYREPO" "$QRCTL" "$CORCTL" "$OVCTL" "$SSCTL" "$SSLIB" "$SSENC" "$SSFU" "$INTEG" "$SHIFTREPO" "$SSREC" "$RPTCLIN" "$RPTCOM" "$RPTFIN" "$RPTCTRL" "$RPTEXP" "$RPTJOB" "$RPTRENDER")
 BACKUP=$(mktemp -d)
 cp "${FILES[@]}" "$BACKUP"/
 restore() { for f in "${FILES[@]}"; do cp "$BACKUP/$(basename "$f")" "$f"; done; }
@@ -481,15 +486,15 @@ mutate M179 "laporan mengabaikan cakupan cabang penugasan role" 'T03' \
 mutate M180 "10 besar diagnosis memasukkan RM yang belum disahkan" 'T04' \
   "sed -i \"s/join clinical_note n on n.encounter_id = v.id and n.status = 'SIGNED'/join clinical_note n on n.encounter_id = v.id/\" $RPTCLIN && ! grep -q \"n.encounter_id = v.id and n.status = 'SIGNED'\" $RPTCLIN" ""
 mutate M181 "10 besar diagnosis mengabaikan diagnosis pengganti dari addendum" 'T04' \
-  "sed -i 's/           where not exists (select 1 from la where la.note_id = enc.note_id)),/           where true),/' $RPTCLIN && grep -q '^           where true),' $RPTCLIN" ""
+  "sed -i 's/       where not exists (select 1 from la where la.note_id = enc.note_id)),/       where true),/' $RPTCLIN && grep -q '^       where true),' $RPTCLIN" ""
 mutate M182 "10 besar diagnosis bawaan tidak hanya diagnosis primer" 'T04' \
   "sed -i \"s/: sql\\\`rank = 'PRIMER'\\\`}/: sql\\\`true\\\`}/\" $RPTCLIN && ! grep -q \"sql\\\`rank = 'PRIMER'\\\`\" $RPTCLIN" ""
 mutate M183 "batas rentang laporan 366 hari tidak berlaku" 'T03' \
   "sed -i 's/ > MAX_DAYS - 1) throw/ > 100000) throw/' $RPTCOM && grep -q '> 100000) throw' $RPTCOM" ""
 mutate M184 "laporan kunjungan dapat dibaca tanpa izin laporan operasional" 'T03' \
-  "sed -i \"s/@RequirePermission('report.operational.read') @Get('visits')/@RequirePermission('encounter.read') @Get('visits')/\" $RPTCLIN && grep -q \"'encounter.read') @Get('visits')\" $RPTCLIN" ""
+  "sed -i \"s/@RequirePermission('report.operational.read') @Get('visits')/@RequirePermission('encounter.read') @Get('visits')/\" $RPTCTRL && grep -q \"'encounter.read') @Get('visits')\" $RPTCTRL" ""
 mutate M185 "melihat laporan kunjungan tidak teraudit" 'T03' \
-  "sed -i \"s/      await audit(tx, 'REPORT_VISITS_VIEWED'/      void (tx, 'REPORT_VISITS_VIEWED'/\" $RPTCLIN && grep -q \"void (tx, 'REPORT_VISITS_VIEWED'\" $RPTCLIN" ""
+  "sed -i \"s/        await audit(tx, \\\`REPORT_/        void (tx, \\\`REPORT_/\" $RPTCTRL && grep -q \"void (tx, \\\`REPORT_\" $RPTCTRL" ""
 
 mutate M186 "pendapatan menghitung tagihan void" 'A01' \
   "sed -i \"s/i.status in ('ISSUED', 'PARTIALLY_PAID', 'PAID')/i.status <> 'DRAFT'/g\" $RPTFIN && ! grep -q \"i.status in ('ISSUED'\" $RPTFIN" ""
@@ -510,7 +515,30 @@ mutate M193 "umur piutang dihitung dari tanggal terbit, bukan jatuh tempo" 'A04'
 mutate M194 "umur piutang memasukkan tagihan yang terbit sesudah tanggal posisi" 'A04' \
   "sed -i 's/and (i.issued_at at time zone br.timezone)::date <= \${as_of}::date and/and/' $RPTFIN && ! grep -q 'date <= \${as_of}::date and' $RPTFIN" ""
 mutate M195 "laporan pendapatan dapat dibaca tanpa izin laporan keuangan" 'A05' \
-  "sed -i \"s/@RequirePermission('report.finance.read') @Get('revenue')/@RequirePermission('billing.invoice.read') @Get('revenue')/\" $RPTFIN && grep -q \"'billing.invoice.read') @Get('revenue')\" $RPTFIN" ""
+  "sed -i \"s/@RequirePermission('report.finance.read') @Get('revenue')/@RequirePermission('billing.invoice.read') @Get('revenue')/\" $RPTCTRL && grep -q \"'billing.invoice.read') @Get('revenue')\" $RPTCTRL" ""
+
+mutate M196 "laporan mendekati kedaluwarsa mengabaikan pilihan tanpa batch kedaluwarsa" 'Y01' \
+  "sed -i 's/and (\${f.includeExpired} = .true. or sb.expiry_date/and (true or sb.expiry_date/' $RPTPHM && grep -q 'and (true or sb.expiry_date' $RPTPHM" ""
+mutate M197 "laporan mendekati kedaluwarsa mengabaikan cakupan cabang pengguna" 'Y01' \
+  "sed -i 's/, scope)} and (\${f.locationId ?? null}::uuid is null or l.id/, null)} and (\${f.locationId ?? null}::uuid is null or l.id/' $RPTPHM && grep -q ', null)} and (' $RPTPHM" ""
+mutate M198 "laporan stok & mutasi mengabaikan cakupan cabang pengguna" 'Y02' \
+  "sed -i 's/\(timestamptz and \${inBranches(sql.l.branch_id., \)scope)}\$/\1null)}/' $RPTPHM && grep -q 'l.branch_id., null)}\$' $RPTPHM" ""
+mutate M199 "ekspor tidak memeriksa izin lihat laporan yang diekspor" 'Y05' \
+  "sed -i 's/    if (!c.permissions?.has(def.permission)) throw/    if (false) throw/' $RPTEXP && grep -q '    if (false) throw' $RPTEXP" ""
+mutate M200 "ekspor kecil tidak dibuat langsung (selalu antre worker)" 'Y03' \
+  "sed -i 's/        if (computed.result.rows.length <= SYNC_EXPORT_ROWS) {/        if (false) {/' $RPTEXP && grep -q '        if (false) {' $RPTEXP" ""
+mutate M201 "berkas ekspor dapat diunduh pengguna lain (bukan pemohon)" 'Y05' \
+  "sed -i 's/ and j.requested_by = \${ctx().userId}//' $RPTEXP && ! grep -q 'j.requested_by = ' $RPTEXP" ""
+mutate M202 "tautan unduh ekspor tidak kedaluwarsa setelah 24 jam" 'Y07' \
+  "sed -i 's/      if (expired(j)) throw problem(410/      if (false) throw problem(410/' $RPTEXP && grep -q 'if (false) throw problem(410' $RPTEXP" ""
+mutate M203 "watermark \"Rahasia — untuk internal klinik\" hilang dari ekspor" 'Y03' \
+  "sed -i 's/, CONFIDENTIAL\];\$/];/' $RPTRENDER && ! grep -q ', CONFIDENTIAL\];' $RPTRENDER" ""
+mutate M204 "berkas ekspor kedaluwarsa tidak dihapus dari penyimpanan" 'Y07' \
+  "sed -i \"s/    await storage.remove('exports', r.object_path);/    void r.object_path;/\" $RPTJOB && grep -q 'void r.object_path;' $RPTJOB" ""
+mutate M205 "unduhan berkas ekspor tidak diaudit" 'Y03' \
+  "sed -i \"s/      await audit(tx, 'REPORT_EXPORT_DOWNLOADED'/      void (tx, 'REPORT_EXPORT_DOWNLOADED'/\" $RPTEXP && grep -q \"void (tx, 'REPORT_EXPORT_DOWNLOADED'\" $RPTEXP" ""
+mutate M206 "PDF di atas 10.000 baris tidak ditolak" 'Y06' \
+  "sed -i \"s/  if (a.format === 'PDF' \&\& result.rows.length > PDF_MAX_ROWS) {/  if (false) {/\" $RPTJOB && grep -q '  if (false) {' $RPTJOB" ""
 
 # Mutasi UI: suite Playwright (U##) sebagai detektor
 if [ "${MUTATION_E2E:-0}" = "1" ]; then

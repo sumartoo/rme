@@ -7867,7 +7867,7 @@ paths:
       operationId: reportStock
       tags:
       - Report
-      summary: Ringkasan stok per obat (?from&to YYYY-MM-DD, format=json|csv)
+      summary: Ringkasan stok per obat (?from&to YYYY-MM-DD, branchId, locationId, drugId, format=json|csv; cakupan cabang OD-129)
       x-requirements:
       - RPT-FR-005
       - PHM-FR-004
@@ -7952,12 +7952,35 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
+  /api/v1/reports/near-expiry:
+    get:
+      operationId: reportNearExpiry
+      tags:
+      - Report
+      summary: Batch obat mendekati/sudah kedaluwarsa (?days 1–730 bawaan pengaturan, branchId, locationId, includeExpired, format=json|csv)
+      x-requirements:
+      - RPT-FR-005
+      x-permission: report.pharmacy.read
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReportResult'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
   /api/v1/reports/{reportCode}/exports:
     post:
       operationId: reportExport
       tags:
       - Report
-      summary: Export Excel/CSV/PDF (watermark, asinkron)
+      summary: Ekspor laporan XLSX/CSV/PDF dengan watermark (≤ 10.000 baris langsung DONE; di atasnya QUEUED diproses worker; tautan 24 jam; OD-128).
+        Butuh juga izin lihat laporan tsb.
       x-requirements:
       - RPT-FR-008
       x-permission: report.export
@@ -7986,6 +8009,59 @@ paths:
           $ref: '#/components/responses/NotFound'
         '409':
           $ref: '#/components/responses/Conflict'
+  /api/v1/report-exports/{exportId}:
+    get:
+      operationId: reportExportGet
+      tags:
+      - Report
+      summary: Status ekspor laporan (hanya pemohon)
+      x-requirements:
+      - RPT-FR-008
+      x-permission: report.export
+      parameters:
+      - $ref: '#/components/parameters/exportId'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExportJob'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /api/v1/report-exports/{exportId}/download:
+    get:
+      operationId: reportExportDownload
+      tags:
+      - Report
+      summary: Unduh berkas ekspor (hanya pemohon, teraudit, 410 setelah 24 jam)
+      x-requirements:
+      - RPT-FR-008
+      x-permission: report.export
+      parameters:
+      - $ref: '#/components/parameters/exportId'
+      responses:
+        '200':
+          description: Berkas
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
 components:
   securitySchemes:
     session:
@@ -8094,6 +8170,12 @@ components:
       in: path
       required: true
       description: exceptionId
+      schema: *id002
+    exportId:
+      name: exportId
+      in: path
+      required: true
+      description: exportId
       schema: *id002
     facilityId:
       name: facilityId
@@ -13314,6 +13396,14 @@ components:
       type: object
       properties:
         id: *id002
+        reportCode:
+          type: string
+        format:
+          type: string
+          enum:
+          - XLSX
+          - CSV
+          - PDF
         status:
           type: string
           enum:
@@ -13322,13 +13412,34 @@ components:
           - DONE
           - FAILED
           - EXPIRED
+        rowCount:
+          type:
+          - integer
+          - 'null'
+        requestedAt: *id006
+        finishedAt:
+          type:
+          - string
+          - 'null'
+          format: date-time
+        expiresAt:
+          type:
+          - string
+          - 'null'
+          format: date-time
+        error:
+          type:
+          - string
+          - 'null'
         downloadUrl:
-          type: string
-          format: uri
-        expiresAt: *id006
+          type:
+          - string
+          - 'null'
       required:
       - id
       - status
+      - reportCode
+      - format
     ExportRequest:
       type: object
       properties:
@@ -13340,6 +13451,8 @@ components:
           - PDF
         parameters:
           type: object
+          description: Filter laporan yang sama dengan query GET laporan (tanpa format)
+          additionalProperties: true
       required:
       - format
     Dashboard:

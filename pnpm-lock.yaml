@@ -392,9 +392,18 @@ importers:
       '@clinicrme/storage':
         specifier: workspace:*
         version: link:../../libs/storage
+      drizzle-orm:
+        specifier: ^0.45.4
+        version: 0.45.4(@opentelemetry/api@1.10.0)(@types/pg@8.23.1)(pg@8.23.1)
+      exceljs:
+        specifier: 4.4.0
+        version: 4.4.0
       nodemailer:
         specifier: ^10.3.1
         version: 10.3.1
+      pdfmake:
+        specifier: ^0.3.13
+        version: 0.3.13
       pg:
         specifier: ^8.23.1
         version: 8.23.1
@@ -477,12 +486,18 @@ importers:
       drizzle-orm:
         specifier: ^0.45.4
         version: 0.45.4(@opentelemetry/api@1.10.0)(@types/pg@8.23.1)(pg@8.23.1)
+      exceljs:
+        specifier: 4.4.0
+        version: 4.4.0
       pg:
         specifier: ^8.23.1
         version: 8.23.1
       tslib:
         specifier: ^2.3.0
         version: 2.9.1
+      zod:
+        specifier: ^4.6.7
+        version: 4.6.7
     devDependencies:
       '@types/pg':
         specifier: ^8.23.1
@@ -662,12 +677,18 @@ importers:
       '@clinicrme/shared':
         specifier: workspace:*
         version: link:../shared
+      '@clinicrme/storage':
+        specifier: workspace:*
+        version: link:../storage
       '@nestjs/common':
         specifier: ^11.2.8
         version: 11.2.8(reflect-metadata@0.2.2)(rxjs@7.8.1)
       drizzle-orm:
         specifier: ^0.45.4
         version: 0.45.4(@opentelemetry/api@1.10.0)(@types/pg@8.23.1)(pg@8.23.1)
+      express:
+        specifier: ^5.2.1
+        version: 5.2.1
       zod:
         specifier: ^4.6.7
         version: 4.6.7

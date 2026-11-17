@@ -55,6 +55,11 @@
       "types": "./src/lib/satusehat-reconcile.ts",
       "import": "./src/lib/satusehat-reconcile.ts",
       "default": "./src/lib/satusehat-reconcile.ts"
+    },
+    "./reports": {
+      "types": "./src/lib/reports/index.ts",
+      "import": "./src/lib/reports/index.ts",
+      "default": "./src/lib/reports/index.ts"
     }
   },
   "nx": {
@@ -67,7 +72,9 @@
     "drizzle-orm": "^0.45.4",
     "pg": "^8.23.1",
     "tslib": "^2.3.0",
-    "@clinicrme/storage": "workspace:*"
+    "@clinicrme/storage": "workspace:*",
+    "exceljs": "4.4.0",
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "@types/pg": "^8.23.1"

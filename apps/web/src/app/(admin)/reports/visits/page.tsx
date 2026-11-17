@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Alert, Card, CardContent, Select, TBody, TD, TH, THead, TR, Table } from '@clinicrme/ui';
 import { api, errorText } from '../../../../lib/api';
 import { ReportFilters, defaultFilters, filterQs } from '../report-filters';
+import { ExportButton } from '../export-button';
 
 interface VisitRow { period: string; groupKey: string; groupLabel: string; visits: number; uniquePatients: number; newPatients: number; returningPatients: number;
   waiting: number; inService: number; finished: number }
@@ -27,7 +28,7 @@ export default function VisitReportPage() {
     <div className="grid gap-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="text-xl font-semibold">Laporan kunjungan</h1>
-        <a className="text-sm underline" href={`/api/v1/reports/visits?${qs}&format=csv`} data-testid="report-csv">Unduh CSV</a>
+        <ExportButton code="visits" params={Object.fromEntries(new URLSearchParams(qs))} csvHref={`/api/v1/reports/visits?${qs}&format=csv`} />
       </div>
       <ReportFilters value={f} onChange={setF}>
         <label className="grid gap-1 text-xs">Periode

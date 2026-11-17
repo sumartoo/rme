@@ -121,12 +121,12 @@
 | **report** | | | | | | | | | |
 | `report.clinical.read` |  | ✓ |  |  |  |  | ✓ | ✓ | reportTopDiagnoses |
 | `report.dashboard.read` | ✓ |  |  |  |  |  | ✓ | ✓ | dashboardToday |
-| `report.export` |  |  |  |  |  |  | ✓ |  | reportExport |
+| `report.export` |  |  |  |  |  |  | ✓ |  | reportExport; reportExportDownload; reportExportGet |
 | `report.finance.audit` |  |  |  |  |  |  | ✓ | ✓ | reportAnomalies |
 | `report.finance.read` |  |  |  |  |  |  | ✓ | ✓ | reportCashierClosing; reportReceivables; reportRevenue |
 | `report.operational.read` | ✓ |  |  |  |  |  | ✓ | ✓ | reportVisits |
 | `report.pharmacy.controlled` |  |  |  |  | ✓ |  | ✓ | ✓ | reportControlledDrugs |
-| `report.pharmacy.read` |  |  |  |  | ✓ |  | ✓ | ✓ | reportStock; reportStockMovements |
+| `report.pharmacy.read` |  |  |  |  | ✓ |  | ✓ | ✓ | reportNearExpiry; reportStock; reportStockMovements |
 | **schedule** | | | | | | | | | |
 | `schedule.manage` | ✓ |  |  |  |  |  |  |  | scheduleCreate; scheduleExceptionCreate; scheduleExceptionDelete; scheduleUpdate |
 | `schedule.read` | ✓ |  |  | ✓ |  |  |  |  | scheduleExceptionList; scheduleList |

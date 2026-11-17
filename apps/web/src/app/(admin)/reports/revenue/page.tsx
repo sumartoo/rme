@@ -4,6 +4,7 @@ import { Alert, Card, CardContent, Select, TBody, TD, TH, THead, TR, Table } fro
 import { api, errorText } from '../../../../lib/api';
 import { fmtRupiah } from '../../../../lib/format';
 import { ReportFilters, defaultFilters, filterQs } from '../report-filters';
+import { ExportButton } from '../export-button';
 
 type Row = Record<string, string | number>;
 interface Revenue { columns: { key: string; label: string; type: string }[]; rows: Row[]; totals: Record<string, string | number>; view: 'billed' | 'cash'; groupBy: string }
@@ -31,7 +32,7 @@ export default function RevenueReportPage() {
     <div className="grid gap-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="text-xl font-semibold">Laporan pendapatan</h1>
-        <a className="text-sm underline" href={`/api/v1/reports/revenue?${qs}&format=csv`} data-testid="report-csv">Unduh CSV</a>
+        <ExportButton code="revenue" params={Object.fromEntries(new URLSearchParams(qs))} csvHref={`/api/v1/reports/revenue?${qs}&format=csv`} />
       </div>
       <ReportFilters value={f} onChange={setF} payer={view === 'billed'}>
         <label className="grid gap-1 text-xs">Sudut pandang

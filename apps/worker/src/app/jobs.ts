@@ -11,6 +11,7 @@ import { closeExpiredRemainders } from '@clinicrme/db/rx-remainder';
 import { lookupPendingIhs, type SatuSehatUrls } from '@clinicrme/db/satusehat';
 import { sendPendingEncounters } from '@clinicrme/db/satusehat-encounter';
 import { reconcileRemote } from '@clinicrme/db/satusehat-reconcile';
+import { expireReportExports, runNextReportExport } from '@clinicrme/db/reports';
 import type { ObjectStorage } from '@clinicrme/storage';
 
 export interface JobDeps {
@@ -45,6 +46,9 @@ export const AUDIT_CHAIN_VERIFY = 'system.audit_chain_verify';
 export const EXPORT_RUN = 'tenant.export.run';
 export const EXPORT_EXPIRE = 'tenant.export.expire';
 const EXPORTS_PER_RUN = 3;
+export const REPORT_EXPORT_RUN = 'report.export.run';
+export const REPORT_EXPORT_EXPIRE = 'report.export.expire';
+const REPORT_EXPORTS_PER_RUN = 5;
 export const NOTIFY_DISPATCH = 'notify.outbox.dispatch';
 export const NO_SHOW = 'scheduling.no_show';
 export const RX_REMAINDER = 'pharmacy.rx_remainder_close';
@@ -121,6 +125,29 @@ export const jobs: JobDefinition[] = [
     retryLimit: 2,
     cron: '23 * * * *',
     handler: async (_data, deps) => expireExports(deps.pool, deps.storage),
+  },
+  {
+    // RPT-FR-008 / OD-128: ekspor laporan > 10.000 baris (job QUEUED dari API), dirender dengan watermark & disimpan di bucket exports.
+    name: REPORT_EXPORT_RUN,
+    retryLimit: 0,
+    cron: '* * * * *',
+    runOnStart: true,
+    handler: async (_data, deps) => {
+      const done: string[] = [];
+      for (let i = 0; i < REPORT_EXPORTS_PER_RUN; i++) {
+        const id = await runNextReportExport(deps.pool, deps.storage);
+        if (!id) break;
+        done.push(id);
+      }
+      return { processed: done };
+    },
+  },
+  {
+    // Tautan unduh ekspor laporan berlaku 24 jam; setelahnya berkas dihapus
+    name: REPORT_EXPORT_EXPIRE,
+    retryLimit: 2,
+    cron: '37 * * * *',
+    handler: async (_data, deps) => expireReportExports(deps.pool, deps.storage),
   },
   {
     // OD-076 & undangan: email dari outbox. Tanpa SMTP_URL event dibiarkan PENDING (dikirim setelah SMTP dikonfigurasi).

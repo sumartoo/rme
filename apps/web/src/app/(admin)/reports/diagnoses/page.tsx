@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Alert, Card, CardContent, Select, TBody, TD, TH, THead, TR, Table } from '@clinicrme/ui';
 import { api, errorText } from '../../../../lib/api';
 import { ReportFilters, defaultFilters, filterQs } from '../report-filters';
+import { ExportButton } from '../export-button';
 
 interface DxRow { rank: number; code: string; display: string; cases: number; newCases: number; oldCases: number; patients: number; share: number }
 interface DxReport { rows: DxRow[]; totals: { cases: number; encounters: number; signedEncounters: number } }
@@ -24,7 +25,7 @@ export default function TopDiagnosesPage() {
     <div className="grid gap-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="text-xl font-semibold">10 besar diagnosis</h1>
-        <a className="text-sm underline" href={`/api/v1/reports/top-diagnoses?${qs}&format=csv`} data-testid="report-csv">Unduh CSV</a>
+        <ExportButton code="top-diagnoses" params={Object.fromEntries(new URLSearchParams(qs))} csvHref={`/api/v1/reports/top-diagnoses?${qs}&format=csv`} />
       </div>
       <ReportFilters value={f} onChange={setF}>
         <label className="grid gap-1 text-xs">Diagnosis

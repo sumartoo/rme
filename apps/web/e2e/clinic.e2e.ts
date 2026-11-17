@@ -1100,7 +1100,7 @@ test('W28 kontrol stok: farmasi mengajukan penyesuaian, penyetuju lain menyetuju
   await page.reload();
   await menu.getByRole('link', { name: 'Stok obat' }).click();
   await expect(page.getByTestId('stock-row').filter({ hasText: 'AMX500' })).toContainText('9 Strip');
-  await menu.getByRole('link', { name: 'Laporan obat terbatas' }).click();
+  await menu.getByRole('link', { name: 'Obat golongan terbatas' }).click();   // pindah ke menu Laporan (Stage 14 batch 3)
   await expect(page.getByText('Tidak ada obat golongan terbatas.')).toBeVisible();
   const href = await page.getByTestId('controlled-csv').getAttribute('href');
   const csv = await page.evaluate(async (u) => { const r = await fetch(u!, { credentials: 'same-origin' }); return { s: r.status, t: (await r.text()).slice(0, 40) }; }, href);
@@ -1149,7 +1149,7 @@ test('W30 farmasi: penjualan obat bebas (keras ditolak), batal mengembalikan sto
   await expect(page.getByRole('status').filter({ hasText: 'dibatalkan; stok dikembalikan' })).toBeVisible();
   await expect(row).toContainText('Dibatalkan');
 
-  await menu.getByRole('link', { name: 'Laporan stok' }).click();
+  await menu.getByRole('link', { name: 'Stok & mutasi obat' }).click();   // pindah ke menu Laporan (Stage 14 batch 3)
   const rr = page.getByTestId('report-row').filter({ hasText: 'PCT500' });
   await expect(rr).toContainText('10');
   const amx = page.getByTestId('report-row').filter({ hasText: 'AMX500' });
@@ -1686,6 +1686,37 @@ test('W40 Laporan keuangan: pendapatan (tagihan & kas), closing kasir, umur piut
   await expect(page.locator('main')).not.toContainText('Siti Rahmawati');
   // Tanpa izin laporan klinis/operasional
   await expect(menu.getByRole('link', { name: '10 besar diagnosis' })).toHaveCount(0);
+  expect(cspViolations).toEqual([]);
+});
+
+test('W41 Laporan farmasi di menu Laporan & ekspor ber-watermark: mendekati kedaluwarsa → CSV & Excel terunduh (Stage 14 batch 3)', async ({ page }) => {
+  watchCsp(page);
+  await addClinicDrugStock({ code: 'NEX30', name: 'Vitamin C sintetis 50 mg', drugClass: 'BEBAS', uomCode: 'STRIP', price: 2000, qty: 4, batchNo: 'NEX-W1', expiryDays: 30 });
+  await addClinicRole('LAPORAN_FARMASI', 'Laporan farmasi', ['report.pharmacy.read', 'report.export', 'master.facility.read']);
+  await addClinicUser('lapfarmasi@klinik-web.test', 'Pelapor Farmasi E2E', 'LAPORAN_FARMASI');
+  await login(page, 'lapfarmasi@klinik-web.test');
+  const menu = page.getByTestId('side-menu');
+  await menu.getByRole('link', { name: 'Obat mendekati kedaluwarsa' }).click();
+  await expect(page.getByRole('heading', { name: 'Obat mendekati kedaluwarsa' })).toBeVisible();
+  await expect(page.getByTestId('report-row').filter({ hasText: 'NEX-W1' })).toContainText('Vitamin C sintetis 50 mg');
+  await expect(page.getByTestId('report-row').filter({ hasText: 'PCT-W1' })).toHaveCount(0);   // kedaluwarsa > 90 hari
+  await page.getByLabel('Format ekspor').selectOption('CSV');
+  const [csv] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: 'Ekspor' }).click()]);
+  expect(csv.suggestedFilename()).toBe('mendekati-kedaluwarsa.csv');
+  const text = new TextDecoder('utf-8', { ignoreBOM: true }).decode(readFileSync((await csv.path())!));
+  expect(text).toMatch(/^\uFEFFLaporan obat mendekati kedaluwarsa\r\n/);
+  expect(text).toContain('Diekspor oleh: Pelapor Farmasi E2E');
+  expect(text).toContain('Rahasia — untuk internal klinik');
+  expect(text).toMatch(/NEX30,Vitamin C sintetis 50 mg,BEBAS,NEX-W1/);
+  await expect(page.getByTestId('export-status')).toContainText('Ekspor siap');
+  await page.getByLabel('Format ekspor').selectOption('XLSX');
+  const [xlsx] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: 'Ekspor' }).click()]);
+  expect(xlsx.suggestedFilename()).toBe('mendekati-kedaluwarsa.xlsx');
+  expect(readFileSync((await xlsx.path())!).subarray(0, 2).toString()).toBe('PK');
+  // Laporan stok kini di grup Laporan
+  await menu.getByRole('link', { name: 'Stok & mutasi obat' }).click();
+  await expect(page.getByRole('heading', { name: 'Laporan stok & mutasi' })).toBeVisible();
+  await expect(page.getByLabel('Format ekspor')).toHaveCount(2);
   expect(cspViolations).toEqual([]);
 });
 
