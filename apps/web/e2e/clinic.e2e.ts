@@ -1397,7 +1397,8 @@ test('W34 supervisor: tutup shift yang lupa ditutup & verifikasi, pelunasan piut
   const menu = spv.getByTestId('side-menu');
   // Shift kasir terbuka → ditutup supervisor (tercatat) → diverifikasi
   await menu.getByRole('link', { name: 'Shift kasir' }).click();
-  await spv.getByLabel('Status shift').selectOption({ label: 'Terbuka' });
+  // Tunggu daftar terfilter (daftar awal tanpa filter bisa memuat shift lain di Cabang Timur)
+  await Promise.all([spv.waitForResponse((r) => r.url().includes('/cashier-shifts?status=OPEN')), spv.getByLabel('Status shift').selectOption({ label: 'Terbuka' })]);
   const openRow = spv.getByTestId('shift-row').filter({ hasText: 'Cabang Timur' });
   await expect(openRow).toHaveCount(1);
   await expect(openRow).toContainText('Rp 110.000');
@@ -1608,6 +1609,45 @@ test('W38 Pemantauan SATUSEHAT (simulator): dashboard per hari & rekonsiliasi ta
   await expect(page.getByText('Semua kunjungan yang disahkan pada rentang ini sudah terkirim dan cocok.')).toBeVisible();
   await expect(page.locator('main')).not.toContainText('Siti Rahmawati');
   expect(cspViolations).toEqual([]);
+});
+
+test('W39 Laporan kunjungan & 10 besar diagnosis: angka bulan berjalan, pengelompokan, CSV, tanpa identitas pasien (Stage 14 batch 1)', async ({ page, browser }) => {
+  watchCsp(page);
+  await signInAdmin(page);
+  await page.getByTestId('side-menu').getByRole('link', { name: 'Kunjungan', exact: true }).last().click();
+  await expect(page.getByRole('heading', { name: 'Laporan kunjungan' })).toBeVisible();
+  await expect(page.getByTestId('report-totals')).toContainText(/Total kunjungan [1-9]\d*/);
+  const firstCount = Number((await page.getByTestId('report-row').first().locator('td').nth(1).textContent()) ?? '0');
+  expect(firstCount).toBeGreaterThan(0);
+  await page.getByLabel('Kelompokkan').selectOption('practitioner');
+  await expect(page.getByTestId('report-row').filter({ hasText: 'drg. Web Sintetis' }).first()).toBeVisible();
+  await page.getByLabel('Periode').selectOption('month');
+  await expect(page.getByRole('columnheader', { name: 'Bulan' })).toBeVisible();
+  await expect(page.getByTestId('report-csv')).toHaveAttribute('href', /^\/api\/v1\/reports\/visits\?.*groupBy=practitioner.*$/);
+  const href = (await page.getByTestId('report-csv').getAttribute('href'))!;
+  // Byte mentah (fetch().text() membuang BOM): BOM UTF-8 dipertahankan agar Excel membaca karakter dengan benar
+  const csv = await page.evaluate(async (u) => {
+    const r = await fetch(u);
+    return { status: r.status, text: new TextDecoder('utf-8', { ignoreBOM: true }).decode(await r.arrayBuffer()) };
+  }, href);
+  expect(csv.status).toBe(200);
+  expect(csv.text).toMatch(/^\uFEFFPeriode,Kelompok,Kunjungan/);
+  await expect(page.locator('main')).not.toContainText('Siti Rahmawati');
+  // Admin klinik tidak punya izin laporan klinis → menu 10 besar diagnosis tidak tampil
+  await expect(page.getByTestId('side-menu').getByRole('link', { name: '10 besar diagnosis' })).toHaveCount(0);
+
+  const ctx = await browser.newContext();
+  const doc = await ctx.newPage();
+  watchCsp(doc);
+  await login(doc, 'dokter@klinik-web.test');
+  await doc.getByTestId('side-menu').getByRole('link', { name: '10 besar diagnosis' }).click();
+  await expect(doc.getByRole('heading', { name: '10 besar diagnosis' })).toBeVisible();
+  await expect(doc.getByTestId('report-row').filter({ hasText: 'K04.0' })).toContainText('Pulpitis');   // diagnosis berlaku setelah addendum W37
+  await doc.getByLabel('Jenis diagnosis').selectOption('all');
+  await expect(doc.getByTestId('report-row').filter({ hasText: 'K02.9' })).toBeVisible();
+  await expect(doc.locator('main')).not.toContainText('Siti Rahmawati');
+  expect(cspViolations).toEqual([]);
+  await ctx.close();
 });
 
 test('W06 keamanan: CSP bernonce, no-store; proxy hanya untuk klinik dari subdomain; tidak ada pelanggaran CSP', async ({ page }) => {

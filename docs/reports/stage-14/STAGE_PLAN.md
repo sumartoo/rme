@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | Stage | 14 — Reporting, Analytics & Dashboard |
-| Status | **DRAF** — menunggu keputusan OD-123–OD-131 |
+| Status | **BERJALAN** — OD diputuskan DEC-047 (17 Nov 2026) |
 | Project Owner | Sumarto |
 | Urutan | Dikerjakan setelah Stage 12. **Stage 13 (aplikasi Android pasien) ditunda sampai setelah pilot** (DEC-046, sesuai DEC-012) |
 | Requirement | **MVP saja** (DEC-010): RPT-FR-001–009. LJT: RPT-FR-010 report builder tanpa SQL, RPT-FR-011 laporan terjadwal & distribusi, RPT-FR-012 waktu tunggu pasien |
@@ -44,7 +44,7 @@ Setiap angka divalidasi terhadap query sumber pada dataset uji, karena laporan y
 
 Perkiraan: ±1 hari kerja per batch.
 
-## 4. Open Decision — usulan, menunggu keputusan PO
+## 4. Open Decision — ✅ semua disetujui sesuai usulan (DEC-047)
 
 | OD | Pertanyaan | Usulan |
 |---|---|---|
@@ -79,3 +79,5 @@ Perkiraan: ±1 hari kerja per batch.
 | Tanggal | Catatan | Bukti |
 |---|---|---|
 | 17 Nov 2026 | Stage 12 disetujui bersyarat (DEC-045). PO memilih menunda Stage 13 sampai setelah pilot dan lanjut ke Stage 14 (DEC-046). Draf rencana & OD Stage 14 disusun | — |
+| 17 Nov 2026 | PO menyetujui semua OD Stage 14 (DEC-047). Batch 1 dimulai | — |
+| 17 Nov 2026 | **Batch 1 selesai** — fondasi & kunjungan/diagnosis: modul `libs/reporting` (filter seragam, tanggal menurut zona waktu cabang, cakupan cabang dari penugasan role, batas 366 hari, `statement_timeout` 30 detik, CSV). Laporan kunjungan harian/bulanan per cabang/poli/dokter/penjamin dengan pasien unik, baru/lama, status, dan no-show (OD-124). 10 besar diagnosis dari RM disahkan memakai diagnosis yang berlaku setelah addendum, primer/semua (OD-125). Menu Laporan (migrasi 0035) | Integrasi T01–T05, E2E W39, mutasi M176–M185 |

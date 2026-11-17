@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | Phase | E — Integrasi & Kanal |
-| Status | Rencana disusun — OD-123–OD-131 menunggu keputusan ([STAGE_PLAN](../reports/stage-14/STAGE_PLAN.md)) |
+| Status | Berjalan — OD diputuskan DEC-047 ([STAGE_PLAN](../reports/stage-14/STAGE_PLAN.md)) |
 | Prasyarat | Stage 12 disetujui (Stage 13 ditunda, DEC-046) |
 | Modul | `reporting` |
 

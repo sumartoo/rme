@@ -1,5 +1,5 @@
 'use client';
-import { BookOpen, Boxes, Building2, Calendar, CalendarCheck, ClipboardList, FileText, ListOrdered, Upload, Database, Download, LogOut, Monitor, Package, Pill, Receipt, Settings, Shield, ShieldCheck, Stethoscope, Truck, User, Users, type LucideIcon } from 'lucide-react';
+import { BarChart3, BookOpen, Boxes, Building2, Calendar, CalendarCheck, ClipboardList, FileText, ListOrdered, Upload, Database, Download, Link2, LogOut, Monitor, Package, Pill, Receipt, Settings, Shield, ShieldCheck, Stethoscope, Truck, User, Users, type LucideIcon } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
@@ -8,7 +8,7 @@ import { ApiError, AuthSession, Me, MenuNode, api } from '../../lib/api';
 import { Session, SessionContext } from '../../lib/session';
 
 const ICONS: Record<string, LucideIcon> = { settings: Settings, building: Building2, 'building-2': Building2, users: Users, shield: Shield,
-  download: Download, user: User, monitor: Monitor, database: Database, stethoscope: Stethoscope, receipt: Receipt, 'shield-check': ShieldCheck, package: Package, 'book-open': BookOpen, upload: Upload, clipboard: ClipboardList, 'file-text': FileText, calendar: Calendar, 'calendar-check': CalendarCheck, 'list-ordered': ListOrdered, pill: Pill, boxes: Boxes, truck: Truck };
+  download: Download, user: User, monitor: Monitor, database: Database, stethoscope: Stethoscope, receipt: Receipt, 'shield-check': ShieldCheck, package: Package, 'book-open': BookOpen, upload: Upload, clipboard: ClipboardList, 'file-text': FileText, calendar: Calendar, 'calendar-check': CalendarCheck, 'list-ordered': ListOrdered, pill: Pill, boxes: Boxes, truck: Truck, chart: BarChart3, link: Link2 };
 
 /**
  * Shell aplikasi klinik: menu samping dari `GET /me/menu` (IAM-FR-010) dan pilihan cabang aktif (IAM-FR-009).

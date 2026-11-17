@@ -58,7 +58,7 @@ Rincian & usulan: [`docs/reports/stage-12/STAGE_PLAN.md`](../reports/stage-12/ST
 | OD-121 | Pengujian tanpa sandbox | Simulator bawaan; tanpa kredensial → disetujui bersyarat |
 | OD-122 | Dasar pengiriman & privasi | Kewajiban fasyankes, tanpa opt-out; konfirmasi PPDP |
 
-## B6. Baru dari Stage 14 (⏳ menunggu keputusan PO)
+## B6. Baru dari Stage 14 (✅ diputuskan DEC-047)
 
 Rincian & usulan: [`docs/reports/stage-14/STAGE_PLAN.md`](../reports/stage-14/STAGE_PLAN.md) §4. OD-046 & OD-047 sudah diputuskan (DEC-016).
 

@@ -55,6 +55,9 @@
       "path": "../../libs/integration/tsconfig.lib.json"
     },
     {
+      "path": "../../libs/reporting/tsconfig.lib.json"
+    },
+    {
       "path": "../../libs/iam/tsconfig.lib.json"
     },
     {

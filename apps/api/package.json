@@ -102,6 +102,7 @@
     "@clinicrme/patient": "workspace:*",
     "@clinicrme/pharmacy": "workspace:*",
     "@clinicrme/platform": "workspace:*",
+    "@clinicrme/reporting": "workspace:*",
     "@clinicrme/scheduling": "workspace:*",
     "@clinicrme/shared": "workspace:*",
     "@clinicrme/storage": "workspace:*",

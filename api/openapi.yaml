@@ -7776,7 +7776,8 @@ paths:
       operationId: reportVisits
       tags:
       - Report
-      summary: Kunjungan per cabang/poli/dokter/penjamin
+      summary: Kunjungan harian/bulanan (?from&to YYYY-MM-DD ≤ 366 hari, period=day|month, groupBy=none|branch|unit|practitioner|payer, branchId,
+        unitId, practitionerId, payerType, format=json|csv; OD-124)
       x-requirements:
       - RPT-FR-001
       x-permission: report.operational.read
@@ -7798,7 +7799,8 @@ paths:
       operationId: reportTopDiagnoses
       tags:
       - Report
-      summary: 10 besar diagnosis
+      summary: 10 besar diagnosis dari RM disahkan, diagnosis berlaku setelah addendum (?from&to, scope=primary|all, limit 1–50, filter cabang/poli/dokter/penjamin,
+        format=json|csv; OD-125)
       x-requirements:
       - RPT-FR-002
       x-permission: report.clinical.read

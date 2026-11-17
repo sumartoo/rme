@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Uji mutasi kontrol keamanan (Stage 3 M1–M4 diulang di monorepo — RSK-020; M5 Stage 4; M6–M14 Stage 5; M15–M17 Stage 6; M18–M22 Stage 7; M23–M38 Stage 8; M39–M59 Stage 9; M60–M89 Stage 10; M90–M133 Stage 11; M134–M175 Stage 12).
+# Uji mutasi kontrol keamanan (Stage 3 M1–M4 diulang di monorepo — RSK-020; M5 Stage 4; M6–M14 Stage 5; M15–M17 Stage 6; M18–M22 Stage 7; M23–M38 Stage 8; M39–M59 Stage 9; M60–M89 Stage 10; M90–M133 Stage 11; M134–M175 Stage 12, M176+ Stage 14).
 # Setiap mutasi sengaja merusak satu kontrol, menjalankan suite integrasi API, dan LULUS hanya bila
 # uji yang menjaga kontrol itu GAGAL. Kode selalu dikembalikan (trap), juga bila skrip dihentikan.
 #
@@ -74,8 +74,10 @@ SSLIB=libs/db/src/lib/satusehat.ts
 SSENC=libs/db/src/lib/satusehat-encounter.ts
 SSFU=libs/db/src/lib/satusehat-followup.ts
 SSREC=libs/db/src/lib/satusehat-reconcile.ts
+RPTCLIN=libs/reporting/src/lib/clinical-report.controller.ts
+RPTCOM=libs/reporting/src/lib/report-common.ts
 INTEG=libs/clinical/src/lib/integrity.ts
-FILES=("$AUTH" "$SESSION" "$MIG2" "$MIG3" "$GUARD" "$PGUARD" "$LAYOUT" "$EXPORT" "$MIG5" "$MIG6" "$TOTP" "$IAMUSERS" "$ACCOUNT" "$AUDITCHG" "$PRACT" "$MIG12" "$TERM" "$IMPORTS" "$PATIENT" "$MIG15" "$IDEM" "$MIG16" "$BOOK" "$SCHED" "$NOSHOW" "$ENCREPO" "$ENCCTL" "$QDISP" "$CHART" "$CHARTREPO" "$MIG19" "$SIGNCTL" "$REAUTH" "$MIG20" "$RXREPO" "$RXCTL" "$MIG21" "$LABCTL" "$DOCCTL" "$MIG22" "$RECV" "$PRICE" "$LOCS" "$DISP" "$DREPO" "$RXREM" "$SUBC" "$ADJC" "$OPNC" "$CRPT" "$OTCC" "$SRPT" "$INVREPO" "$INVCTL" "$PAYCTL" "$PAYREPO" "$QRCTL" "$CORCTL" "$OVCTL" "$SSCTL" "$SSLIB" "$SSENC" "$SSFU" "$INTEG" "$SHIFTREPO" "$SSREC")
+FILES=("$AUTH" "$SESSION" "$MIG2" "$MIG3" "$GUARD" "$PGUARD" "$LAYOUT" "$EXPORT" "$MIG5" "$MIG6" "$TOTP" "$IAMUSERS" "$ACCOUNT" "$AUDITCHG" "$PRACT" "$MIG12" "$TERM" "$IMPORTS" "$PATIENT" "$MIG15" "$IDEM" "$MIG16" "$BOOK" "$SCHED" "$NOSHOW" "$ENCREPO" "$ENCCTL" "$QDISP" "$CHART" "$CHARTREPO" "$MIG19" "$SIGNCTL" "$REAUTH" "$MIG20" "$RXREPO" "$RXCTL" "$MIG21" "$LABCTL" "$DOCCTL" "$MIG22" "$RECV" "$PRICE" "$LOCS" "$DISP" "$DREPO" "$RXREM" "$SUBC" "$ADJC" "$OPNC" "$CRPT" "$OTCC" "$SRPT" "$INVREPO" "$INVCTL" "$PAYCTL" "$PAYREPO" "$QRCTL" "$CORCTL" "$OVCTL" "$SSCTL" "$SSLIB" "$SSENC" "$SSFU" "$INTEG" "$SHIFTREPO" "$SSREC" "$RPTCLIN" "$RPTCOM")
 BACKUP=$(mktemp -d)
 cp "${FILES[@]}" "$BACKUP"/
 restore() { for f in "${FILES[@]}"; do cp "$BACKUP/$(basename "$f")" "$f"; done; }
@@ -466,6 +468,27 @@ mutate M174 "dashboard dapat dibaca tanpa izin integration.read" 'O01' \
   "sed -i \"s/@RequirePermission('integration.read') @Get('integrations\/satusehat\/summary')/@RequirePermission('billing.invoice.read') @Get('integrations\/satusehat\/summary')/\" $SSCTL && grep -q \"'billing.invoice.read') @Get('integrations\/satusehat\/summary\" $SSCTL" ""
 mutate M175 "Encounter hilang tetap memakai ID lama saat dikirim ulang" 'O03' \
   "sed -i 's/last_error = .2, satusehat_id = null,/last_error = \$2,/' $SSREC && ! grep -q 'satusehat_id = null,' $SSREC" ""
+
+mutate M176 "laporan kunjungan menghitung kunjungan batal" 'T01' \
+  "sed -i \"s/^     where e.status <> 'CANCELLED'$/     where true/\" $RPTCLIN && grep -q '^     where true$' $RPTCLIN" ""
+mutate M177 "tanggal kunjungan tidak memakai zona waktu cabang" 'T01' \
+  "sed -i \"s/(coalesce(e.arrived_at, e.created_at) at time zone b.timezone)::date as d/(coalesce(e.arrived_at, e.created_at) at time zone 'UTC')::date as d/\" $RPTCLIN && grep -q \"at time zone 'UTC')::date as d\" $RPTCLIN" ""
+mutate M178 "pasien baru tidak berdasarkan kunjungan pertama" 'T01' \
+  "sed -i 's/order by e.patient_id, coalesce(e.arrived_at, e.created_at), e.id)/order by e.patient_id, coalesce(e.arrived_at, e.created_at) desc, e.id)/g' $RPTCLIN && grep -q 'created_at) desc, e.id)' $RPTCLIN" ""
+mutate M179 "laporan mengabaikan cakupan cabang penugasan role" 'T03' \
+  "sed -i 's/  const allowed = s?.all_branches ? null : (s?.ids ?? \[\]);/  const allowed = null as string[] | null;/' $RPTCOM && grep -q 'const allowed = null as' $RPTCOM" ""
+mutate M180 "10 besar diagnosis memasukkan RM yang belum disahkan" 'T04' \
+  "sed -i \"s/join clinical_note n on n.encounter_id = v.id and n.status = 'SIGNED'/join clinical_note n on n.encounter_id = v.id/\" $RPTCLIN && ! grep -q \"n.encounter_id = v.id and n.status = 'SIGNED'\" $RPTCLIN" ""
+mutate M181 "10 besar diagnosis mengabaikan diagnosis pengganti dari addendum" 'T04' \
+  "sed -i 's/           where not exists (select 1 from la where la.note_id = enc.note_id)),/           where true),/' $RPTCLIN && grep -q '^           where true),' $RPTCLIN" ""
+mutate M182 "10 besar diagnosis bawaan tidak hanya diagnosis primer" 'T04' \
+  "sed -i \"s/: sql\\\`rank = 'PRIMER'\\\`}/: sql\\\`true\\\`}/\" $RPTCLIN && ! grep -q \"sql\\\`rank = 'PRIMER'\\\`\" $RPTCLIN" ""
+mutate M183 "batas rentang laporan 366 hari tidak berlaku" 'T03' \
+  "sed -i 's/ > MAX_DAYS - 1) throw/ > 100000) throw/' $RPTCOM && grep -q '> 100000) throw' $RPTCOM" ""
+mutate M184 "laporan kunjungan dapat dibaca tanpa izin laporan operasional" 'T03' \
+  "sed -i \"s/@RequirePermission('report.operational.read') @Get('visits')/@RequirePermission('encounter.read') @Get('visits')/\" $RPTCLIN && grep -q \"'encounter.read') @Get('visits')\" $RPTCLIN" ""
+mutate M185 "melihat laporan kunjungan tidak teraudit" 'T03' \
+  "sed -i \"s/      await audit(tx, 'REPORT_VISITS_VIEWED'/      void (tx, 'REPORT_VISITS_VIEWED'/\" $RPTCLIN && grep -q \"void (tx, 'REPORT_VISITS_VIEWED'\" $RPTCLIN" ""
 
 # Mutasi UI: suite Playwright (U##) sebagai detektor
 if [ "${MUTATION_E2E:-0}" = "1" ]; then

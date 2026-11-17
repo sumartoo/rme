@@ -796,8 +796,8 @@ ops = [
  ("get",  f"{P}/integrations/satusehat/reconciliation", "satusehatReconciliation", "Integration", "Rekonsiliasi: kunjungan disahkan vs terkirim (?facilityId=&from=&to=, maks. 92 hari) + ringkasan selisih", ["INT-FR-011"], "integration.read", None, "ReconciliationRow", {"page": 1}),
  # Reports
  ("get",  f"{P}/dashboard/today", "dashboardToday", "Report", "Dashboard harian", ["RPT-FR-009"], "report.dashboard.read", None, "Dashboard", {}),
- ("get",  f"{P}/reports/visits", "reportVisits", "Report", "Kunjungan per cabang/poli/dokter/penjamin", ["RPT-FR-001"], "report.operational.read", None, "ReportResult", {}),
- ("get",  f"{P}/reports/top-diagnoses", "reportTopDiagnoses", "Report", "10 besar diagnosis", ["RPT-FR-002"], "report.clinical.read", None, "ReportResult", {}),
+ ("get",  f"{P}/reports/visits", "reportVisits", "Report", "Kunjungan harian/bulanan (?from&to YYYY-MM-DD ≤ 366 hari, period=day|month, groupBy=none|branch|unit|practitioner|payer, branchId, unitId, practitionerId, payerType, format=json|csv; OD-124)", ["RPT-FR-001"], "report.operational.read", None, "ReportResult", {}),
+ ("get",  f"{P}/reports/top-diagnoses", "reportTopDiagnoses", "Report", "10 besar diagnosis dari RM disahkan, diagnosis berlaku setelah addendum (?from&to, scope=primary|all, limit 1–50, filter cabang/poli/dokter/penjamin, format=json|csv; OD-125)", ["RPT-FR-002"], "report.clinical.read", None, "ReportResult", {}),
  ("get",  f"{P}/reports/revenue", "reportRevenue", "Report", "Pendapatan per layanan/metode/penjamin", ["RPT-FR-003"], "report.finance.read", None, "ReportResult", {}),
  ("get",  f"{P}/reports/cashier-closing", "reportCashierClosing", "Report", "Closing kasir", ["RPT-FR-004"], "report.finance.read", None, "ReportResult", {}),
  ("get",  f"{P}/reports/stock", "reportStock", "Report", "Ringkasan stok per obat (?from&to YYYY-MM-DD, format=json|csv)", ["RPT-FR-005", "PHM-FR-004"], "report.pharmacy.read", None, "ReportResult", {}),
