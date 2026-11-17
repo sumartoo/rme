@@ -239,6 +239,13 @@
       "when": 1795939200000,
       "tag": "0033_satusehat_medication_resend",
       "breakpoints": false
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1796025600000,
+      "tag": "0034_satusehat_monitoring",
+      "breakpoints": false
     }
   ]
 }

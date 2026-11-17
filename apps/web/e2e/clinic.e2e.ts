@@ -1443,7 +1443,7 @@ test('W34 supervisor: tutup shift yang lupa ditutup & verifikasi, pelunasan piut
 test('W35 SATUSEHAT (simulator): admin menyimpan kredensial, uji koneksi, sinkron master; pendaftaran mencari IHS pasien (Stage 12 batch 1)', async ({ page, browser }) => {
   watchCsp(page);
   await signInAdmin(page);
-  await page.getByTestId('side-menu').getByRole('link', { name: 'SATUSEHAT' }).click();
+  await page.getByTestId('side-menu').getByRole('link', { name: 'SATUSEHAT', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Integrasi SATUSEHAT' })).toBeVisible();
   const card = page.getByTestId('satusehat-facility').first();
   await expect(card).toContainText('Belum terhubung.');
@@ -1479,7 +1479,10 @@ test('W35 SATUSEHAT (simulator): admin menyimpan kredensial, uji koneksi, sinkro
   await reg.close();
 });
 
-/** Worker sungguhan, sekali jalan: job integration.satusehat_send (Stage 12). */
+/**
+ * Worker sungguhan, sekali jalan: job pengiriman SATUSEHAT (Stage 12). Rekonsiliasi jarak jauh tidak dijalankan di sini karena isi simulator
+ * hanya hidup di satu proses worker (tiap pemanggilan = proses baru); rekonsiliasi diuji di integrasi O02–O03.
+ */
 const sendOnce = () => execFileSync(process.execPath, [join(ROOT, 'apps/worker/dist/main.js')], { cwd: ROOT, stdio: 'pipe', env: { ...process.env, APP_ENV: 'test',
   LOG_LEVEL: 'warn', WORKER_DATABASE_URL: dbUrl(), ENCRYPTION_KEY_HEX: E2E_ENCRYPTION_KEY, STORAGE_DRIVER: 'fs', STORAGE_FS_DIR: STORAGE_DIR,
   WORKER_RUN_ONCE: 'integration.satusehat_send', SMTP_URL: '' } });
@@ -1514,7 +1517,7 @@ test('W36 SATUSEHAT (simulator): RM disahkan → dalam antrean; tertahan dengan 
   await expect(doc.getByTestId('satusehat-blocking')).toContainText('Dokter drg. Web Sintetis belum punya IHS SATUSEHAT — lengkapi NIK lalu jalankan Sinkron master');
 
   // Ditindaklanjuti: sinkron master mengisi kembali IHS dari NIK → terkirim pada putaran berikutnya
-  await page.getByTestId('side-menu').getByRole('link', { name: 'SATUSEHAT' }).click();
+  await page.getByTestId('side-menu').getByRole('link', { name: 'SATUSEHAT', exact: true }).click();
   const card = page.getByTestId('satusehat-facility').first();
   await card.getByRole('button', { name: 'Sinkron master' }).click();
   await expect(card.getByTestId('sync-result')).toContainText(/Tenaga kesehatan: 1 ditemukan/);
@@ -1563,7 +1566,7 @@ test('W37 SATUSEHAT (simulator): addendum mengganti diagnosis → terkirim sebag
   // Gangguan berkepanjangan (disimulasikan) → admin melihat "Perlu tindakan" lalu mengirim ulang
   await markLatestSatuSehatAddendumDead();
   await signInAdmin(page);
-  await page.getByTestId('side-menu').getByRole('link', { name: 'SATUSEHAT' }).click();
+  await page.getByTestId('side-menu').getByRole('link', { name: 'SATUSEHAT', exact: true }).click();
   const issues = page.getByTestId('satusehat-facility').first().getByTestId('satusehat-issues');
   const row = issues.getByTestId('issue-row').filter({ hasText: 'Koreksi diagnosis' });
   await expect(row).toContainText('Gagal setelah beberapa percobaan');
@@ -1578,6 +1581,33 @@ test('W37 SATUSEHAT (simulator): addendum mengganti diagnosis → terkirim sebag
   await expect(doc.getByTestId('satusehat-followups')).toHaveCount(0);
   expect(cspViolations).toEqual([]);
   await ctx.close();
+});
+
+test('W38 Pemantauan SATUSEHAT (simulator): dashboard per hari & rekonsiliasi tanpa nama pasien (Stage 12 batch 4)', async ({ page }) => {
+  watchCsp(page);
+  await signInAdmin(page);
+  await page.getByTestId('side-menu').getByRole('link', { name: 'Pemantauan SATUSEHAT' }).click();
+  await expect(page.getByRole('heading', { name: 'Pemantauan SATUSEHAT' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: /Dashboard pengiriman/ })).toContainText('(simulator)');
+  await expect(page.getByTestId('tile-sent').locator('dd')).toHaveText(/^[1-9]\d*$/);
+  await expect(page.getByTestId('tile-duplicates').locator('dd')).toHaveText('0');
+  await expect(page.getByTestId('sync-day')).toHaveCount(14);
+  await expect(page.getByTestId('sync-day').first().locator('td').nth(1)).toHaveText(/^[1-9]\d*$/);   // hari ini ada yang terkirim
+  await page.getByLabel('Rentang').selectOption('7');
+  await expect(page.getByTestId('sync-day')).toHaveCount(7);
+  const sum = page.getByTestId('recon-summary');
+  await expect(sum).toContainText(/Disahkan \d+ · Terkirim [1-9]\d* ·/);
+  await expect(sum).toContainText(/Selisih \d+/);
+  await expect(page.getByText(/kunjungan terkirim menunggu pencocokan otomatis dengan SATUSEHAT/)).toBeVisible();
+  // Rentang tanpa kunjungan → selisih 0
+  await page.getByLabel('Dari').fill('2026-01-01');
+  await page.getByLabel('Sampai').fill('2026-01-31');
+  await page.getByRole('button', { name: 'Tampilkan' }).click();
+  await expect(sum).toContainText('Disahkan 0 · Terkirim 0');
+  await expect(page.getByTestId('recon-difference')).toHaveText('Selisih 0');
+  await expect(page.getByText('Semua kunjungan yang disahkan pada rentang ini sudah terkirim dan cocok.')).toBeVisible();
+  await expect(page.locator('main')).not.toContainText('Siti Rahmawati');
+  expect(cspViolations).toEqual([]);
 });
 
 test('W06 keamanan: CSP bernonce, no-store; proxy hanya untuk klinik dari subdomain; tidak ada pelanggaran CSP', async ({ page }) => {

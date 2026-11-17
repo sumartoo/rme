@@ -128,7 +128,14 @@ Condition baru tersimpan, percobaan ulang dapat membuat Condition ganda (Conditi
 - Kiriman yang menjadi DEAD → satu email ke admin klinik per koneksi selama email sebelumnya belum terkirim (hanya jumlah, tanpa data pasien).
   Notifikasi in-app = daftar "Perlu tindakan" & panel status di halaman kunjungan.
 
-## 10. Perlu dicek di sandbox sebelum gate
+## 10. Rekonsiliasi (batch 4; INT-FR-010, 011)
+
+Dashboard, rekonsiliasi lokal (disahkan vs terkirim), dan pencocokan jarak jauh per kunjungan dijelaskan di
+[SATUSEHAT_INTEGRATION.md](SATUSEHAT_INTEGRATION.md) §5. Pencarian yang dipakai: `GET /Encounter?identifier={system}|{nomor}`,
+`GET /{Condition|Observation|Procedure}?encounter={id}` (dicocokkan per kode: ICD-10, LOINC, ICD-9-CM). `fhir_sync_record.local_code`
+menyimpan kode yang dikirim untuk pencocokan ini.
+
+## 11. Perlu dicek di sandbox sebelum gate
 
 - Elemen wajib terbaru di playbook (mis. `Encounter.class` & `statusHistory` per tahap, kategori Observation, kode display).
 - Apakah Observation tanda vital wajib dikirim per pengukuran atau cukup nilai terakhir.
@@ -136,3 +143,4 @@ Condition baru tersimpan, percobaan ulang dapat membuat Condition ganda (Conditi
 - Ekstensi MedicationType & kodenya (NC/SD), identifier penyerahan sebagian, apakah `MedicationDispense.location` (Location apotek) wajib.
 - Rute pemberian saat ini dikirim sebagai teks — padanan kode resmi perlu dicek.
 - Update Encounter (PUT) & Condition entered-in-error diterima SATUSEHAT sesuai harapan.
+- Parameter pencarian `encounter=` pada Condition/Observation/Procedure didukung seperti yang dipakai rekonsiliasi.

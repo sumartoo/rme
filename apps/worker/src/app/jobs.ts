@@ -10,6 +10,7 @@ import { markNoShows } from '@clinicrme/db/no-show';
 import { closeExpiredRemainders } from '@clinicrme/db/rx-remainder';
 import { lookupPendingIhs, type SatuSehatUrls } from '@clinicrme/db/satusehat';
 import { sendPendingEncounters } from '@clinicrme/db/satusehat-encounter';
+import { reconcileRemote } from '@clinicrme/db/satusehat-reconcile';
 import type { ObjectStorage } from '@clinicrme/storage';
 
 export interface JobDeps {
@@ -49,6 +50,7 @@ export const NO_SHOW = 'scheduling.no_show';
 export const RX_REMAINDER = 'pharmacy.rx_remainder_close';
 export const SATUSEHAT_IHS_LOOKUP = 'integration.satusehat_ihs_lookup';
 export const SATUSEHAT_SEND = 'integration.satusehat_send';
+export const SATUSEHAT_RECONCILE = 'integration.satusehat_reconcile';
 const AUDIT_MONTHS_AHEAD = 2;
 
 export const jobs: JobDefinition[] = [
@@ -165,6 +167,15 @@ export const jobs: JobDefinition[] = [
     retryLimit: 0,
     cron: '*/5 * * * *',
     handler: async (_data, deps) => sendPendingEncounters(deps.pool, {
+      keyHex: deps.exportOptions.encryptionKeyHex, urls: deps.satusehatUrls, allowSimulator: deps.appEnv !== 'prod',
+    }),
+  },
+  {
+    // INT-FR-011: kunjungan terkirim dicocokkan dengan SATUSEHAT (ada/tidak, ID turunan, data ganda)
+    name: SATUSEHAT_RECONCILE,
+    retryLimit: 0,
+    cron: '23 * * * *',
+    handler: async (_data, deps) => reconcileRemote(deps.pool, {
       keyHex: deps.exportOptions.encryptionKeyHex, urls: deps.satusehatUrls, allowSimulator: deps.appEnv !== 'prod',
     }),
   },

@@ -110,7 +110,7 @@ export function buildEncounterBundle(d: EncounterData, orgId: string, existingEn
   for (const o of d.observations) {
     const m = VITAL_LOINC[o.code];
     if (!m || o.value === null) continue;
-    entries.push({ resourceType: 'Observation', localType: 'observation', localId: o.id });
+    entries.push({ resourceType: 'Observation', localType: 'observation', localId: o.id, code: m.code });
     entry.push({ fullUrl: `urn:uuid:${o.id}`, request: { method: 'POST', url: 'Observation' }, resource: {
       resourceType: 'Observation', status: 'final',
       category: [{ coding: [{ system: 'http://terminology.hl7.org/CodeSystem/observation-category', code: 'vital-signs', display: 'Vital Signs' }] }],
@@ -122,7 +122,7 @@ export function buildEncounterBundle(d: EncounterData, orgId: string, existingEn
   }
   for (const p of d.procedures) {
     if (!p.icd9) continue;
-    entries.push({ resourceType: 'Procedure', localType: 'procedure_act', localId: p.id });
+    entries.push({ resourceType: 'Procedure', localType: 'procedure_act', localId: p.id, code: p.icd9 });
     entry.push({ fullUrl: `urn:uuid:${p.id}`, request: { method: 'POST', url: 'Procedure' }, resource: {
       resourceType: 'Procedure', status: 'completed',
       code: { coding: [{ system: ICD9CM_SYSTEM, code: p.icd9, display: p.name }] },

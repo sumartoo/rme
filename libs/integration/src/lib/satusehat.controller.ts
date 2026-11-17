@@ -20,6 +20,9 @@ const FacilityBody = z.object({ facilityId: Uuid }).strict();
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 /** Unit kiriman yang dapat dikirim ulang/ditindaklanjuti: kunjungan, item resep, baris penyerahan, addendum diagnosis. */
 const RESENDABLE_SQL = sql`('encounter', 'prescription_item', 'dispense_line', 'clinical_addendum')`;
+/** Zona waktu cabang fasilitas (untuk pengelompokan per hari). */
+const facilityTz = async (tx: Tx, facilityId: string) =>
+  (await rows<{ tz: string }>(tx, sql`select coalesce((select timezone from branch where facility_id = ${facilityId} order by created_at limit 1), 'Asia/Jakarta') as tz`))[0].tz;
 const NOT_CONFIGURED = ['INT-404-CONNECTION', 'Koneksi SATUSEHAT fasilitas ini belum diatur'] as const;
 
 interface ConnRow { id: string; facility_id: string; environment: SatuSehatEnvironment; client_id: string; secret_encrypted: Buffer; organization_id: string;
@@ -258,6 +261,106 @@ export class SatuSehatController {
         resources: kids.map((k) => ({ id: k.id, resourceType: k.resource_type, localType: k.local_type, status: k.status, satusehatId: k.satusehat_id,
           blocking: k.problems?.blocking ?? [], warnings: k.problems?.warnings ?? [], lastError: k.last_error, enteredInError: !!k.entered_in_error_at,
           version: k.resource_version })),
+      };
+    });
+  }
+
+  /**
+   * Dashboard (INT-FR-010): jumlah kiriman per hari (zona waktu cabang fasilitas) menurut status saat ini — dikelompokkan pada tanggal
+   * aktivitas terakhir (terkirim / dicoba). Ditambah total saat ini per status & jenis data, dan antrean kunjungan disahkan yang belum diproses.
+   */
+  @RequirePermission('integration.read') @Get('integrations/satusehat/summary')
+  async summary(@Query('facilityId') facilityId?: string, @Query('days') daysQ?: string) {
+    if (!facilityId || !UUID_RE.test(facilityId)) throw problem(400, 'GEN-400-VALIDATION', 'facilityId wajib');
+    const days = daysQ === undefined ? 14 : Number(daysQ);
+    if (!Number.isInteger(days) || days < 1 || days > 90) throw problem(400, 'GEN-400-VALIDATION', 'days harus 1–90');
+    return this.db.withTenantTx(async (tx) => {
+      const tz = await facilityTz(tx, facilityId);
+      const [c] = await rows<{ id: string; environment: SatuSehatEnvironment }>(tx, sql`
+        select id, environment from integration_connection where facility_id = ${facilityId} and kind = 'SATUSEHAT' and is_active`);
+      if (!c) return { configured: false, environment: null, timezone: tz, data: [], totals: {}, byKind: [], queued: 0, duplicates: 0, unchecked: 0 };
+      const data = await rows<{ date: string; sent: number; pending: number; blocked: number; error: number; dead: number; skipped: number }>(tx, sql`
+        with d as (select generate_series((now() at time zone ${tz})::date - ${days - 1}::int, (now() at time zone ${tz})::date, interval '1 day')::date as day)
+        select to_char(d.day, 'YYYY-MM-DD') as date,
+               count(r.id) filter (where r.status = 'SENT')::int as sent, count(r.id) filter (where r.status = 'PENDING')::int as pending,
+               count(r.id) filter (where r.status = 'BLOCKED')::int as blocked, count(r.id) filter (where r.status = 'ERROR')::int as error,
+               count(r.id) filter (where r.status = 'DEAD')::int as dead, count(r.id) filter (where r.status = 'SKIPPED')::int as skipped
+          from d left join fhir_sync_record r on r.connection_id = ${c.id} and r.local_type in ${RESENDABLE_SQL}
+               and (coalesce(r.last_sent_at, r.updated_at) at time zone ${tz})::date = d.day
+         group by d.day order by d.day desc`);
+      const byKind = await rows<{ local_type: string; status: string; n: number }>(tx, sql`
+        select local_type, status, count(*)::int as n from fhir_sync_record where connection_id = ${c.id} and local_type in ${RESENDABLE_SQL}
+         group by local_type, status order by local_type, status`);
+      const totals: Record<string, number> = { SENT: 0, PENDING: 0, BLOCKED: 0, ERROR: 0, DEAD: 0, SKIPPED: 0 };
+      for (const k of byKind) totals[k.status] = (totals[k.status] ?? 0) + k.n;
+      const [q] = await rows<{ queued: number }>(tx, sql`
+        select count(*)::int as queued from encounter e join clinical_note n on n.encounter_id = e.id and n.status = 'SIGNED' join branch b on b.id = e.branch_id
+         where b.facility_id = ${facilityId} and e.status <> 'CANCELLED'
+           and not exists (select 1 from fhir_sync_record r where r.connection_id = ${c.id} and r.resource_type = 'Encounter' and r.local_type = 'encounter' and r.local_id = e.id)`);
+      const [x] = await rows<{ duplicates: number; unchecked: number }>(tx, sql`
+        select coalesce(sum(remote_duplicates), 0)::int as duplicates,
+               count(*) filter (where status = 'SENT' and (remote_checked_at is null or remote_checked_at < last_sent_at))::int as unchecked
+          from fhir_sync_record where connection_id = ${c.id} and resource_type = 'Encounter' and local_type = 'encounter'`);
+      return { configured: true, environment: c.environment, timezone: tz, data, totals, queued: q.queued, duplicates: x.duplicates, unchecked: x.unchecked,
+        byKind: byKind.map((k) => ({ localType: k.local_type, status: k.status, count: k.n })) };
+    });
+  }
+
+  /**
+   * Rekonsiliasi (INT-FR-011): kunjungan yang disahkan pada rentang tanggal (zona waktu cabang) dibandingkan dengan yang terkirim.
+   * Selisih = disahkan − terkirim − dilewati (pembatasan pemrosesan) + ID tidak cocok. Baris hanya untuk kunjungan yang perlu perhatian.
+   */
+  @RequirePermission('integration.read') @Get('integrations/satusehat/reconciliation')
+  async reconciliation(@Query('facilityId') facilityId?: string, @Query('from') fromQ?: string, @Query('to') toQ?: string) {
+    if (!facilityId || !UUID_RE.test(facilityId)) throw problem(400, 'GEN-400-VALIDATION', 'facilityId wajib');
+    const DATE = /^\d{4}-\d{2}-\d{2}$/;
+    if ((fromQ && !DATE.test(fromQ)) || (toQ && !DATE.test(toQ))) throw problem(400, 'GEN-400-VALIDATION', 'Tanggal harus YYYY-MM-DD');
+    return this.db.withTenantTx(async (tx) => {
+      const tz = await facilityTz(tx, facilityId);
+      const [{ today }] = await rows<{ today: string }>(tx, sql`select to_char((now() at time zone ${tz})::date, 'YYYY-MM-DD') as today`);
+      const to = toQ ?? today;
+      const [{ from, span }] = await rows<{ from: string; span: number }>(tx, sql`
+        select coalesce(${fromQ ?? null}::date, ${to}::date - 29)::text as from, (${to}::date - coalesce(${fromQ ?? null}::date, ${to}::date - 29))::int as span`);
+      if (span < 0 || span > 92) throw problem(400, 'GEN-400-VALIDATION', 'Rentang tanggal 0–92 hari');
+      const [c] = await rows<{ id: string }>(tx, sql`select id from integration_connection where facility_id = ${facilityId} and kind = 'SATUSEHAT' and is_active`);
+      if (!c) throw problem(404, 'INT-404-CONNECTION', 'Koneksi SATUSEHAT untuk fasilitas ini belum dikonfigurasi');
+      const list = await rows<{ id: string; encounter_no: string; signed_on: string; status: string | null; problems: { blocking?: string[] } | null; last_error: string | null;
+        rec_ss: string | null; enc_ss: string | null; remote_checked: boolean; remote_duplicates: number; follow_open: number; missing_ids: number }>(tx, sql`
+        select e.id, e.encounter_no, to_char((n.signed_at at time zone ${tz})::date, 'YYYY-MM-DD') as signed_on, r.status, r.problems, r.last_error,
+               r.satusehat_id as rec_ss, e.satusehat_id as enc_ss, coalesce(r.remote_checked_at >= r.last_sent_at, false) as remote_checked,
+               coalesce(r.remote_duplicates, 0) as remote_duplicates,
+               (select count(*)::int from fhir_sync_record k where k.parent_id = r.id and k.local_type in ('prescription_item', 'dispense_line', 'clinical_addendum')
+                  and k.status in ('PENDING', 'BLOCKED', 'ERROR', 'DEAD')) as follow_open,
+               (select count(*)::int from fhir_sync_record k where k.parent_id = r.id and k.status = 'SENT' and k.satusehat_id is null) as missing_ids
+          from encounter e join clinical_note n on n.encounter_id = e.id and n.status = 'SIGNED' join branch b on b.id = e.branch_id
+          left join fhir_sync_record r on r.connection_id = ${c.id} and r.resource_type = 'Encounter' and r.local_type = 'encounter' and r.local_id = e.id
+         where b.facility_id = ${facilityId} and e.status <> 'CANCELLED'
+           and (n.signed_at at time zone ${tz})::date between ${from}::date and ${to}::date
+         order by n.signed_at`);
+      const sent = list.filter((x) => x.status === 'SENT');
+      const skipped = list.filter((x) => x.status === 'SKIPPED');
+      const mismatch = sent.filter((x) => !x.rec_ss || x.rec_ss !== x.enc_ss);
+      const reason = (x: (typeof list)[number]) => {
+        if (!x.status) return 'Belum diproses (antrean pengiriman berikutnya)';
+        if (x.status === 'SENT') {
+          if (!x.rec_ss || x.rec_ss !== x.enc_ss) return 'ID SATUSEHAT di kunjungan tidak cocok dengan catatan kirim';
+          if (x.remote_duplicates) return `${x.remote_duplicates} data ganda ditemukan di SATUSEHAT`;
+          if (x.follow_open) return `${x.follow_open} data obat/koreksi belum terkirim`;
+          if (x.missing_ids) return `${x.missing_ids} ID SATUSEHAT belum diketahui (menunggu pencocokan)`;
+          return null;
+        }
+        if (x.status === 'SKIPPED') return 'Tidak dikirim: pemrosesan data dibatasi atas permintaan pasien';
+        return x.problems?.blocking?.[0] ?? x.last_error ?? x.status;
+      };
+      const rowsOut = list.map((x) => ({ x, why: reason(x) })).filter((y) => y.why).slice(0, 500).map(({ x, why }) => ({
+        encounterId: x.id, encounterNo: x.encounter_no, signedOn: x.signed_on, status: x.status ?? 'QUEUED', reason: why, remoteChecked: x.remote_checked,
+        duplicates: x.remote_duplicates, openFollowUps: x.follow_open }));
+      return {
+        from, to, timezone: tz, nextCursor: null, data: rowsOut,
+        summary: { signed: list.length, sent: sent.length, skipped: skipped.length, notSent: list.length - sent.length - skipped.length, idMismatch: mismatch.length,
+          difference: list.length - sent.length - skipped.length + mismatch.length, remoteUnchecked: sent.filter((x) => !x.remote_checked).length,
+          duplicates: sent.reduce((a, x) => a + x.remote_duplicates, 0), openFollowUps: sent.reduce((a, x) => a + x.follow_open, 0),
+          missingIds: sent.reduce((a, x) => a + x.missing_ids, 0) },
       };
     });
   }

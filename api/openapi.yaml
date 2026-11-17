@@ -7629,7 +7629,7 @@ paths:
       operationId: satusehatSummary
       tags:
       - Integration
-      summary: Ringkasan terkirim/tertunda/gagal per hari
+      summary: 'Dashboard: terkirim/tertunda/tertahan/gagal per hari (?facilityId=&days=1–90) + total & antrean'
       x-requirements:
       - INT-FR-010
       - INT-FR-004
@@ -7641,9 +7641,7 @@ paths:
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/SyncSummary'
+                $ref: '#/components/schemas/SyncSummary'
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -7721,7 +7719,7 @@ paths:
       operationId: satusehatReconciliation
       tags:
       - Integration
-      summary: Kunjungan disahkan yang belum terkirim
+      summary: 'Rekonsiliasi: kunjungan disahkan vs terkirim (?facilityId=&from=&to=, maks. 92 hari) + ringkasan selisih'
       x-requirements:
       - INT-FR-011
       x-permission: integration.read
@@ -13140,16 +13138,53 @@ components:
     SyncSummary:
       type: object
       properties:
-        date: *id004
-        sent: *id005
-        pending: *id005
-        error: *id005
-        dead: *id005
+        configured: *id001
+        environment:
+          type:
+          - string
+          - 'null'
+        timezone:
+          type: string
+        data:
+          type: array
+          items:
+            type: object
+            properties:
+              date: *id004
+              sent: *id005
+              pending: *id005
+              blocked: *id005
+              error: *id005
+              dead: *id005
+              skipped: *id005
+            required:
+            - date
+            - sent
+            - pending
+            - error
+        totals:
+          type: object
+          additionalProperties: *id005
+        queued: *id005
+        duplicates: *id005
+        unchecked: *id005
+        byKind:
+          type: array
+          items:
+            type: object
+            properties:
+              localType:
+                type: string
+              status:
+                type: string
+              count: *id005
+            required:
+            - localType
+            - status
+            - count
       required:
-      - date
-      - sent
-      - pending
-      - error
+      - configured
+      - data
     SyncRecord:
       type: object
       properties:
@@ -13204,16 +13239,26 @@ components:
         encounterId: *id002
         encounterNo:
           type: string
-        signedAt: *id006
-        issue:
+        signedOn: *id004
+        status:
           type: string
           enum:
-          - NOT_SENT
-          - PARTIAL
+          - QUEUED
+          - PENDING
+          - BLOCKED
+          - SENT
           - ERROR
+          - DEAD
+          - SKIPPED
+        reason:
+          type: string
+        remoteChecked: *id001
+        duplicates: *id005
+        openFollowUps: *id005
       required:
       - encounterId
-      - issue
+      - status
+      - reason
     AuditEntry:
       type: object
       properties:

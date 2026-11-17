@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Uji mutasi kontrol keamanan (Stage 3 M1–M4 diulang di monorepo — RSK-020; M5 Stage 4; M6–M14 Stage 5; M15–M17 Stage 6; M18–M22 Stage 7; M23–M38 Stage 8; M39–M59 Stage 9; M60–M89 Stage 10; M90–M133 Stage 11; M134–M164 Stage 12).
+# Uji mutasi kontrol keamanan (Stage 3 M1–M4 diulang di monorepo — RSK-020; M5 Stage 4; M6–M14 Stage 5; M15–M17 Stage 6; M18–M22 Stage 7; M23–M38 Stage 8; M39–M59 Stage 9; M60–M89 Stage 10; M90–M133 Stage 11; M134–M175 Stage 12).
 # Setiap mutasi sengaja merusak satu kontrol, menjalankan suite integrasi API, dan LULUS hanya bila
 # uji yang menjaga kontrol itu GAGAL. Kode selalu dikembalikan (trap), juga bila skrip dihentikan.
 #
@@ -73,8 +73,9 @@ SSCTL=libs/integration/src/lib/satusehat.controller.ts
 SSLIB=libs/db/src/lib/satusehat.ts
 SSENC=libs/db/src/lib/satusehat-encounter.ts
 SSFU=libs/db/src/lib/satusehat-followup.ts
+SSREC=libs/db/src/lib/satusehat-reconcile.ts
 INTEG=libs/clinical/src/lib/integrity.ts
-FILES=("$AUTH" "$SESSION" "$MIG2" "$MIG3" "$GUARD" "$PGUARD" "$LAYOUT" "$EXPORT" "$MIG5" "$MIG6" "$TOTP" "$IAMUSERS" "$ACCOUNT" "$AUDITCHG" "$PRACT" "$MIG12" "$TERM" "$IMPORTS" "$PATIENT" "$MIG15" "$IDEM" "$MIG16" "$BOOK" "$SCHED" "$NOSHOW" "$ENCREPO" "$ENCCTL" "$QDISP" "$CHART" "$CHARTREPO" "$MIG19" "$SIGNCTL" "$REAUTH" "$MIG20" "$RXREPO" "$RXCTL" "$MIG21" "$LABCTL" "$DOCCTL" "$MIG22" "$RECV" "$PRICE" "$LOCS" "$DISP" "$DREPO" "$RXREM" "$SUBC" "$ADJC" "$OPNC" "$CRPT" "$OTCC" "$SRPT" "$INVREPO" "$INVCTL" "$PAYCTL" "$PAYREPO" "$QRCTL" "$CORCTL" "$OVCTL" "$SSCTL" "$SSLIB" "$SSENC" "$SSFU" "$INTEG" "$SHIFTREPO")
+FILES=("$AUTH" "$SESSION" "$MIG2" "$MIG3" "$GUARD" "$PGUARD" "$LAYOUT" "$EXPORT" "$MIG5" "$MIG6" "$TOTP" "$IAMUSERS" "$ACCOUNT" "$AUDITCHG" "$PRACT" "$MIG12" "$TERM" "$IMPORTS" "$PATIENT" "$MIG15" "$IDEM" "$MIG16" "$BOOK" "$SCHED" "$NOSHOW" "$ENCREPO" "$ENCCTL" "$QDISP" "$CHART" "$CHARTREPO" "$MIG19" "$SIGNCTL" "$REAUTH" "$MIG20" "$RXREPO" "$RXCTL" "$MIG21" "$LABCTL" "$DOCCTL" "$MIG22" "$RECV" "$PRICE" "$LOCS" "$DISP" "$DREPO" "$RXREM" "$SUBC" "$ADJC" "$OPNC" "$CRPT" "$OTCC" "$SRPT" "$INVREPO" "$INVCTL" "$PAYCTL" "$PAYREPO" "$QRCTL" "$CORCTL" "$OVCTL" "$SSCTL" "$SSLIB" "$SSENC" "$SSFU" "$INTEG" "$SHIFTREPO" "$SSREC")
 BACKUP=$(mktemp -d)
 cp "${FILES[@]}" "$BACKUP"/
 restore() { for f in "${FILES[@]}"; do cp "$BACKUP/$(basename "$f")" "$f"; done; }
@@ -442,6 +443,29 @@ mutate M163 "addendum dengan diagnosis yang sama diterima" 'C16b' \
   "sed -i 's/        if (sig(list) === sig(await effectiveDiagnosesOf(tx, n.encounter_id))) {/        if (false) {/' $SIGNCTL && grep -q '^        if (false) {$' $SIGNCTL" ""
 mutate M164 "obat pasien yang membatasi pemrosesan tetap dikirim" 'V06' \
   "sed -i 's/^  if (h.restricted) {/  if (false) {/' $SSFU && ! grep -q 'if (h.restricted)' $SSFU" ""
+
+mutate M165 "dashboard tidak menghitung kiriman terkirim" 'O01' \
+  "sed -i \"s/count(r.id) filter (where r.status = 'SENT')::int as sent/count(r.id) filter (where r.status = 'X')::int as sent/\" $SSCTL && grep -q \"r.status = 'X'\" $SSCTL" ""
+mutate M166 "dashboard tidak menampilkan antrean kunjungan disahkan" 'O01' \
+  "sed -i 's/select count(\*)::int as queued from encounter e/select 0 as queued from encounter e/' $SSCTL && grep -q 'select 0 as queued' $SSCTL" ""
+mutate M167 "rekonsiliasi menghitung pasien yang membatasi pemrosesan sebagai selisih" 'O02' \
+  "sed -i 's/difference: list.length - sent.length - skipped.length + mismatch.length/difference: list.length - sent.length + mismatch.length/' $SSCTL && grep -q 'difference: list.length - sent.length + mismatch.length' $SSCTL" ""
+mutate M168 "rekonsiliasi mengabaikan ID SATUSEHAT yang tidak cocok" 'O02' \
+  "sed -i 's/      const mismatch = sent.filter((x) => !x.rec_ss || x.rec_ss !== x.enc_ss);/      const mismatch = sent.filter(() => false);/' $SSCTL && grep -q 'sent.filter(() => false)' $SSCTL" ""
+mutate M169 "rekonsiliasi & antrean memasukkan kunjungan yang belum disahkan" 'O01' \
+  "sed -i \"s/join clinical_note n on n.encounter_id = e.id and n.status = 'SIGNED' join branch b/join clinical_note n on n.encounter_id = e.id join branch b/g\" $SSCTL && ! grep -q \"and n.status = 'SIGNED' join branch b\" $SSCTL" ""
+mutate M170 "Encounter yang tidak ada di SATUSEHAT tidak terdeteksi" 'O03' \
+  "sed -i 's/^  if (!remoteId) {/  if (false) {/' $SSREC && grep -q '^  if (false) {' $SSREC" ""
+mutate M171 "ID SATUSEHAT turunan yang hilang tidak diisi" 'O02' \
+  "sed -i 's/      const m = remote.find((x) => x.code === l.code \&\& !used.has(x.id));/      const m = remote.find(() => false);/' $SSREC && grep -q 'remote.find(() => false)' $SSREC" ""
+mutate M172 "data ganda di SATUSEHAT tidak dilaporkan" 'O03' \
+  "sed -i 's/      if (extra > 0) dup += extra;/      if (false) dup += extra;/' $SSREC && grep -q 'if (false) dup' $SSREC" ""
+mutate M173 "rekonsiliasi mencocokkan ulang semua kunjungan tiap jalan" 'O02' \
+  "sed -i 's/and (r.remote_checked_at is null or r.remote_checked_at < r.last_sent_at/and (true or r.remote_checked_at < r.last_sent_at/' $SSREC && grep -q 'and (true or r.remote_checked_at' $SSREC" ""
+mutate M174 "dashboard dapat dibaca tanpa izin integration.read" 'O01' \
+  "sed -i \"s/@RequirePermission('integration.read') @Get('integrations\/satusehat\/summary')/@RequirePermission('billing.invoice.read') @Get('integrations\/satusehat\/summary')/\" $SSCTL && grep -q \"'billing.invoice.read') @Get('integrations\/satusehat\/summary\" $SSCTL" ""
+mutate M175 "Encounter hilang tetap memakai ID lama saat dikirim ulang" 'O03' \
+  "sed -i 's/last_error = .2, satusehat_id = null,/last_error = \$2,/' $SSREC && ! grep -q 'satusehat_id = null,' $SSREC" ""
 
 # Mutasi UI: suite Playwright (U##) sebagai detektor
 if [ "${MUTATION_E2E:-0}" = "1" ]; then

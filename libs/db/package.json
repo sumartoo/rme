@@ -50,6 +50,11 @@
       "types": "./src/lib/satusehat-followup.ts",
       "import": "./src/lib/satusehat-followup.ts",
       "default": "./src/lib/satusehat-followup.ts"
+    },
+    "./satusehat-reconcile": {
+      "types": "./src/lib/satusehat-reconcile.ts",
+      "import": "./src/lib/satusehat-reconcile.ts",
+      "default": "./src/lib/satusehat-reconcile.ts"
     }
   },
   "nx": {

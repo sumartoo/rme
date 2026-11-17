@@ -155,6 +155,12 @@ export class SimulatorSatuSehatClient implements SatuSehatClient {
     if (method === 'GET' && p === '/Encounter') {
       return { status: 200, body: bundle(simEncounters.has(ident) ? [{ resourceType: 'Encounter', id: simEncounters.get(ident) }] : []) };
     }
+    if (method === 'GET' && (p === '/Condition' || p === '/Observation' || p === '/Procedure')) {
+      const enc = (params.get('encounter') ?? '').replace(/^Encounter\//, '');
+      return { status: 200, body: bundle([...simClinical.entries()].filter(([, x]) => x.type === p.slice(1) && x.encounterId === enc)
+        .map(([id, x]) => ({ resourceType: x.type, id, code: { coding: [{ code: x.code }] },
+          ...(x.enteredInError ? { verificationStatus: { coding: [{ code: 'entered-in-error' }] } } : {}) }))) };
+    }
     if (method === 'GET' && (p === '/MedicationRequest' || p === '/MedicationDispense')) {
       const k = `${p.slice(1)}|${ident}`;
       return { status: 200, body: bundle(simMeds.has(k) ? [{ resourceType: p.slice(1), id: simMeds.get(k) }] : []) };
@@ -237,8 +243,17 @@ export class SimulatorSatuSehatClient implements SatuSehatClient {
     const encIdx = b.entry.findIndex((e) => e.resource?.['resourceType'] === 'Encounter' && e.request?.method === 'POST');
     if (enc && encIdx >= 0) simEncounters.set(`${enc.identifier?.[0]?.system}|${encNo}`, entry[encIdx].response.resourceID);
     let mi = 0;
+    const urn = new Map(b.entry.map((e, i) => [e.fullUrl ?? '', entry[i].response.resourceID]));
     b.entry.forEach((e, i) => {
-      if (e.resource?.['resourceType'] === 'MedicationRequest' || e.resource?.['resourceType'] === 'MedicationDispense') simMeds.set(medKeys[mi++], entry[i].response.resourceID);
+      const r = e.resource as { resourceType?: string; encounter?: { reference?: string }; code?: { coding?: { code?: string }[] };
+        verificationStatus?: { coding?: { code?: string }[] } } | undefined;
+      if (r?.resourceType === 'MedicationRequest' || r?.resourceType === 'MedicationDispense') simMeds.set(medKeys[mi++], entry[i].response.resourceID);
+      if (r?.resourceType === 'Condition' || r?.resourceType === 'Observation' || r?.resourceType === 'Procedure') {
+        const ref = r.encounter?.reference ?? '';
+        const encounterId = ref.startsWith('urn:uuid:') ? urn.get(ref) ?? '' : ref.replace(/^Encounter\//, '');
+        simClinical.set(entry[i].response.resourceID, { type: r.resourceType, encounterId, code: r.code?.coding?.[0]?.code ?? '',
+          enteredInError: r.verificationStatus?.coding?.[0]?.code === 'entered-in-error' });
+      }
     });
     if (hit('-LOST')) throw new SatuSehatError('TRANSIENT', 'SATUSEHAT tidak merespons (timeout)');
     return { status: 200, body: { resourceType: 'Bundle', type: 'transaction-response', entry } };
@@ -247,6 +262,11 @@ export class SimulatorSatuSehatClient implements SatuSehatClient {
 const simLocations = new Map<string, string>();
 const simEncounters = new Map<string, string>();
 const simMeds = new Map<string, string>();
+const simClinical = new Map<string, { type: string; encounterId: string; code: string; enteredInError: boolean }>();
+/** Khusus uji: hapus Encounter dari simulator (seolah tidak pernah tersimpan) — untuk uji rekonsiliasi. */
+export const simulatorDropEncounter = (identifierValue: string) => {
+  for (const k of [...simEncounters.keys()]) if (k.endsWith(`|${identifierValue}`)) simEncounters.delete(k);
+};
 const issue = (text: string, expr?: string) => ({ resourceType: 'OperationOutcome', issue: [{ severity: 'error', code: 'invalid', details: { text }, ...(expr ? { expression: [expr] } : {}) }] });
 const bundle = (resources: object[]) => ({ resourceType: 'Bundle', type: 'searchset', total: resources.length, entry: resources.map((resource) => ({ resource })) });
 const digits = (s: string, n: number) => BigInt(`0x${createHash('sha256').update(s).digest('hex').slice(0, 15)}`).toString().padStart(n, '0').slice(-n);
@@ -254,7 +274,7 @@ const uuidFrom = (s: string) => {
   const h = createHash('sha256').update(`sim-location:${s}`).digest('hex');
   return `${h.slice(0, 8)}-${h.slice(8, 12)}-4${h.slice(13, 16)}-a${h.slice(17, 20)}-${h.slice(20, 32)}`;
 };
-export const simulatorReset = () => { simLocations.clear(); simEncounters.clear(); simMeds.clear(); };
+export const simulatorReset = () => { simLocations.clear(); simEncounters.clear(); simMeds.clear(); simClinical.clear(); };
 
 export function createSatuSehatClient(conn: SatuSehatConnection, urls?: SatuSehatUrls, opts?: { timeoutMs?: number; fetchImpl?: typeof fetch }): SatuSehatClient {
   return conn.environment === 'SIMULATOR' ? new SimulatorSatuSehatClient(conn) : new HttpSatuSehatClient(conn, urls, opts);
