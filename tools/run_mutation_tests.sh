@@ -82,8 +82,9 @@ RPTPHM=libs/db/src/lib/reports/pharmacy.ts
 RPTRENDER=libs/db/src/lib/reports/render.ts
 RPTCOM=libs/db/src/lib/reports/common.ts
 RPTFIN=libs/db/src/lib/reports/finance.ts
+MIG38=db/migrations/0038_report_export_roles.sql
 INTEG=libs/clinical/src/lib/integrity.ts
-FILES=("$AUTH" "$SESSION" "$MIG2" "$MIG3" "$GUARD" "$PGUARD" "$LAYOUT" "$EXPORT" "$MIG5" "$MIG6" "$TOTP" "$IAMUSERS" "$ACCOUNT" "$AUDITCHG" "$PRACT" "$MIG12" "$TERM" "$IMPORTS" "$PATIENT" "$MIG15" "$IDEM" "$MIG16" "$BOOK" "$SCHED" "$NOSHOW" "$ENCREPO" "$ENCCTL" "$QDISP" "$CHART" "$CHARTREPO" "$MIG19" "$SIGNCTL" "$REAUTH" "$MIG20" "$RXREPO" "$RXCTL" "$MIG21" "$LABCTL" "$DOCCTL" "$MIG22" "$RECV" "$PRICE" "$LOCS" "$DISP" "$DREPO" "$RXREM" "$SUBC" "$ADJC" "$OPNC" "$CRPT" "$OTCC" "$INVREPO" "$INVCTL" "$PAYCTL" "$PAYREPO" "$QRCTL" "$CORCTL" "$OVCTL" "$SSCTL" "$SSLIB" "$SSENC" "$SSFU" "$INTEG" "$SHIFTREPO" "$SSREC" "$RPTCLIN" "$RPTCOM" "$RPTFIN" "$RPTCTRL" "$RPTEXP" "$RPTJOB" "$RPTRENDER")
+FILES=("$AUTH" "$SESSION" "$MIG2" "$MIG3" "$GUARD" "$PGUARD" "$LAYOUT" "$EXPORT" "$MIG5" "$MIG6" "$TOTP" "$IAMUSERS" "$ACCOUNT" "$AUDITCHG" "$PRACT" "$MIG12" "$TERM" "$IMPORTS" "$PATIENT" "$MIG15" "$IDEM" "$MIG16" "$BOOK" "$SCHED" "$NOSHOW" "$ENCREPO" "$ENCCTL" "$QDISP" "$CHART" "$CHARTREPO" "$MIG19" "$SIGNCTL" "$REAUTH" "$MIG20" "$RXREPO" "$RXCTL" "$MIG21" "$LABCTL" "$DOCCTL" "$MIG22" "$RECV" "$PRICE" "$LOCS" "$DISP" "$DREPO" "$RXREM" "$SUBC" "$ADJC" "$OPNC" "$CRPT" "$OTCC" "$INVREPO" "$INVCTL" "$PAYCTL" "$PAYREPO" "$QRCTL" "$CORCTL" "$OVCTL" "$SSCTL" "$SSLIB" "$SSENC" "$SSFU" "$INTEG" "$SHIFTREPO" "$SSREC" "$RPTCLIN" "$RPTCOM" "$RPTFIN" "$RPTCTRL" "$RPTEXP" "$RPTJOB" "$RPTRENDER" "$MIG38")
 BACKUP=$(mktemp -d)
 cp "${FILES[@]}" "$BACKUP"/
 restore() { for f in "${FILES[@]}"; do cp "$BACKUP/$(basename "$f")" "$f"; done; }
@@ -540,6 +541,10 @@ mutate M205 "unduhan berkas ekspor tidak diaudit" 'Y03' \
 mutate M206 "PDF di atas 10.000 baris tidak ditolak" 'Y06' \
   "sed -i \"s/  if (a.format === 'PDF' \&\& result.rows.length > PDF_MAX_ROWS) {/  if (false) {/\" $RPTJOB && grep -q '  if (false) {' $RPTJOB" ""
 
+mutate M207 "CSV cepat laporan dapat diunduh tanpa izin ekspor" 'Y08' \
+  "sed -i \"s/      if (f.format === 'csv' \&\& !ctx().permissions?.has('report.export')) throw/      if (false) throw/\" $RPTCTRL && grep -q '      if (false) throw' $RPTCTRL" ""
+mutate M208 "template Apoteker/TTK untuk tenant baru tidak diberi report.export (migrasi 0038)" 'Y08' \
+  "sed -i \"/^  def := replace(def, f, /d\" $MIG38 && ! grep -q '^  def := replace(def, f, ' $MIG38" ""
 # Mutasi UI: suite Playwright (U##) sebagai detektor
 if [ "${MUTATION_E2E:-0}" = "1" ]; then
   restore

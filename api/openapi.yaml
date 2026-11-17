@@ -6214,7 +6214,7 @@ paths:
       operationId: reportControlledDrugs
       tags:
       - Report
-      summary: Pemakaian bulanan obat golongan terbatas (?month=YYYY-MM&format=json|csv, OD-100)
+      summary: Pemakaian bulanan obat golongan terbatas (?month=YYYY-MM&format=json|csv — csv butuh report.export (OD-132), OD-100)
       x-requirements:
       - RPT-FR-006
       - PHM-FR-019
@@ -7777,7 +7777,7 @@ paths:
       tags:
       - Report
       summary: Kunjungan harian/bulanan (?from&to YYYY-MM-DD ≤ 366 hari, period=day|month, groupBy=none|branch|unit|practitioner|payer, branchId,
-        unitId, practitionerId, payerType, format=json|csv; OD-124)
+        unitId, practitionerId, payerType, format=json|csv — csv butuh report.export (OD-132); OD-124)
       x-requirements:
       - RPT-FR-001
       x-permission: report.operational.read
@@ -7800,7 +7800,7 @@ paths:
       tags:
       - Report
       summary: 10 besar diagnosis dari RM disahkan, diagnosis berlaku setelah addendum (?from&to, scope=primary|all, limit 1–50, filter cabang/poli/dokter/penjamin,
-        format=json|csv; OD-125)
+        format=json|csv — csv butuh report.export (OD-132); OD-125)
       x-requirements:
       - RPT-FR-002
       x-permission: report.clinical.read
@@ -7823,7 +7823,7 @@ paths:
       tags:
       - Report
       summary: 'Pendapatan (?from&to ≤ 366 hari, view=billed|cash, groupBy=category|service|payer|day — kas: payer=metode, branchId, payerType,
-        format=json|csv; OD-126; bukan laporan akuntansi)'
+        format=json|csv — csv butuh report.export (OD-132); OD-126; bukan laporan akuntansi)'
       x-requirements:
       - RPT-FR-003
       x-permission: report.finance.read
@@ -7845,7 +7845,7 @@ paths:
       operationId: reportCashierClosing
       tags:
       - Report
-      summary: 'Closing kasir: rekap shift per tanggal buka (?from&to, branchId, format=json|csv; OD-127)'
+      summary: 'Closing kasir: rekap shift per tanggal buka (?from&to, branchId, format=json|csv — csv butuh report.export (OD-132); OD-127)'
       x-requirements:
       - RPT-FR-004
       x-permission: report.finance.read
@@ -7867,7 +7867,8 @@ paths:
       operationId: reportStock
       tags:
       - Report
-      summary: Ringkasan stok per obat (?from&to YYYY-MM-DD, branchId, locationId, drugId, format=json|csv; cakupan cabang OD-129)
+      summary: Ringkasan stok per obat (?from&to YYYY-MM-DD, branchId, locationId, drugId, format=json|csv — csv butuh report.export (OD-132);
+        cakupan cabang OD-129)
       x-requirements:
       - RPT-FR-005
       - PHM-FR-004
@@ -7890,7 +7891,7 @@ paths:
       operationId: reportStockMovements
       tags:
       - Report
-      summary: Daftar mutasi ledger stok (?from&to, drugId, type, format=json|csv)
+      summary: Daftar mutasi ledger stok (?from&to, drugId, type, format=json|csv — csv butuh report.export (OD-132))
       x-requirements:
       - RPT-FR-005
       - PHM-FR-004
@@ -7913,7 +7914,8 @@ paths:
       operationId: reportReceivables
       tags:
       - Report
-      summary: Umur piutang penjamin per tanggal posisi dari jatuh tempo (?asOf YYYY-MM-DD, branchId, format=json|csv; OD-127)
+      summary: Umur piutang penjamin per tanggal posisi dari jatuh tempo (?asOf YYYY-MM-DD, branchId, format=json|csv — csv butuh report.export
+        (OD-132); OD-127)
       x-requirements:
       - RPT-FR-007
       x-permission: report.finance.read
@@ -7935,7 +7937,7 @@ paths:
       operationId: reportAnomalies
       tags:
       - Report
-      summary: Transaksi tidak wajar (?from&to&branchId&format=json|csv, OD-041)
+      summary: Transaksi tidak wajar (?from&to&branchId&format=json|csv — csv butuh report.export (OD-132), OD-041)
       x-requirements:
       - BIL-FR-016
       x-permission: report.finance.audit
@@ -7957,7 +7959,8 @@ paths:
       operationId: reportNearExpiry
       tags:
       - Report
-      summary: Batch obat mendekati/sudah kedaluwarsa (?days 1–730 bawaan pengaturan, branchId, locationId, includeExpired, format=json|csv)
+      summary: Batch obat mendekati/sudah kedaluwarsa (?days 1–730 bawaan pengaturan, branchId, locationId, includeExpired, format=json|csv —
+        csv butuh report.export (OD-132))
       x-requirements:
       - RPT-FR-005
       x-permission: report.pharmacy.read

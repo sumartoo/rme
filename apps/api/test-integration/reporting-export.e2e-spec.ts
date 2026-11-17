@@ -198,7 +198,8 @@ describe('Ekspor laporan seragam (RPT-FR-008, OD-128)', () => {
 
   it('Y05 izin: report.export + izin lihat laporan itu, cakupan cabang, parameter, pemohon saja', async () => {
     const body = { format: 'XLSX', parameters: { days: 30 } };
-    expect((await post('/api/v1/reports/near-expiry/exports', farmasi).send(body)).status).toBe(403);   // FARMASI tanpa report.export
+    // OD-132 (DEC-048): Apoteker/TTK kini punya report.export (dulu mengunduh CSV dari halaman laporan farmasi)
+    expect((await post('/api/v1/reports/near-expiry/exports', farmasi).send(body)).body.status).toBe('DONE');
     expect((await post('/api/v1/reports/near-expiry/exports', kasir).send(body)).status).toBe(403);
     const no = await post('/api/v1/reports/near-expiry/exports', exporter).send(body);
     expect([no.status, no.body.code]).toEqual([403, 'IAM-403-FORBIDDEN']);
@@ -216,7 +217,8 @@ describe('Ekspor laporan seragam (RPT-FR-008, OD-128)', () => {
     // Job & berkas hanya untuk pemohon
     expect((await get(`/api/v1/report-exports/${xlsxJob}`, scoped)).status).toBe(404);
     expect((await get(`/api/v1/report-exports/${xlsxJob}/download`, scoped)).status).toBe(404);
-    expect((await get(`/api/v1/report-exports/${xlsxJob}/download`, farmasi)).status).toBe(403);
+    expect((await get(`/api/v1/report-exports/${xlsxJob}/download`, farmasi)).status).toBe(404);
+    expect((await get(`/api/v1/report-exports/${xlsxJob}/download`, kasir)).status).toBe(403);
     expect((await get('/api/v1/report-exports/bukan-uuid', manajer)).status).toBe(404);
   });
 
@@ -270,5 +272,27 @@ describe('Ekspor laporan seragam (RPT-FR-008, OD-128)', () => {
     expect(f.body).toMatchObject({ status: 'FAILED', downloadUrl: null });
     expect(f.body.error).toMatch(/^Parameter tidak valid/);
     expect(await su(`select count(*)::int as n from app.audit_log where action = 'REPORT_EXPORT_FAILED' and resource_id = $1`, [bad])).toEqual([{ n: 1 }]);
+  });
+});
+
+describe('Unduhan CSV cepat wajib izin ekspor (OD-132 / DEC-048)', () => {
+  it('Y08 tanpa report.export: tampilan JSON tetap boleh, CSV ditolak dan tidak diaudit sebagai tampilan', async () => {
+    const dokter = await login('dokter@a.test');
+    const before = await su(`select count(*)::int as n from app.audit_log where action = 'REPORT_TOP_DIAGNOSES_VIEWED'`);
+    expect((await get('/api/v1/reports/top-diagnoses?from=2026-10-01&to=2026-10-31', dokter)).status).toBe(200);
+    const csv = await get('/api/v1/reports/top-diagnoses?from=2026-10-01&to=2026-10-31&format=csv', dokter);
+    expect([csv.status, csv.body.code]).toEqual([403, 'RPT-403-EXPORT']);
+    expect(await su(`select count(*)::int as n from app.audit_log where action = 'REPORT_TOP_DIAGNOSES_VIEWED'`)).toEqual([{ n: before[0].n + 1 }]);
+    // Laporan transaksi tidak wajar (billing) mengikuti aturan yang sama
+    await su(`with r as (insert into app.role(tenant_id, code, name) values ($1, 'AUDIT_TANPA_EKSPOR', 'Audit tanpa ekspor') returning id)
+              insert into app.role_permission(tenant_id, role_id, permission_code) select $1, r.id, 'report.finance.audit' from r`, [ids.tenantA]);
+    await su(`insert into app.user_role_assignment(tenant_id, user_id, role_id) select $1, $2, id from app.role where tenant_id = $1 and code = 'AUDIT_TANPA_EKSPOR'`,
+      [ids.tenantA, ids.dokterA]);
+    const d2 = await login('dokter@a.test');
+    expect((await get(`/api/v1/reports/anomalies?from=${today()}&to=${today()}`, d2)).status).toBe(200);
+    expect((await get(`/api/v1/reports/anomalies?from=${today()}&to=${today()}&format=csv`, d2)).status).toBe(403);
+    // Template Admin Klinik & Apoteker/TTK punya report.export (migrasi 0038)
+    expect(await su(`select r.code from app.role r join app.role_permission rp on rp.role_id = r.id and rp.permission_code = 'report.export'
+                      where r.tenant_id = $1 and r.is_template order by r.code`, [ids.tenantA])).toEqual([{ code: 'FARMASI' }, { code: 'MANAJER' }, { code: 'TENANT_ADMIN' }]);
   });
 });

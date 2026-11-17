@@ -10,7 +10,7 @@ const FORMATS: [string, string][] = [['XLSX', 'Excel (.xlsx)'], ['CSV', 'CSV'], 
 /**
  * Ekspor laporan seragam (RPT-FR-008, OD-128): Excel/CSV/PDF dengan watermark (nama klinik, pengekspor, waktu, "Rahasia — untuk internal klinik").
  * ≤ 10.000 baris langsung terunduh; di atasnya diproses di latar belakang dan tautan unduh muncul saat selesai (berlaku 24 jam).
- * Tanpa izin `report.export` hanya tautan CSV cepat (data mentah tampilan) yang tersedia.
+ * Tanpa izin `report.export` tidak ada unduhan sama sekali, termasuk tautan CSV cepat (OD-132 / DEC-048).
  */
 export function ExportButton({ code, params, csvHref, csvLabel = 'Unduh CSV', csvTestId = 'report-csv' }: {
   code: string; params: Record<string, string | undefined>; csvHref?: string; csvLabel?: string; csvTestId?: string;
@@ -48,7 +48,7 @@ export function ExportButton({ code, params, csvHref, csvLabel = 'Unduh CSV', cs
 
   return (
     <div className="flex flex-wrap items-center gap-2 text-sm" data-testid="report-export">
-      {csvHref ? <a className="underline" href={csvHref} data-testid={csvTestId}>{csvLabel}</a> : null}
+      {csvHref && allowed ? <a className="underline" href={csvHref} data-testid={csvTestId}>{csvLabel}</a> : null}
       {allowed ? (
         <>
           <Select aria-label="Format ekspor" className="w-36" value={format} onChange={(e) => setFormat(e.target.value)}>

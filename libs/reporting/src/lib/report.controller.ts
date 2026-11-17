@@ -6,10 +6,13 @@ import { REPORTS, ReportError, branchScope, csvOf, filterSummary, parseQuery, re
 
 type QueryArg = Record<string, string | undefined>;
 export const toProblem = (e: unknown) => (e instanceof ReportError ? problem(e.status, e.code, e.message) : e);
+/** OD-132 (DEC-048): unduhan CSV cepat juga ekspor — wajib izin `report.export`. */
+export const CSV_NEEDS_EXPORT = () => problem(403, 'RPT-403-EXPORT', 'Unduhan CSV memerlukan izin ekspor laporan');
 
 /**
  * Laporan standar MVP (Stage 14; RPT-FR-001…007). Logika hitung ada di `@clinicrme/db/reports` (dipakai juga worker ekspor);
- * controller ini hanya memvalidasi, menghitung cakupan cabang (OD-129), mengaudit (filter, tanpa isi) dan membentuk respons JSON/CSV.
+ * controller ini hanya memvalidasi, menghitung cakupan cabang (OD-129), mengaudit (filter, tanpa isi) dan membentuk respons JSON/CSV
+ * (CSV hanya dengan izin `report.export`, OD-132).
  */
 @Controller('api/v1/reports')
 export class ReportController {
@@ -55,6 +58,7 @@ export class ReportController {
     const def = REPORTS[code];
     try {
       const f = parseQuery(def.schema, query) as Record<string, unknown> & { format: 'json' | 'csv'; branchId?: string };
+      if (f.format === 'csv' && !ctx().permissions?.has('report.export')) throw CSV_NEEDS_EXPORT();
       const { result, scope } = await this.db.withTenantTx(async (tx) => {
         await reportTimeout(tx);
         const s = await branchScope(tx, ctx().userId!, def.permission, f.branchId);

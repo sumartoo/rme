@@ -1273,7 +1273,7 @@ test('W33 kasir: QRIS simulator, refund & void diajukan; supervisor menyetujui; 
   await addClinicBillingEncounter(enc);
   await addClinicBillingEncounter(enc);
   await addClinicRole('SPV_KASIR', 'Supervisor kasir', ['billing.invoice.read', 'billing.invoice.void.approve', 'billing.refund.approve', 'billing.reconcile',
-    'billing.receivable.read', 'billing.receivable.manage', 'report.finance.audit']);
+    'billing.receivable.read', 'billing.receivable.manage', 'report.finance.audit', 'report.export']);   // CSV butuh report.export (OD-132)
   await addClinicUser('spv-kasir@klinik-web.test', 'Supervisor Kasir E2E', 'SPV_KASIR');
 
   await loginKasir(page);
@@ -1652,7 +1652,7 @@ test('W39 Laporan kunjungan & 10 besar diagnosis: angka bulan berjalan, pengelom
 
 test('W40 Laporan keuangan: pendapatan (tagihan & kas), closing kasir, umur piutang — total cocok, CSV (Stage 14 batch 2)', async ({ page }) => {
   watchCsp(page);
-  await addClinicRole('KEUANGAN', 'Keuangan', ['report.finance.read', 'master.facility.read']);
+  await addClinicRole('KEUANGAN', 'Keuangan', ['report.finance.read', 'report.export', 'master.facility.read']);   // CSV butuh report.export (OD-132)
   await addClinicUser('keuangan@klinik-web.test', 'Keuangan E2E', 'KEUANGAN');
   await login(page, 'keuangan@klinik-web.test');
   const menu = page.getByTestId('side-menu');

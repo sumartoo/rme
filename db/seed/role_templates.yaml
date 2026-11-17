@@ -31,6 +31,7 @@ roles:
       - audit.log.read
       - report.dashboard.read
       - report.operational.read
+      - report.export   # migrasi 0038 (OD-132 / DEC-048)
       - patient.read
       - patient.merge
 
@@ -91,6 +92,7 @@ roles:
       - pharmacy.drug.*
       - pharmacy.otc.sell
       - pharmacy.restricted.dispense   # migrasi 0023 (Stage 10, OD-100)
+      - report.export   # migrasi 0038 (OD-132 / DEC-048)
       - pharmacy.stock.read
       - master.supplier.manage   # migrasi 0012 (Stage 7)
       - master.uom.manage        # migrasi 0012 (Stage 7)

@@ -15,11 +15,11 @@
 
 | Kode | Nama | MFA wajib | Jumlah permission | Catatan |
 |---|---|---|---|---|
-| `TENANT_ADMIN` | Admin Klinik | ✓ | 33 | Administrasi; tidak membaca rekam medis kecuali diberi role klinis |
+| `TENANT_ADMIN` | Admin Klinik | ✓ | 34 | Administrasi; tidak membaca rekam medis kecuali diberi role klinis |
 | `DOKTER` | Dokter |  | 27 |  |
 | `PERAWAT` | Perawat / Bidan |  | 15 |  |
 | `PENDAFTARAN` | Petugas Pendaftaran |  | 19 |  |
-| `FARMASI` | Apoteker / TTK |  | 23 |  |
+| `FARMASI` | Apoteker / TTK |  | 24 |  |
 | `KASIR` | Kasir |  | 18 |  |
 | `MANAJER` | Manajer / Pemilik Klinik | ✓ | 25 |  |
 | `AUDITOR` | Auditor (baca saja) | ✓ | 12 |  |
@@ -121,7 +121,7 @@
 | **report** | | | | | | | | | |
 | `report.clinical.read` |  | ✓ |  |  |  |  | ✓ | ✓ | reportTopDiagnoses |
 | `report.dashboard.read` | ✓ |  |  |  |  |  | ✓ | ✓ | dashboardToday |
-| `report.export` |  |  |  |  |  |  | ✓ |  | reportExport; reportExportDownload; reportExportGet |
+| `report.export` | ✓ |  |  |  | ✓ |  | ✓ |  | reportExport; reportExportDownload; reportExportGet |
 | `report.finance.audit` |  |  |  |  |  |  | ✓ | ✓ | reportAnomalies |
 | `report.finance.read` |  |  |  |  |  |  | ✓ | ✓ | reportCashierClosing; reportReceivables; reportRevenue |
 | `report.operational.read` | ✓ |  |  |  |  |  | ✓ | ✓ | reportVisits |

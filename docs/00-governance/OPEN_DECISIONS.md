@@ -74,7 +74,7 @@ Rincian & usulan: [`docs/reports/stage-14/STAGE_PLAN.md`](../reports/stage-14/ST
 | OD-130 | Batas & performa | ≤ 366 hari, 30 detik; uji 3 tahun × 300 kunjungan/hari |
 | OD-131 | Isi dashboard manajer | Kunjungan, antrean, kas, tagihan, stok kritis, SATUSEHAT |
 
-## B7. Baru dari Stage 14 batch 3 (menunggu PO)
+## B7. Baru dari Stage 14 batch 3 (✅ diputuskan DEC-048)
 
 | OD | Pertanyaan | Usulan |
 |---|---|---|

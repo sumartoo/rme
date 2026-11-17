@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Alert, Badge, Card, CardContent, Field, Input, TBody, TD, TH, THead, TR, Table } from '@clinicrme/ui';
 import { AnomalyReport, AnomalyRule, api, errorText } from '../../../../lib/api';
 import { fmtDateTime, fmtRupiah } from '../../../../lib/format';
+import { can, useSession } from '../../../../lib/session';
 
 const RULE_ORDER: AnomalyRule[] = ['VOID_OUTSIDE_HOURS', 'REFUND_OUTSIDE_HOURS', 'DISCOUNT_OVER_LIMIT', 'VOIDS_PER_SHIFT', 'CASH_VARIANCE', 'CASH_AFTER_QRIS'];
 const RULE_LABEL: Record<AnomalyRule, string> = {
@@ -16,6 +17,7 @@ const today = () => new Date(Date.now() + 7 * 3600_000).toISOString().slice(0, 1
  * Transaksi tidak wajar (BIL-FR-016; OD-041): tanda untuk ditinjau manajer, bukan blokir. Ambang diatur di Profil klinik.
  */
 export default function AnomaliesPage() {
+  const s = useSession();
   const [from, setFrom] = useState(today);
   const [to, setTo] = useState(today);
   const [filter, setFilter] = useState<AnomalyRule | ''>('');
@@ -33,7 +35,7 @@ export default function AnomaliesPage() {
         <h1 className="text-xl font-semibold">Transaksi tidak wajar</h1>
         <Field id="an-from" label="Dari"><Input id="an-from" type="date" value={from} onChange={(e) => setFrom(e.target.value)} /></Field>
         <Field id="an-to" label="Sampai"><Input id="an-to" type="date" value={to} onChange={(e) => setTo(e.target.value)} /></Field>
-        <a className="mb-2 text-sm underline" href={`/api/v1/reports/anomalies?from=${from}&to=${to}&format=csv`}>Unduh CSV</a>
+        {can(s, 'report.export') ? <a className="mb-2 text-sm underline" href={`/api/v1/reports/anomalies?from=${from}&to=${to}&format=csv`}>Unduh CSV</a> : null}
       </div>
       {error ? <Alert tone="error">{error}</Alert> : null}
       {rep ? (

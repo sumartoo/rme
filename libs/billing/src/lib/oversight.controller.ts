@@ -139,7 +139,7 @@ export class OversightController {
   /**
    * Transaksi tidak wajar (AC-BIL-FR-016-1): void/refund di luar jam operasional, diskon di atas batas, void per kasir per
    * shift melebihi batas, selisih kas di atas toleransi, bayar tunai + QRIS melebihi tagihan. Ambang dari Profil klinik
-   * (OD-041). `format=csv` untuk ekspor.
+   * (OD-041). `format=csv` untuk ekspor (butuh `report.export`, OD-132).
    */
   @RequirePermission('report.finance.audit') @Get('reports/anomalies')
   async anomalies(@Query() q: Record<string, string | undefined>, @Res({ passthrough: true }) res: Response) {
@@ -148,6 +148,8 @@ export class OversightController {
     const { from, to, branchId, format } = P.data;
     if (from > to) throw problem(400, 'GEN-400-QUERY', 'Tanggal awal setelah tanggal akhir');
     if ((Date.parse(to) - Date.parse(from)) / 86_400_000 > 92) throw problem(400, 'GEN-400-QUERY', 'Rentang maksimal 92 hari');
+    // OD-132 (DEC-048): unduhan CSV laporan wajib izin ekspor
+    if (format === 'csv' && !ctx().permissions?.has('report.export')) throw problem(403, 'RPT-403-EXPORT', 'Unduhan CSV memerlukan izin ekspor laporan');
     const out = await this.db.withTenantTx(async (tx) => {
       const [c] = await rows<{ start: string; end: string; voids: number; tol: number }>(tx, sql`
         select coalesce(settings->>'billingHoursStart', '07:00') as start, coalesce(settings->>'billingHoursEnd', '21:00') as end,
