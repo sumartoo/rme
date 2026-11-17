@@ -5,10 +5,10 @@ import { useSession } from '../../../lib/session';
 
 export interface Filters { from: string; to: string; branchId: string; payerType: string }
 export const defaultFilters = (): Filters => ({ from: `${todayWib().slice(0, 7)}-01`, to: todayWib(), branchId: '', payerType: '' });
-export const filterQs = (f: Filters) => new URLSearchParams(Object.entries(f).filter(([, v]) => v)).toString();
+export const filterQs = (f: Partial<Filters>) => new URLSearchParams(Object.entries(f).filter(([, v]) => v) as [string, string][]).toString();
 
 /** Filter seragam laporan (Stage 14; OD-124, OD-129): rentang tanggal (zona waktu cabang), cabang, jenis penjamin. */
-export function ReportFilters({ value, onChange, children }: { value: Filters; onChange: (f: Filters) => void; children?: React.ReactNode }) {
+export function ReportFilters({ value, onChange, children, payer = true }: { value: Filters; onChange: (f: Filters) => void; children?: React.ReactNode; payer?: boolean }) {
   const s = useSession();
   const set = (k: keyof Filters) => (e: { target: { value: string } }) => onChange({ ...value, [k]: e.target.value });
   return (
@@ -23,12 +23,14 @@ export function ReportFilters({ value, onChange, children }: { value: Filters; o
           </Select>
         </label>
       ) : null}
-      <label className="grid gap-1 text-xs">Penjamin
-        <Select aria-label="Penjamin" value={value.payerType} onChange={set('payerType')}>
-          <option value="">Semua</option><option value="UMUM">Umum</option><option value="ASURANSI">Asuransi</option>
-          <option value="PERUSAHAAN">Perusahaan</option><option value="BPJS">BPJS</option>
-        </Select>
-      </label>
+      {payer ? (
+        <label className="grid gap-1 text-xs">Penjamin
+          <Select aria-label="Penjamin" value={value.payerType} onChange={set('payerType')}>
+            <option value="">Semua</option><option value="UMUM">Umum</option><option value="ASURANSI">Asuransi</option>
+            <option value="PERUSAHAAN">Perusahaan</option><option value="BPJS">BPJS</option>
+          </Select>
+        </label>
+      ) : null}
       {children}
     </div>
   );

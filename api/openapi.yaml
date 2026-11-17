@@ -7822,7 +7822,8 @@ paths:
       operationId: reportRevenue
       tags:
       - Report
-      summary: Pendapatan per layanan/metode/penjamin
+      summary: 'Pendapatan (?from&to ≤ 366 hari, view=billed|cash, groupBy=category|service|payer|day — kas: payer=metode, branchId, payerType,
+        format=json|csv; OD-126; bukan laporan akuntansi)'
       x-requirements:
       - RPT-FR-003
       x-permission: report.finance.read
@@ -7844,7 +7845,7 @@ paths:
       operationId: reportCashierClosing
       tags:
       - Report
-      summary: Closing kasir
+      summary: 'Closing kasir: rekap shift per tanggal buka (?from&to, branchId, format=json|csv; OD-127)'
       x-requirements:
       - RPT-FR-004
       x-permission: report.finance.read
@@ -7912,7 +7913,7 @@ paths:
       operationId: reportReceivables
       tags:
       - Report
-      summary: Umur piutang
+      summary: Umur piutang penjamin per tanggal posisi dari jatuh tempo (?asOf YYYY-MM-DD, branchId, format=json|csv; OD-127)
       x-requirements:
       - RPT-FR-007
       x-permission: report.finance.read

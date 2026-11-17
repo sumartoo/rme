@@ -1650,6 +1650,45 @@ test('W39 Laporan kunjungan & 10 besar diagnosis: angka bulan berjalan, pengelom
   await ctx.close();
 });
 
+test('W40 Laporan keuangan: pendapatan (tagihan & kas), closing kasir, umur piutang — total cocok, CSV (Stage 14 batch 2)', async ({ page }) => {
+  watchCsp(page);
+  await addClinicRole('KEUANGAN', 'Keuangan', ['report.finance.read', 'master.facility.read']);
+  await addClinicUser('keuangan@klinik-web.test', 'Keuangan E2E', 'KEUANGAN');
+  await login(page, 'keuangan@klinik-web.test');
+  const menu = page.getByTestId('side-menu');
+
+  await menu.getByRole('link', { name: 'Pendapatan' }).click();
+  await expect(page.getByRole('heading', { name: 'Laporan pendapatan' })).toBeVisible();
+  const total = page.getByTestId('report-total-row');
+  await expect(total).toContainText(/Rp\s?[1-9]/);
+  await page.getByLabel('Kelompokkan').selectOption('day');
+  await expect(page.getByTestId('report-row').first()).toContainText(/^\d{4}-\d{2}-\d{2}/);
+  await page.getByLabel('Sudut pandang').selectOption('cash');
+  await expect(page.getByRole('columnheader', { name: 'Metode bayar' })).toBeVisible();
+  await expect(page.getByTestId('report-row').filter({ hasText: 'Tunai' })).toHaveCount(1);
+  await expect(page.getByLabel('Penjamin')).toHaveCount(0);           // filter penjamin tidak berlaku untuk kas
+  const href = (await page.getByTestId('report-csv').getAttribute('href'))!;
+  const csv = await page.evaluate(async (u) => {
+    const r = await fetch(u);
+    return { status: r.status, text: new TextDecoder('utf-8', { ignoreBOM: true }).decode(await r.arrayBuffer()) };
+  }, href);
+  expect(csv.status).toBe(200);
+  expect(csv.text).toMatch(/^\uFEFFKelompok,Pembayaran,Pelunasan piutang,Refund,Kas bersih\r\n/);
+
+  await menu.getByRole('link', { name: 'Closing kasir' }).click();
+  await expect(page.getByRole('heading', { name: 'Closing kasir' })).toBeVisible();
+  await expect(page.getByTestId('report-row').first()).toBeVisible();
+  await expect(page.getByTestId('report-totals')).toContainText(/Shift [1-9]\d* \(terbuka \d+, belum diverifikasi \d+\)/);
+
+  await menu.getByRole('link', { name: 'Umur piutang' }).click();
+  await expect(page.getByRole('heading', { name: 'Umur piutang penjamin' })).toBeVisible();
+  await expect(page.getByTestId('report-row').or(page.getByText('Tidak ada piutang terbuka per tanggal ini.')).first()).toBeVisible();
+  await expect(page.locator('main')).not.toContainText('Siti Rahmawati');
+  // Tanpa izin laporan klinis/operasional
+  await expect(menu.getByRole('link', { name: '10 besar diagnosis' })).toHaveCount(0);
+  expect(cspViolations).toEqual([]);
+});
+
 test('W06 keamanan: CSP bernonce, no-store; proxy hanya untuk klinik dari subdomain; tidak ada pelanggaran CSP', async ({ page }) => {
   const res = await page.goto('/login');
   const h = res!.headers();

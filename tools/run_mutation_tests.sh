@@ -76,8 +76,9 @@ SSFU=libs/db/src/lib/satusehat-followup.ts
 SSREC=libs/db/src/lib/satusehat-reconcile.ts
 RPTCLIN=libs/reporting/src/lib/clinical-report.controller.ts
 RPTCOM=libs/reporting/src/lib/report-common.ts
+RPTFIN=libs/reporting/src/lib/finance-report.controller.ts
 INTEG=libs/clinical/src/lib/integrity.ts
-FILES=("$AUTH" "$SESSION" "$MIG2" "$MIG3" "$GUARD" "$PGUARD" "$LAYOUT" "$EXPORT" "$MIG5" "$MIG6" "$TOTP" "$IAMUSERS" "$ACCOUNT" "$AUDITCHG" "$PRACT" "$MIG12" "$TERM" "$IMPORTS" "$PATIENT" "$MIG15" "$IDEM" "$MIG16" "$BOOK" "$SCHED" "$NOSHOW" "$ENCREPO" "$ENCCTL" "$QDISP" "$CHART" "$CHARTREPO" "$MIG19" "$SIGNCTL" "$REAUTH" "$MIG20" "$RXREPO" "$RXCTL" "$MIG21" "$LABCTL" "$DOCCTL" "$MIG22" "$RECV" "$PRICE" "$LOCS" "$DISP" "$DREPO" "$RXREM" "$SUBC" "$ADJC" "$OPNC" "$CRPT" "$OTCC" "$SRPT" "$INVREPO" "$INVCTL" "$PAYCTL" "$PAYREPO" "$QRCTL" "$CORCTL" "$OVCTL" "$SSCTL" "$SSLIB" "$SSENC" "$SSFU" "$INTEG" "$SHIFTREPO" "$SSREC" "$RPTCLIN" "$RPTCOM")
+FILES=("$AUTH" "$SESSION" "$MIG2" "$MIG3" "$GUARD" "$PGUARD" "$LAYOUT" "$EXPORT" "$MIG5" "$MIG6" "$TOTP" "$IAMUSERS" "$ACCOUNT" "$AUDITCHG" "$PRACT" "$MIG12" "$TERM" "$IMPORTS" "$PATIENT" "$MIG15" "$IDEM" "$MIG16" "$BOOK" "$SCHED" "$NOSHOW" "$ENCREPO" "$ENCCTL" "$QDISP" "$CHART" "$CHARTREPO" "$MIG19" "$SIGNCTL" "$REAUTH" "$MIG20" "$RXREPO" "$RXCTL" "$MIG21" "$LABCTL" "$DOCCTL" "$MIG22" "$RECV" "$PRICE" "$LOCS" "$DISP" "$DREPO" "$RXREM" "$SUBC" "$ADJC" "$OPNC" "$CRPT" "$OTCC" "$SRPT" "$INVREPO" "$INVCTL" "$PAYCTL" "$PAYREPO" "$QRCTL" "$CORCTL" "$OVCTL" "$SSCTL" "$SSLIB" "$SSENC" "$SSFU" "$INTEG" "$SHIFTREPO" "$SSREC" "$RPTCLIN" "$RPTCOM" "$RPTFIN")
 BACKUP=$(mktemp -d)
 cp "${FILES[@]}" "$BACKUP"/
 restore() { for f in "${FILES[@]}"; do cp "$BACKUP/$(basename "$f")" "$f"; done; }
@@ -489,6 +490,27 @@ mutate M184 "laporan kunjungan dapat dibaca tanpa izin laporan operasional" 'T03
   "sed -i \"s/@RequirePermission('report.operational.read') @Get('visits')/@RequirePermission('encounter.read') @Get('visits')/\" $RPTCLIN && grep -q \"'encounter.read') @Get('visits')\" $RPTCLIN" ""
 mutate M185 "melihat laporan kunjungan tidak teraudit" 'T03' \
   "sed -i \"s/      await audit(tx, 'REPORT_VISITS_VIEWED'/      void (tx, 'REPORT_VISITS_VIEWED'/\" $RPTCLIN && grep -q \"void (tx, 'REPORT_VISITS_VIEWED'\" $RPTCLIN" ""
+
+mutate M186 "pendapatan menghitung tagihan void" 'A01' \
+  "sed -i \"s/i.status in ('ISSUED', 'PARTIALLY_PAID', 'PAID')/i.status <> 'DRAFT'/g\" $RPTFIN && ! grep -q \"i.status in ('ISSUED'\" $RPTFIN" ""
+mutate M187 "tanggal pendapatan tidak memakai zona waktu cabang" 'A01' \
+  "sed -i \"s/at time zone br.timezone)::date\\\`;/at time zone 'UTC')::date\\\`;/\" $RPTFIN && grep -q \"at time zone 'UTC')::date\" $RPTFIN" ""
+mutate M188 "penerimaan kas tidak dikurangi refund" 'A02' \
+  "sed -i 's/net: money(+x.payments + +x.settlements - +x.refunds)/net: money(+x.payments + +x.settlements - 0)/' $RPTFIN && grep -q 'settlements - 0)' $RPTFIN" ""
+mutate M189 "penerimaan kas tanpa pelunasan piutang penjamin" 'A02' \
+  "sed -i 's/where rp.paid_on between/where false and rp.paid_on between/' $RPTFIN && grep -q 'where false and rp.paid_on' $RPTFIN" ""
+mutate M190 "refund yang belum disetujui mengurangi penerimaan kas" 'A02' \
+  "sed -i \"s/where r.status = 'APPROVED' and/where true and/\" $RPTFIN && grep -q 'where true and' $RPTFIN" ""
+mutate M191 "closing kasir: non-tunai ikut menghitung tunai" 'A03' \
+  "sed -i \"s/p.shift_id = s.id and p.method <> 'TUNAI'/p.shift_id = s.id and true/\" $RPTFIN && grep -q 'p.shift_id = s.id and true' $RPTFIN" ""
+mutate M192 "umur piutang mengurangi pelunasan sesudah tanggal posisi" 'A04' \
+  "sed -i 's/rp.paid_on <= \${as_of}::date), 0)/rp.paid_on is not null), 0)/' $RPTFIN && grep -q 'rp.paid_on is not null), 0)' $RPTFIN" ""
+mutate M193 "umur piutang dihitung dari tanggal terbit, bukan jatuh tempo" 'A04' \
+  "sed -i 's/select rc.payer_id, rc.due_date,/select rc.payer_id, (i.issued_at at time zone br.timezone)::date as due_date,/' $RPTFIN && grep -q '::date as due_date,' $RPTFIN" ""
+mutate M194 "umur piutang memasukkan tagihan yang terbit sesudah tanggal posisi" 'A04' \
+  "sed -i 's/and (i.issued_at at time zone br.timezone)::date <= \${as_of}::date and/and/' $RPTFIN && ! grep -q 'date <= \${as_of}::date and' $RPTFIN" ""
+mutate M195 "laporan pendapatan dapat dibaca tanpa izin laporan keuangan" 'A05' \
+  "sed -i \"s/@RequirePermission('report.finance.read') @Get('revenue')/@RequirePermission('billing.invoice.read') @Get('revenue')/\" $RPTFIN && grep -q \"'billing.invoice.read') @Get('revenue')\" $RPTFIN" ""
 
 # Mutasi UI: suite Playwright (U##) sebagai detektor
 if [ "${MUTATION_E2E:-0}" = "1" ]; then

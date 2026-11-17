@@ -253,6 +253,13 @@
       "when": 1796112000000,
       "tag": "0035_reporting_menu",
       "breakpoints": false
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1796198400000,
+      "tag": "0036_reporting_finance_menu",
+      "breakpoints": false
     }
   ]
 }
