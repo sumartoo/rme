@@ -65,6 +65,14 @@ export async function branchScope(tx: Q, userId: string, permission: string, bra
   return allowed;
 }
 
+/**
+ * Waktu kunjungan = coalesce(arrived_at, created_at) dalam [t0, t1). Ditulis sebagai dua cabang kolom polos agar indeks
+ * (tenant_id, arrived_at) / (tenant_id, created_at) tetap dipakai di bawah RLS — ekspresi coalesce tidak dapat dipakai sebagai kondisi indeks
+ * bersama kebijakan RLS (uji performa Stage 14, OD-130).
+ */
+export const encounterTimeIn = (t0: SQL, t1: SQL): SQL =>
+  sql`((e.arrived_at >= ${t0} and e.arrived_at < ${t1}) or (e.arrived_at is null and e.created_at >= ${t0} and e.created_at < ${t1}))`;
+
 /** Kondisi SQL cakupan cabang untuk kolom `col` (mis. sql`b.id`). */
 export const inBranches = (col: SQL, scope: string[] | null): SQL =>
   scope === null ? sql`true` : sql`${col} = any(${`{${scope.join(',')}}`}::uuid[])`;

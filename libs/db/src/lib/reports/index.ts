@@ -6,3 +6,4 @@ export * from './pharmacy';
 export * from './registry';
 export * from './render';
 export * from './export-job';
+export * from './dashboard';

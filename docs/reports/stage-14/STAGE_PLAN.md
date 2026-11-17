@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | Stage | 14 — Reporting, Analytics & Dashboard |
-| Status | **BERJALAN** — OD diputuskan DEC-047 (17 Nov 2026) |
+| Status | **SELESAI — menunggu persetujuan PO** ([completion report](STAGE_COMPLETION_REPORT.md)). OD diputuskan DEC-047, DEC-048 |
 | Project Owner | Sumarto |
 | Urutan | Dikerjakan setelah Stage 12. **Stage 13 (aplikasi Android pasien) ditunda sampai setelah pilot** (DEC-046, sesuai DEC-012) |
 | Requirement | **MVP saja** (DEC-010): RPT-FR-001–009. LJT: RPT-FR-010 report builder tanpa SQL, RPT-FR-011 laporan terjadwal & distribusi, RPT-FR-012 waktu tunggu pasien |
@@ -60,11 +60,11 @@ Perkiraan: ±1 hari kerja per batch.
 
 ## 5. Gate (dari STAGE_14_REPORTING.md, disesuaikan ke MVP)
 
-- [ ] Hasil setiap laporan divalidasi terhadap query sumber manual pada dataset uji (angka identik)
-- [ ] Uji keamanan: laporan tanpa izin ditolak; cakupan cabang & RLS tenant berlaku; filter tidak dapat menyuntik SQL
-- [ ] Ekspor XLSX/CSV/PDF berwatermark, teraudit; ekspor besar asinkron dengan tautan kedaluwarsa
-- [ ] Uji performa dengan volume target (OD-130)
-- [ ] Matriks permission X01 mencakup semua endpoint baru; uji mutasi kontrol baru terdeteksi
+- [x] Hasil setiap laporan divalidasi terhadap query sumber manual pada dataset uji (angka identik)
+- [x] Uji keamanan: laporan tanpa izin ditolak; cakupan cabang & RLS tenant berlaku; filter tidak dapat menyuntik SQL
+- [x] Ekspor XLSX/CSV/PDF berwatermark, teraudit; ekspor besar asinkron dengan tautan kedaluwarsa
+- [x] Uji performa dengan volume target (OD-130)
+- [x] Matriks permission X01 mencakup semua endpoint baru; uji mutasi kontrol baru terdeteksi
 - [ ] UAT oleh manajer klinik — dijadwalkan di Stage 16 (dicatat sebagai pengingat UAT)
 - [ ] PO menyetujui Stage 14
 
@@ -84,3 +84,4 @@ Perkiraan: ±1 hari kerja per batch.
 | 17 Nov 2026 | **Batch 2 selesai** — keuangan: pendapatan dua sudut pandang — tagihan terbit per kategori/layanan/penjamin/hari (bruto, diskon, neto, porsi pasien & penjamin; void/draf tidak dihitung) dan penerimaan kas per metode/hari (pembayaran + pelunasan piutang − refund disetujui) (OD-126). Closing kasir = rekap shift per tanggal buka (kas seharusnya, dihitung, selisih, non-tunai, status) dan umur piutang penjamin per tanggal posisi dari jatuh tempo (OD-127). Menu laporan keuangan (migrasi 0036) | Integrasi A01–A05, E2E W40, mutasi M186–M195 |
 | 18 Nov 2026 | **Batch 3 selesai** — farmasi & ekspor: laporan stok, mutasi, golongan terbatas dan laporan baru **obat mendekati kedaluwarsa** dipindah ke menu Laporan (halaman lama dialihkan), semuanya mengikuti cakupan cabang (OD-129). Logika hitung semua laporan dipindah ke `@clinicrme/db/reports` (dipakai API & worker). **Ekspor seragam** `POST /reports/{kode}/exports` XLSX/CSV(BOM)/PDF A4 lanskap dengan watermark nama klinik, pengekspor, waktu, "Rahasia — untuk internal klinik"; ≤ 10.000 baris langsung, di atasnya job worker `report.export.run`; tautan 24 jam hanya untuk pemohon lalu berkas dihapus (`report.export.expire`); audit permintaan/selesai/unduhan berisi laporan, filter, jumlah baris, format — tanpa isi (OD-128). Ekspor butuh `report.export` **dan** izin lihat laporan itu. PDF dibatasi 10.000 baris; satu ekspor maks. 100.000 baris. Migrasi 0037 | Integrasi Y01–Y07, E2E W41, mutasi M196–M206 |
 | 18 Nov 2026 | **OD-132 disetujui (DEC-048):** CSV cepat di laporan wajib `report.export`; role template Admin Klinik & Apoteker/TTK diberi `report.export` (migrasi 0038). Tautan CSV disembunyikan bagi yang tidak berizin | Integrasi Y08, mutasi M207–M208 |
+| 18 Nov 2026 | **Batch 4 selesai** — dashboard manajer hari ini (kunjungan per status, antrean per poli, kas, tagihan belum lunas, stok kritis, SATUSEHAT perlu tindakan, grafik 14 hari Recharts, muat ulang 60 detik; OD-131). Gate: validasi angka terhadap hitungan independen dari dataset acak berbenih, uji keamanan setiap role × setiap laporan, uji performa 328.502 kunjungan (semua ≤ 3 detik; 3 perbaikan performa). `REPORT_CATALOG.md`, completion report. Migrasi 0039 | Integrasi Z01–Z06, E2E W42, mutasi M209–M214, PERFORMANCE_TEST.md |

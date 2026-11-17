@@ -83,8 +83,10 @@ RPTRENDER=libs/db/src/lib/reports/render.ts
 RPTCOM=libs/db/src/lib/reports/common.ts
 RPTFIN=libs/db/src/lib/reports/finance.ts
 MIG38=db/migrations/0038_report_export_roles.sql
+RPTDASH=libs/db/src/lib/reports/dashboard.ts
+RPTDASHCTRL=libs/reporting/src/lib/dashboard.controller.ts
 INTEG=libs/clinical/src/lib/integrity.ts
-FILES=("$AUTH" "$SESSION" "$MIG2" "$MIG3" "$GUARD" "$PGUARD" "$LAYOUT" "$EXPORT" "$MIG5" "$MIG6" "$TOTP" "$IAMUSERS" "$ACCOUNT" "$AUDITCHG" "$PRACT" "$MIG12" "$TERM" "$IMPORTS" "$PATIENT" "$MIG15" "$IDEM" "$MIG16" "$BOOK" "$SCHED" "$NOSHOW" "$ENCREPO" "$ENCCTL" "$QDISP" "$CHART" "$CHARTREPO" "$MIG19" "$SIGNCTL" "$REAUTH" "$MIG20" "$RXREPO" "$RXCTL" "$MIG21" "$LABCTL" "$DOCCTL" "$MIG22" "$RECV" "$PRICE" "$LOCS" "$DISP" "$DREPO" "$RXREM" "$SUBC" "$ADJC" "$OPNC" "$CRPT" "$OTCC" "$INVREPO" "$INVCTL" "$PAYCTL" "$PAYREPO" "$QRCTL" "$CORCTL" "$OVCTL" "$SSCTL" "$SSLIB" "$SSENC" "$SSFU" "$INTEG" "$SHIFTREPO" "$SSREC" "$RPTCLIN" "$RPTCOM" "$RPTFIN" "$RPTCTRL" "$RPTEXP" "$RPTJOB" "$RPTRENDER" "$MIG38")
+FILES=("$AUTH" "$SESSION" "$MIG2" "$MIG3" "$GUARD" "$PGUARD" "$LAYOUT" "$EXPORT" "$MIG5" "$MIG6" "$TOTP" "$IAMUSERS" "$ACCOUNT" "$AUDITCHG" "$PRACT" "$MIG12" "$TERM" "$IMPORTS" "$PATIENT" "$MIG15" "$IDEM" "$MIG16" "$BOOK" "$SCHED" "$NOSHOW" "$ENCREPO" "$ENCCTL" "$QDISP" "$CHART" "$CHARTREPO" "$MIG19" "$SIGNCTL" "$REAUTH" "$MIG20" "$RXREPO" "$RXCTL" "$MIG21" "$LABCTL" "$DOCCTL" "$MIG22" "$RECV" "$PRICE" "$LOCS" "$DISP" "$DREPO" "$RXREM" "$SUBC" "$ADJC" "$OPNC" "$CRPT" "$OTCC" "$INVREPO" "$INVCTL" "$PAYCTL" "$PAYREPO" "$QRCTL" "$CORCTL" "$OVCTL" "$SSCTL" "$SSLIB" "$SSENC" "$SSFU" "$INTEG" "$SHIFTREPO" "$SSREC" "$RPTCLIN" "$RPTCOM" "$RPTFIN" "$RPTCTRL" "$RPTEXP" "$RPTJOB" "$RPTRENDER" "$MIG38" "$RPTDASH" "$RPTDASHCTRL")
 BACKUP=$(mktemp -d)
 cp "${FILES[@]}" "$BACKUP"/
 restore() { for f in "${FILES[@]}"; do cp "$BACKUP/$(basename "$f")" "$f"; done; }
@@ -545,6 +547,18 @@ mutate M207 "CSV cepat laporan dapat diunduh tanpa izin ekspor" 'Y08' \
   "sed -i \"s/      if (f.format === 'csv' \&\& !ctx().permissions?.has('report.export')) throw/      if (false) throw/\" $RPTCTRL && grep -q '      if (false) throw' $RPTCTRL" ""
 mutate M208 "template Apoteker/TTK untuk tenant baru tidak diberi report.export (migrasi 0038)" 'Y08' \
   "sed -i \"/^  def := replace(def, f, /d\" $MIG38 && ! grep -q '^  def := replace(def, f, ' $MIG38" ""
+mutate M209 "dashboard mengabaikan cakupan cabang pengguna" 'Z04' \
+  "sed -i 's/  const br = (col = sql.br.id.) => inBranches(col, scope);/  const br = (col = sql\`br.id\`) => inBranches(col, null);/' $RPTDASH && grep -q 'inBranches(col, null);' $RPTDASH" ""
+mutate M210 "dashboard menghitung kunjungan batal" 'Z04' \
+  "sed -i \"s/     where e.status <> 'CANCELLED' and \\\${encounterTimeIn(sql.now() - interval '2 days'/     where true and \\\${encounterTimeIn(sql\\\`now() - interval '2 days'/\" $RPTDASH && grep -q '     where true and ' $RPTDASH" ""
+mutate M211 "kas dashboard tidak dikurangi refund" 'Z04' \
+  "sed -i 's/net: money(+c.pay + +c.settle - +c.ref)/net: money(+c.pay + +c.settle - 0)/' $RPTDASH && grep -q 'settle - 0)' $RPTDASH" ""
+mutate M212 "stok kritis dashboard menghitung batch kedaluwarsa sebagai layak pakai" 'Z04' \
+  "sed -i 's/filter (where b.expiry_date >= b.today)/filter (where true)/g' $RPTDASH && ! grep -q 'b.expiry_date >= b.today' $RPTDASH" ""
+mutate M213 "dashboard dapat dibaca tanpa izin dashboard" 'Z05' \
+  "sed -i \"s/@RequirePermission('report.dashboard.read') @Get('dashboard\/today')/@RequirePermission('encounter.read') @Get('dashboard\/today')/\" $RPTDASHCTRL && grep -q \"'encounter.read') @Get('dashboard\" $RPTDASHCTRL" ""
+mutate M214 "waktu kunjungan tanpa jam kedatangan (created_at) tidak dihitung" 'Z04' \
+  "sed -i 's/ or (e.arrived_at is null and e.created_at >= \${t0} and e.created_at < \${t1}))/ or false)/' $RPTCOM && grep -q ' or false)' $RPTCOM" ""
 # Mutasi UI: suite Playwright (U##) sebagai detektor
 if [ "${MUTATION_E2E:-0}" = "1" ]; then
   restore

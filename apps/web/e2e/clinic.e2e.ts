@@ -1720,6 +1720,25 @@ test('W41 Laporan farmasi di menu Laporan & ekspor ber-watermark: mendekati keda
   expect(cspViolations).toEqual([]);
 });
 
+test('W42 Dashboard manajer: kunjungan, kas, tagihan, stok kritis, SATUSEHAT & grafik 14 hari tanpa pelanggaran CSP (Stage 14 batch 4)', async ({ page }) => {
+  watchCsp(page);
+  await signInAdmin(page);
+  await page.getByTestId('side-menu').getByRole('link', { name: 'Dashboard manajer' }).click();
+  await expect(page.getByRole('heading', { name: 'Dashboard manajer' })).toBeVisible();
+  await expect(page.getByTestId('tile-visits')).toContainText(/Kunjungan hari ini\s*\d+/);
+  await expect(page.getByTestId('tile-cash')).toContainText('Rp');
+  await expect(page.getByTestId('tile-unpaid')).toContainText(/\d+ tagihan/);
+  await expect(page.getByTestId('tile-satusehat')).toContainText(/Ditolak \d+ · Gagal \d+ · Tertahan \d+/);
+  await expect(page.getByTestId('dashboard-stock')).toContainText(/Di bawah stok minimum \d+ obat/);
+  // Grafik Recharts digambar di browser (SVG) — tanpa pelanggaran CSP
+  await expect(page.getByTestId('dashboard-trend').locator('svg.recharts-surface')).toHaveCount(2);
+  await page.getByText('Angka tren (tabel)').click();
+  await expect(page.getByTestId('trend-row')).toHaveCount(14);
+  await expect(page.getByTestId('dashboard-meta')).toContainText('otomatis tiap 60 detik');
+  await expect(page.locator('main')).not.toContainText('Siti Rahmawati');
+  expect(cspViolations).toEqual([]);
+});
+
 test('W06 keamanan: CSP bernonce, no-store; proxy hanya untuk klinik dari subdomain; tidak ada pelanggaran CSP', async ({ page }) => {
   const res = await page.goto('/login');
   const h = res!.headers();

@@ -1,6 +1,6 @@
 import { sql, type SQL } from 'drizzle-orm';
 import { z } from 'zod';
-import { type Base, BaseFilter, type Column, PAYER_LABEL, type Q, type ReportResult, inBranches, rowsOf } from './common';
+import { type Base, BaseFilter, type Column, PAYER_LABEL, type Q, type ReportResult, encounterTimeIn, inBranches, rowsOf } from './common';
 
 export const VisitsQ = BaseFilter.extend({
   period: z.enum(['day', 'month']).default('day'),
@@ -33,7 +33,7 @@ const encounters = (f: Base, scope: string[] | null): SQL => sql`
            (coalesce(e.arrived_at, e.created_at) at time zone b.timezone)::date as d
       from encounter e join branch b on b.id = e.branch_id left join patient_coverage pc on pc.id = e.coverage_id
      where e.status <> 'CANCELLED'
-       and coalesce(e.arrived_at, e.created_at) >= (${f.from}::date - 1)::timestamptz and coalesce(e.arrived_at, e.created_at) < (${f.to}::date + 2)::timestamptz
+       and ${encounterTimeIn(sql`(${f.from}::date - 1)::timestamptz`, sql`(${f.to}::date + 2)::timestamptz`)}
        and ${inBranches(sql`b.id`, scope)}
        and (${f.unitId ?? null}::uuid is null or e.unit_id = ${f.unitId ?? null}::uuid)
        and (${f.practitionerId ?? null}::uuid is null or e.practitioner_id = ${f.practitionerId ?? null}::uuid)
@@ -59,19 +59,19 @@ export async function visits(tx: Q, f: z.infer<typeof VisitsQ>, scope: string[] 
        order by e.patient_id, coalesce(e.arrived_at, e.created_at), e.id)
     select ${period} as period, ${key} as group_key, ${label} as group_label, count(*)::int as visits,
            count(distinct v.patient_id)::int as unique_patients,
-           count(*) filter (where exists (select 1 from firsts f where f.id = v.id))::int as new_patients,
+           count(*) filter (where f.id = v.id)::int as new_patients,
            count(*) filter (where v.status in ('REGISTERED', 'ARRIVED', 'TRIAGED'))::int as waiting,
            count(*) filter (where v.status in ('IN_CONSULTATION', 'CONSULT_DONE', 'PHARMACY', 'BILLING'))::int as in_service,
            count(*) filter (where v.status = 'FINISHED')::int as finished
-      from v group by 1, 2, 3 order by 1, 3, 2`);
+      from v left join firsts f on f.patient_id = v.patient_id group by 1, 2, 3 order by 1, 3, 2`);
   const [t] = await rowsOf<{ visits: number; unique_patients: number; new_patients: number }>(tx, sql`
     with v as (${encounters(f, scope)}),
     firsts as (
       select distinct on (e.patient_id) e.patient_id, e.id from encounter e
        where e.status <> 'CANCELLED' and e.patient_id in (select patient_id from v)
        order by e.patient_id, coalesce(e.arrived_at, e.created_at), e.id)
-    select count(*)::int as visits, count(distinct patient_id)::int as unique_patients,
-           count(*) filter (where exists (select 1 from firsts f where f.id = v.id))::int as new_patients from v`);
+    select count(*)::int as visits, count(distinct v.patient_id)::int as unique_patients,
+           count(*) filter (where f.id = v.id)::int as new_patients from v left join firsts f on f.patient_id = v.patient_id`);
   // Janji temu tidak datang (OD-124: dilaporkan terpisah; tidak ada penjamin pada janji temu)
   const [ns] = await rowsOf<{ n: number }>(tx, sql`
     select count(*)::int as n from appointment a join branch b on b.id = a.branch_id

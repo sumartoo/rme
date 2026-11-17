@@ -7754,7 +7754,8 @@ paths:
       operationId: dashboardToday
       tags:
       - Report
-      summary: Dashboard harian
+      summary: 'Dashboard manajer hari ini per zona waktu cabang: kunjungan per status, antrean per poli, kas, tagihan belum lunas, stok kritis,
+        SATUSEHAT perlu tindakan, tren 14 hari (?branchId; OD-131; tanpa identitas pasien)'
       x-requirements:
       - RPT-FR-009
       x-permission: report.dashboard.read
@@ -13462,14 +13463,118 @@ components:
       type: object
       properties:
         date: *id004
-        visits: *id005
-        finished: *id005
-        waiting: *id005
-        revenue: *id008
-        satusehatPending: *id005
-        satusehatError: *id005
+        timezone:
+          type: string
+        visits:
+          type: object
+          properties:
+            total: *id005
+            waiting: *id005
+            inService: *id005
+            finished: *id005
+          required:
+          - total
+          - waiting
+          - inService
+          - finished
+        queue:
+          type: array
+          items:
+            type: object
+            properties:
+              unitId: *id002
+              unitName:
+                type: string
+              branchName:
+                type: string
+              waiting: *id005
+            required:
+            - unitId
+            - unitName
+            - waiting
+        cash:
+          type: object
+          properties:
+            payments: *id008
+            receivableSettlements: *id008
+            refunds: *id008
+            net: *id008
+          required:
+          - payments
+          - receivableSettlements
+          - refunds
+          - net
+        unpaid:
+          type: object
+          properties:
+            invoices: *id005
+            amount: *id008
+          required:
+          - invoices
+          - amount
+        stock:
+          type: object
+          properties:
+            lowStock: *id005
+            expiringSoon: *id005
+            expired: *id005
+            low:
+              type: array
+              items:
+                type: object
+                properties:
+                  code:
+                    type: string
+                  drugName:
+                    type: string
+                  usable:
+                    type: number
+                  minStock:
+                    type: number
+                  uomName:
+                    type: string
+                required:
+                - code
+                - drugName
+          required:
+          - lowStock
+          - expiringSoon
+          - expired
+          - low
+        satusehat:
+          type: object
+          properties:
+            needsAction: *id005
+            error: *id005
+            dead: *id005
+            blocked: *id005
+          required:
+          - needsAction
+        trend:
+          type: array
+          items:
+            type: object
+            properties:
+              date: *id004
+              visits: *id005
+              cash: *id008
+            required:
+            - date
+            - visits
+            - cash
+        allBranches: *id001
+        generatedAt: *id006
       required:
       - date
+      - timezone
+      - visits
+      - queue
+      - cash
+      - unpaid
+      - stock
+      - satusehat
+      - trend
+      - allBranches
     TenantCreate:
       type: object
       properties:
