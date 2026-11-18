@@ -78,3 +78,12 @@ playwright-report/
 
 # Penyimpanan berkas lokal (driver fs)
 .data/
+
+# Terraform (Stage 15): state & variabel lokal tidak di-commit
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+!*.tfvars.example
+.terraform.lock.hcl.bak
+crash.log

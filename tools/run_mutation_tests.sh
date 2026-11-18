@@ -84,9 +84,11 @@ RPTCOM=libs/db/src/lib/reports/common.ts
 RPTFIN=libs/db/src/lib/reports/finance.ts
 MIG38=db/migrations/0038_report_export_roles.sql
 RPTDASH=libs/db/src/lib/reports/dashboard.ts
+AUTHCTRL=libs/iam/src/lib/auth.controller.ts
+LOGINROLES=libs/db/src/lib/login-roles.ts
 RPTDASHCTRL=libs/reporting/src/lib/dashboard.controller.ts
 INTEG=libs/clinical/src/lib/integrity.ts
-FILES=("$AUTH" "$SESSION" "$MIG2" "$MIG3" "$GUARD" "$PGUARD" "$LAYOUT" "$EXPORT" "$MIG5" "$MIG6" "$TOTP" "$IAMUSERS" "$ACCOUNT" "$AUDITCHG" "$PRACT" "$MIG12" "$TERM" "$IMPORTS" "$PATIENT" "$MIG15" "$IDEM" "$MIG16" "$BOOK" "$SCHED" "$NOSHOW" "$ENCREPO" "$ENCCTL" "$QDISP" "$CHART" "$CHARTREPO" "$MIG19" "$SIGNCTL" "$REAUTH" "$MIG20" "$RXREPO" "$RXCTL" "$MIG21" "$LABCTL" "$DOCCTL" "$MIG22" "$RECV" "$PRICE" "$LOCS" "$DISP" "$DREPO" "$RXREM" "$SUBC" "$ADJC" "$OPNC" "$CRPT" "$OTCC" "$INVREPO" "$INVCTL" "$PAYCTL" "$PAYREPO" "$QRCTL" "$CORCTL" "$OVCTL" "$SSCTL" "$SSLIB" "$SSENC" "$SSFU" "$INTEG" "$SHIFTREPO" "$SSREC" "$RPTCLIN" "$RPTCOM" "$RPTFIN" "$RPTCTRL" "$RPTEXP" "$RPTJOB" "$RPTRENDER" "$MIG38" "$RPTDASH" "$RPTDASHCTRL")
+FILES=("$AUTH" "$SESSION" "$MIG2" "$MIG3" "$GUARD" "$PGUARD" "$LAYOUT" "$EXPORT" "$MIG5" "$MIG6" "$TOTP" "$IAMUSERS" "$ACCOUNT" "$AUDITCHG" "$PRACT" "$MIG12" "$TERM" "$IMPORTS" "$PATIENT" "$MIG15" "$IDEM" "$MIG16" "$BOOK" "$SCHED" "$NOSHOW" "$ENCREPO" "$ENCCTL" "$QDISP" "$CHART" "$CHARTREPO" "$MIG19" "$SIGNCTL" "$REAUTH" "$MIG20" "$RXREPO" "$RXCTL" "$MIG21" "$LABCTL" "$DOCCTL" "$MIG22" "$RECV" "$PRICE" "$LOCS" "$DISP" "$DREPO" "$RXREM" "$SUBC" "$ADJC" "$OPNC" "$CRPT" "$OTCC" "$INVREPO" "$INVCTL" "$PAYCTL" "$PAYREPO" "$QRCTL" "$CORCTL" "$OVCTL" "$SSCTL" "$SSLIB" "$SSENC" "$SSFU" "$INTEG" "$SHIFTREPO" "$SSREC" "$RPTCLIN" "$RPTCOM" "$RPTFIN" "$RPTCTRL" "$RPTEXP" "$RPTJOB" "$RPTRENDER" "$MIG38" "$RPTDASH" "$RPTDASHCTRL" "$AUTHCTRL" "$LOGINROLES")
 BACKUP=$(mktemp -d)
 cp "${FILES[@]}" "$BACKUP"/
 restore() { for f in "${FILES[@]}"; do cp "$BACKUP/$(basename "$f")" "$f"; done; }
@@ -559,6 +561,16 @@ mutate M213 "dashboard dapat dibaca tanpa izin dashboard" 'Z05' \
   "sed -i \"s/@RequirePermission('report.dashboard.read') @Get('dashboard\/today')/@RequirePermission('encounter.read') @Get('dashboard\/today')/\" $RPTDASHCTRL && grep -q \"'encounter.read') @Get('dashboard\" $RPTDASHCTRL" ""
 mutate M214 "waktu kunjungan tanpa jam kedatangan (created_at) tidak dihitung" 'Z04' \
   "sed -i 's/ or (e.arrived_at is null and e.created_at >= \${t0} and e.created_at < \${t1}))/ or false)/' $RPTCOM && grep -q ' or false)' $RPTCOM" ""
+mutate M215 "batas laju per pengguna dihapus" 'Z08' \
+  "sed -i '/this.limiter.enforce(\`u:\${s.user_id}\`/d' $GUARD && ! grep -q 'enforce(.u:' $GUARD" ""
+mutate M216 "batas laju per tenant dihapus" 'Z08' \
+  "sed -i '/this.limiter.enforce(\`t:\${s.tenant_id}\`/d' $GUARD && ! grep -q 'enforce(.t:' $GUARD" ""
+mutate M217 "batas percobaan login per akun & alamat dihapus" 'Z07' \
+  "sed -i '/this.limiter.enforce(\`login:/d' $AUTHCTRL && ! grep -q 'enforce(.login:' $AUTHCTRL" ""
+mutate M218 "batas ekspor laporan per jam tidak ditegakkan" 'Z09' \
+  "sed -i 's/if (n.n >= this.cfg.rateLimit.exportPerHour) {/if (false) {/' $RPTEXP && grep -q 'if (false) {' $RPTEXP" ""
+mutate M219 "role LOGIN Cloud Run tidak dijadikan anggota grup clinicrme_app/platform" 'Z11' \
+  "sed -i '/await c.query(\`grant \${c.escapeIdentifier(r.group)} to \${u}\`);/d' $LOGINROLES && ! grep -q 'escapeIdentifier(r.group)' $LOGINROLES" ""
 # Mutasi UI: suite Playwright (U##) sebagai detektor
 if [ "${MUTATION_E2E:-0}" = "1" ]; then
   restore

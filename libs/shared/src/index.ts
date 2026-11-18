@@ -10,3 +10,4 @@ export * from './lib/http/problem.filter';
 export * from './lib/http/startup-checks';
 export * from './lib/archive';
 export * from './lib/totp';
+export * from './lib/rate-limit';

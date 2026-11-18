@@ -3,7 +3,7 @@ import { sql } from 'drizzle-orm';
 import type { Response } from 'express';
 import { pipeline } from 'node:stream/promises';
 import { z } from 'zod';
-import { BodySchema, RequirePermission, ctx, problem } from '@clinicrme/shared';
+import { type AppConfig, BodySchema, CONFIG, RequirePermission, ctx, problem } from '@clinicrme/shared';
 import { Db, audit, rows } from '@clinicrme/db';
 import {
   CONTENT_TYPE, EXT, type ExportFormat, REPORTS, SYNC_EXPORT_ROWS, branchScope, completeJob, computeExport, storeExport,
@@ -37,10 +37,10 @@ const dto = (j: JobRow) => {
  */
 @Controller('api/v1')
 export class ReportExportController {
-  constructor(private readonly db: Db, @Inject(STORAGE) private readonly storage: ObjectStorage) {}
+  constructor(private readonly db: Db, @Inject(STORAGE) private readonly storage: ObjectStorage, @Inject(CONFIG) private readonly cfg: AppConfig) {}
 
   @RequirePermission('report.export') @BodySchema(ExportBody) @Post('reports/:reportCode/exports') @HttpCode(202)
-  async create(@Param('reportCode') code: string, @Body() b: z.infer<typeof ExportBody>) {
+  async create(@Param('reportCode') code: string, @Body() b: z.infer<typeof ExportBody>, @Res({ passthrough: true }) res: Response) {
     const def = Object.hasOwn(REPORTS, code) ? REPORTS[code] : undefined;
     if (!def) throw problem(404, 'RPT-404-REPORT', 'Laporan tidak dikenal');
     const c = ctx();
@@ -48,6 +48,14 @@ export class ReportExportController {
     if (!c.permissions?.has(def.permission)) throw problem(403, 'IAM-403-FORBIDDEN', 'Tidak berwenang melihat laporan ini');
     try {
       const out = await this.db.withTenantTx(async (tx) => {
+        // OD-137: ekspor per pengguna per jam (dihitung dari tabel job — akurat lintas instance)
+        if (this.cfg.rateLimit.enabled) {
+          const [n] = await rows<{ n: number }>(tx, sql`select count(*)::int as n from report_export_job where requested_by = ${c.userId} and created_at > now() - interval '1 hour'`);
+          if (n.n >= this.cfg.rateLimit.exportPerHour) {
+            res.setHeader('Retry-After', '600');
+            throw problem(429, 'GEN-429-RATE-LIMIT', `Batas ${this.cfg.rateLimit.exportPerHour} ekspor per jam tercapai. Coba lagi nanti.`);
+          }
+        }
         const params = b.parameters as Record<string, unknown>;
         const scope = await branchScope(tx, c.userId!, def.permission, typeof params['branchId'] === 'string' ? params['branchId'] : undefined);
         const computed = await computeExport(tx, { code, format: b.format, params, scope });

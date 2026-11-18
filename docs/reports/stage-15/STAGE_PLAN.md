@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | Stage | 15 — GCP Production Infrastructure & Cost Control |
-| Status | **DRAF — menunggu keputusan PO atas OD-133–OD-141** |
+| Status | **BERJALAN** — OD diputuskan DEC-050 (18 Nov 2026) |
 | Project Owner | Sumarto |
 | Prasyarat | Stage 14 disetujui (DEC-049) |
 | Requirement | NFR-PERF-001–005, NFR-AVL-001/002, NFR-DR-001/002 (99,5% · RPO ≤ 15 menit · RTO ≤ 4 jam, DEC-014) |
@@ -44,7 +44,7 @@ Semua perubahan infrastruktur ditulis sebagai kode (Terraform, OD-006 / DEC-016)
 Batch 1–2 dan sebagian batch 3–4 dapat dikerjakan **tanpa akun GCP** (kode, Terraform tervalidasi, uji lokal). Penerapan nyata, uji restore
 di GCP, dan load test di staging menunggu PO membuat project & billing (§6).
 
-## 4. Open Decision — menunggu PO
+## 4. Open Decision — ✅ semua disetujui sesuai usulan (DEC-050)
 
 | OD | Pertanyaan | Usulan |
 |---|---|---|
@@ -110,3 +110,5 @@ di GCP, dan load test di staging menunggu PO membuat project & billing (§6).
 | Tanggal | Catatan | Bukti |
 |---|---|---|
 | 18 Nov 2026 | Stage 14 disetujui (DEC-049). Draf rencana & OD Stage 15 disusun | — |
+| 18 Nov 2026 | PO menyetujui semua OD Stage 15 (DEC-050). Batch 1 dimulai | — |
+| 18 Nov 2026 | **Batch 1 selesai** — kesiapan aplikasi & IaC. **Rate limit aplikasi** (OD-137): login per akun & alamat 10/menit (banjir lintas akun di Cloud Armor per IP), 300 permintaan/menit per pengguna, 3.000/menit per klinik (per instance), ekspor 10/jam per pengguna (dari tabel job) → 429 + `Retry-After`; dapat diatur lewat env. Worker punya endpoint `/healthz` saat `PORT` diisi (syarat Cloud Run). Job migrasi membuat role LOGIN aplikasi & platform (NOBYPASSRLS) dari Secret Manager. **Terraform** `infra/`: bootstrap state, modul lengkap (VPC privat + NAT IP tetap, Cloud SQL PG16 zonal/HA + PITR + backup di Jakarta + mTLS konektor + log tanpa teks kueri, Cloud Run ×4 + job migrasi, Secret Manager replika Jakarta, SA per layanan, bucket, Artifact Registry, HTTPS LB + sertifikat wildcard, Cloud Armor geo/WAF/rate limit, Workload Identity Federation), env prod & staging, runbook `infra/README.md`. Validasi: parser HCL + cek referensi, **checkov 70 lulus / 0 gagal** (16 dilewati beralasan). `terraform validate/plan` menunggu komputer PO (registry Terraform diblokir di workspace) | Integrasi Z07–Z11, mutasi M215–M219, checkov |

@@ -872,7 +872,9 @@ for method, path, opid, tag, summary, reqs, perm, body, resp, o in ops:
     if method in ("post", "put") and not o.get("public"): responses["409"] = {"$ref": "#/components/responses/Conflict"}
     if o.get("match"): responses["412"] = {"$ref": "#/components/responses/PreconditionFailed"}
     if o.get("e422"): responses["422"] = {"description": "Validasi pengesahan gagal", "content": {"application/problem+json": {"schema": {"allOf": [ref("Problem"), ref("SignValidationError")]}}}}
-    if path.startswith(f"{P}/auth") or path.startswith(f"{PP}/auth"): responses["429"] = {"$ref": "#/components/responses/TooManyRequests"}
+    # OD-137: login & semua endpoint klinik bersesi (batas per pengguna/tenant); ekspor laporan per jam
+    if path.startswith(f"{P}/auth") or path.startswith(f"{PP}/auth") or (path.startswith(f"{P}/") and not o.get("public")):
+        responses["429"] = {"$ref": "#/components/responses/TooManyRequests"}
     op["responses"] = responses
     paths.setdefault(path, {})[method] = op
 
@@ -908,7 +910,8 @@ doc = {
     "responses": {"BadRequest": problem("Input tidak valid"), "Unauthorized": problem("Belum login / sesi tidak berlaku"),
                   "Forbidden": problem("Tidak memiliki permission"), "NotFound": problem("Tidak ditemukan (termasuk resource tenant lain)"),
                   "Conflict": problem("Konflik status / data immutable / duplikat"), "PreconditionFailed": problem("Versi data sudah berubah"),
-                  "TooManyRequests": problem("Terlalu banyak percobaan")},
+                  "TooManyRequests": {**problem("Terlalu banyak permintaan (OD-137): login per akun & alamat, permintaan per pengguna & per klinik, ekspor per jam"),
+                                      "headers": {"Retry-After": {"description": "Detik sampai boleh mencoba lagi", "schema": INT}}}},
     "schemas": schemas}}
 with open(sys.argv[1], "w") as f:
     yaml.safe_dump(doc, f, sort_keys=False, allow_unicode=True, width=140)

@@ -27,7 +27,7 @@ export async function createApp(cfg: AppConfig, extra: AppExtras = {}): Promise<
   app.use(helmet({ contentSecurityPolicy: { directives: { defaultSrc: ["'none'"], frameAncestors: ["'none'"] } } })); // SC-WEB-01 (API)
   app.use(cookieParser());
   app.disable('x-powered-by');
-  app.set('trust proxy', 1);                                      // satu hop: load balancer Cloud Run
+  app.set('trust proxy', cfg.trustProxyHops);                     // hop proxy tepercaya (TRUST_PROXY_HOPS; lokal/VPS 1)
   app.enableShutdownHooks();
   await app.init();
   assertRouteDeclarations(app);                                   // SC-AUTHZ-01, SC-WEB-05

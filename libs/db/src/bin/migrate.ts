@@ -1,4 +1,5 @@
 import { resolve } from 'node:path';
+import { ensureLoginRoles, loginRolesFromEnv } from '../lib/login-roles';
 import { runMigrations } from '../lib/migrate';
 
 /** `pnpm db:migrate` — MIGRATION_DATABASE_URL = koneksi role pemilik skema (bukan role aplikasi). */
@@ -9,7 +10,12 @@ if (!url) {
 }
 const folder = resolve(process.env.MIGRATIONS_DIR ?? 'db/migrations');
 runMigrations(url, folder)
-  .then(({ applied }) => console.log(applied.length ? `Migrasi diterapkan: ${applied.join(', ')}` : 'Database sudah terbaru'))
+  .then(async ({ applied }) => {
+    console.log(applied.length ? `Migrasi diterapkan: ${applied.join(', ')}` : 'Database sudah terbaru');
+    // Cloud Run Job (Stage 15): role LOGIN aplikasi & platform dari Secret Manager — tanpa password di Terraform/SQL
+    const roles = loginRolesFromEnv(process.env);
+    if (roles.length) console.log(`Role LOGIN siap (NOBYPASSRLS): ${(await ensureLoginRoles(url, roles)).join(', ')}`);
+  })
   .catch((e) => {
     // Drizzle membungkus error PostgreSQL; tampilkan penyebab aslinya, bukan seluruh teks SQL migrasi
     const cause = e?.cause ?? e;

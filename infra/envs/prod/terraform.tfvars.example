@@ -1,0 +1,7 @@
+# Salin ke terraform.tfvars (TIDAK di-commit). Tidak ada secret di berkas ini — secret diisi di Secret Manager Console.
+project_id          = "clinicrme-prod"
+domain              = "contoh-domain.id"
+image_tag           = "v0.15.0"
+google_redirect_uri = "https://KODE-KLINIK.contoh-domain.id/api/v1/auth/google/callback"
+# allowed_foreign_cidrs = ["203.0.113.10/32"]   # OD-048: hanya IP yang disetujui PO
+# smtp_configured       = true                  # setelah secret smtp-url diisi

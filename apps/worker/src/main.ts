@@ -1,3 +1,4 @@
+import { createServer, type Server } from 'node:http';
 import pino from 'pino';
 import { createTransport } from 'nodemailer';
 import { Pool } from 'pg';
@@ -70,10 +71,19 @@ async function main() {
   log.info({ queues: jobs.map((j) => j.name) }, 'worker siap');
 
   let stopping = false;
+  // Cloud Run (Stage 15): layanan wajib mendengarkan PORT. Endpoint kesehatan minimal — 200 selama pg-boss berjalan, 503 saat berhenti.
+  let health: Server | undefined;
+  if (cfg.PORT && cfg.WORKER_SELFTEST !== '1') {
+    health = createServer((req, res) => {
+      const ok = !stopping && (req.url === '/healthz' || req.url === '/readyz');
+      res.writeHead(ok ? 200 : stopping ? 503 : 404, { 'content-type': 'text/plain', 'cache-control': 'no-store' }).end(ok ? 'ok' : '');
+    }).listen(cfg.PORT, '0.0.0.0');
+  }
   const shutdown = async (signal: string) => {
     if (stopping) return;
     stopping = true;
     log.info({ signal }, 'worker berhenti — menunggu job berjalan selesai');
+    health?.close();
     await boss.stop({ graceful: true, timeout: 30_000 });
     await pool.end();
     process.exit(0);

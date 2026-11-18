@@ -8,6 +8,8 @@ const Schema = z.object({
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).default('info'),
   /** 1 = kirim job heartbeat ke diri sendiri, tunggu selesai, lalu keluar (smoke test CI). */
   WORKER_SELFTEST: z.enum(['0', '1']).default('0'),
+  /** Diisi Cloud Run: port endpoint kesehatan worker (/healthz). Kosong = tanpa server HTTP. */
+  PORT: z.coerce.number().int().min(1).max(65535).optional(),
   WORKER_RUN_ONCE: z.string().max(500).optional(),
   /** Kunci aplikasi (sama dengan API) — membungkus kunci arsip ekspor. */
   ENCRYPTION_KEY_HEX: z.string().regex(/^[0-9a-f]{64}$/i, 'ENCRYPTION_KEY_HEX harus 64 karakter hex'),

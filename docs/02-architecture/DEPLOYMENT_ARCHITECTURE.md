@@ -109,3 +109,15 @@ Pendorong biaya utama: Cloud SQL HA (terbesar), Cloud Run min instance, Load Bal
 | Metrik | Latensi p95 per endpoint, error rate, antrean outbox, koneksi DB, status SATUSEHAT per tenant |
 | Alert | p95 > 500 ms 10 menit; error 5xx > 2%; outbox tertunda > 15 menit; uptime check gagal; budget |
 | Uptime | Cloud Monitoring uptime check `/healthz` & `/readyz` |
+
+## 9. Implementasi Stage 15 (DEC-050)
+
+| Topik | Implementasi |
+|---|---|
+| Kode infrastruktur | `infra/` (Terraform): `bootstrap/`, `modules/clinicrme/`, `envs/prod`, `envs/staging`; runbook `infra/README.md` |
+| Profil pilot | Cloud SQL zonal + PITR (OD-133); HA (`REGIONAL`) sebelum klinik ke-3 |
+| Lokasi data | Semua resource & backup di `asia-southeast2` (OD-134, Permenkes 24/2022 Ps. 22); region dikunci validasi variabel |
+| Koneksi DB | Konektor Cloud SQL bawaan Cloud Run (socket, mTLS `TRUSTED_CLIENT_CERTIFICATE_REQUIRED`), IP privat; role LOGIN aplikasi dibuat job migrasi |
+| Jaringan | Direct VPC egress + Cloud NAT IP tetap; api/web/konsol ingress hanya dari LB (web → api lewat jalur internal); worker tanpa ingress publik |
+| Batas laju | Aplikasi: `RATE_LIMIT_*` (per akun+alamat untuk login, per pengguna, per klinik, ekspor per jam); tepi: Cloud Armor 600/menit/IP (OD-137) |
+| Worker | Endpoint `/healthz` bila `PORT` diisi (Cloud Run); CPU selalu dialokasikan, min 1 |

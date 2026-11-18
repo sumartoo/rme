@@ -1,6 +1,7 @@
 import { createHmac } from 'node:crypto';
 import { z } from 'zod';
 import { StorageConfig, storageConfigFromEnv } from '@clinicrme/storage';
+import type { RateLimitConfig } from './rate-limit';
 
 /**
  * Konfigurasi aplikasi dari environment (12-factor). Divalidasi saat start: nilai salah → proses berhenti.
@@ -45,6 +46,14 @@ const EnvSchema = z.object({
   /** SATUSEHAT (Stage 12): alamat resmi Kemenkes; diganti hanya untuk uji klien HTTP. */
   SATUSEHAT_SANDBOX_URL: z.string().url().default('https://api-satusehat-stg.dto.kemkes.go.id'),
   SATUSEHAT_PRODUCTION_URL: z.string().url().default('https://api-satusehat.kemkes.go.id'),
+  /** Pembatas laju aplikasi (OD-137 / DEC-050); per instance — lapisan per IP utama di Cloud Armor. */
+  RATE_LIMIT_ENABLED: bool.prefault('true'),
+  RATE_LIMIT_LOGIN_PER_MIN: int(10),
+  RATE_LIMIT_USER_PER_MIN: int(300),
+  RATE_LIMIT_TENANT_PER_MIN: int(3000),
+  RATE_LIMIT_EXPORT_PER_HOUR: int(10),
+  /** Jumlah hop proxy tepercaya untuk alamat klien (express `trust proxy`). Lokal/VPS 1; di belakang HTTPS LB GCP disetel saat deploy. */
+  TRUST_PROXY_HOPS: int(1, 0),
 });
 
 export interface AppConfig {
@@ -68,6 +77,8 @@ export interface AppConfig {
   exportTtlHours: number;
   paymentGateway: { provider: 'SIMULATOR'; secret: string; qrisExpiryMinutes: number };
   satusehatUrls: { sandbox: string; production: string };
+  rateLimit: RateLimitConfig;
+  trustProxyHops: number;
 }
 
 export function loadConfig(env: Record<string, string | undefined> = process.env): AppConfig {
@@ -117,6 +128,9 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
       qrisExpiryMinutes: e.QRIS_EXPIRY_MINUTES,
     },
     satusehatUrls: { sandbox: e.SATUSEHAT_SANDBOX_URL, production: e.SATUSEHAT_PRODUCTION_URL },
+    rateLimit: { enabled: e.RATE_LIMIT_ENABLED, loginPerMinute: e.RATE_LIMIT_LOGIN_PER_MIN, userPerMinute: e.RATE_LIMIT_USER_PER_MIN,
+      tenantPerMinute: e.RATE_LIMIT_TENANT_PER_MIN, exportPerHour: e.RATE_LIMIT_EXPORT_PER_HOUR },
+    trustProxyHops: e.TRUST_PROXY_HOPS,
   };
 }
 

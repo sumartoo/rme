@@ -80,7 +80,7 @@ Rincian & usulan: [`docs/reports/stage-14/STAGE_PLAN.md`](../reports/stage-14/ST
 |---|---|---|
 | OD-132 | Unduhan CSV cepat (`?format=csv` di laporan) masih tersedia untuk semua yang boleh *melihat* laporan, tanpa watermark & tanpa izin `report.export` (perilaku sejak Stage 10/14 batch 1–2). Apakah dibatasi? | **Batasi ke `report.export`** dan arahkan ke ekspor seragam ber-watermark; FARMASI & TENANT_ADMIN perlu diberi `report.export` bila memang boleh mengekspor. Sampai diputuskan, tautan CSV cepat tetap ada (teraudit sebagai `REPORT_*_VIEWED` format csv) |
 
-## B8. Baru dari Stage 15 (menunggu PO)
+## B8. Baru dari Stage 15 (✅ diputuskan DEC-050)
 
 Rincian, perkiraan biaya & usulan: [`docs/reports/stage-15/STAGE_PLAN.md`](../reports/stage-15/STAGE_PLAN.md) §4–5. OD-016 sudah diputuskan (DEC-014).
 

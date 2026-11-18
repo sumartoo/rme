@@ -1,5 +1,5 @@
 import { DynamicModule, Global, Module } from '@nestjs/common';
-import { AppConfig, CONFIG } from '@clinicrme/shared';
+import { AppConfig, CONFIG, RATE_LIMITER, RateLimiter } from '@clinicrme/shared';
 import { Db, PlatformDb } from '@clinicrme/db';
 import { STORAGE, createStorage } from '@clinicrme/storage';
 
@@ -15,8 +15,9 @@ export class CoreModule {
         { provide: Db, useFactory: () => new Db(cfg.db) },
         { provide: PlatformDb, useFactory: () => new PlatformDb(cfg.platformDb) },
         { provide: STORAGE, useFactory: () => createStorage(cfg.storage) },
+        { provide: RATE_LIMITER, useFactory: () => new RateLimiter(cfg.rateLimit) },
       ],
-      exports: [CONFIG, Db, PlatformDb, STORAGE],
+      exports: [CONFIG, Db, PlatformDb, STORAGE, RATE_LIMITER],
     };
   }
 }

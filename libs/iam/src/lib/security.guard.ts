@@ -1,10 +1,10 @@
-import { CanActivate, ExecutionContext, Injectable } from '@nestjs/common';
+import { CanActivate, ExecutionContext, Inject, Injectable } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { sql } from 'drizzle-orm';
-import type { Request } from 'express';
+import type { Request, Response } from 'express';
 import { timingSafeEqual } from 'node:crypto';
 import {
-  ALLOW_WITHOUT_MFA_KEY, AUTHENTICATED_KEY, INFRA_KEY, PERMISSION_KEY, PLATFORM_KEY, PUBLIC_KEY, ctx, problem,
+  ALLOW_WITHOUT_MFA_KEY, AUTHENTICATED_KEY, INFRA_KEY, PERMISSION_KEY, PLATFORM_KEY, PUBLIC_KEY, RATE_LIMITER, type RateLimiter, ctx, problem,
 } from '@clinicrme/shared';
 import { Db, rows } from '@clinicrme/db';
 import { CSRF_COOKIE, SESSION_COOKIE, SessionService } from './session.service';
@@ -18,7 +18,8 @@ export const TENANT_ADMIN_ROLE = 'TENANT_ADMIN';
  */
 @Injectable()
 export class SecurityGuard implements CanActivate {
-  constructor(private readonly reflector: Reflector, private readonly sessions: SessionService, private readonly db: Db) {}
+  constructor(private readonly reflector: Reflector, private readonly sessions: SessionService, private readonly db: Db,
+              @Inject(RATE_LIMITER) private readonly limiter: RateLimiter) {}
 
   async canActivate(ec: ExecutionContext): Promise<boolean> {
     const req = ec.switchToHttp().getRequest<Request>();
@@ -50,6 +51,12 @@ export class SecurityGuard implements CanActivate {
     }
 
     Object.assign(c, { tenantId: s.tenant_id, userId: s.user_id, sessionId: s.session_id, branchId: s.branch_id, mfaVerified: s.mfa_verified });
+
+    // OD-137: batas laju per pengguna & per tenant, sebelum kueri izin (membanjiri API tidak membebani DB)
+    const res = ec.switchToHttp().getResponse<Response>();
+    const rl = this.limiter.cfg;
+    this.limiter.enforce(`u:${s.user_id}`, rl.userPerMinute, 60_000, res, 'pengguna');
+    this.limiter.enforce(`t:${s.tenant_id}`, rl.tenantPerMinute, 60_000, res, 'klinik');
 
     const perms = await this.db.withTenantTx(async (tx) => {
       await this.sessions.touch(tx, s.session_id);

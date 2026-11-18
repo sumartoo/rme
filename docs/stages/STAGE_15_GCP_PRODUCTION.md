@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | Phase | F — Produksi |
-| Status | Perencanaan — OD-133–OD-141 menunggu PO ([STAGE_PLAN](../reports/stage-15/STAGE_PLAN.md)) |
+| Status | Berjalan — OD diputuskan DEC-050 ([STAGE_PLAN](../reports/stage-15/STAGE_PLAN.md)) |
 | Prasyarat | Stage 14 disetujui |
 | Area | `infra/` |
 

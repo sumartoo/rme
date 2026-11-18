@@ -53,7 +53,7 @@ async function mkPatient(name: string, birth = '1980-01-01', phone: string | nul
 
 beforeAll(async () => {
   await resetDatabase();
-  app = await createApp(testConfig());
+  app = await createApp(testConfig({ RATE_LIMIT_USER_PER_MIN: '100000' }));   // uji massal algoritme duplikat (ratusan permintaan/menit dari satu pengguna), bukan pola pemakaian nyata
   await app.listen(0, '127.0.0.1');
   port = (app.getHttpServer().address() as AddressInfo).port;
   http_ = request(app.getHttpServer());

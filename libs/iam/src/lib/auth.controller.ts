@@ -1,8 +1,8 @@
-import { Body, Controller, Get, HttpCode, Post, Query, Req, Res } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, Inject, Post, Query, Req, Res } from '@nestjs/common';
 import { sql } from 'drizzle-orm';
 import type { Request, Response } from 'express';
 import { z } from 'zod';
-import { AllowWithoutMfa, Authenticated, BodySchema, NoBody, Public, ctx } from '@clinicrme/shared';
+import { AllowWithoutMfa, Authenticated, BodySchema, NoBody, Public, RATE_LIMITER, type RateLimiter, ctx } from '@clinicrme/shared';
 import { Db, audit, rows } from '@clinicrme/db';
 import { AuthService, OIDC_COOKIE } from './auth.service';
 import { SessionService } from './session.service';
@@ -12,11 +12,14 @@ const MfaBody = z.object({ code: z.string().min(6).max(20) });
 
 @Controller('api/v1/auth')
 export class AuthController {
-  constructor(private readonly auth: AuthService, private readonly sessions: SessionService, private readonly db: Db) {}
+  constructor(private readonly auth: AuthService, private readonly sessions: SessionService, private readonly db: Db,
+              @Inject(RATE_LIMITER) private readonly limiter: RateLimiter) {}
 
   /** IAM-FR-003 */
   @Public() @BodySchema(LoginBody) @Post('login') @HttpCode(200)
   async login(@Body() b: z.infer<typeof LoginBody>, @Req() req: Request, @Res({ passthrough: true }) res: Response) {
+    // OD-137: percobaan login per akun dari satu alamat (di samping lockout akun); banjir lintas akun ditahan Cloud Armor per IP
+    this.limiter.enforce(`login:${ctx().hostTenantId}:${req.ip}:${b.email.trim().toLowerCase()}`, this.limiter.cfg.loginPerMinute, 60_000, res, 'login');
     await this.auth.passwordLogin(ctx().hostTenantId!, b.email, b.password, res, req.headers['user-agent']);
     return { ok: true };
   }
